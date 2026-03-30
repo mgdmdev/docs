@@ -19,7 +19,7 @@ As a partner, you integrate with mgPass Rewards by publishing **events** when us
 ### Basic Event
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/partner/events \
+curl -X POST https://auth.mgpass.net/api/partner/events \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_API_KEY" \
   -d '{
@@ -33,7 +33,7 @@ curl -X POST https://pass.mediageneral.digital/api/partner/events \
 Include metadata for per-unit calculations or audit trails:
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/partner/events \
+curl -X POST https://auth.mgpass.net/api/partner/events \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_API_KEY" \
   -d '{
@@ -142,7 +142,7 @@ If a cap is reached, the event is still accepted but `points_awarded` will be 0 
 <CodeGroup>
 
 ```javascript Node.js
-const response = await fetch('https://pass.mediageneral.digital/api/partner/events', {
+const response = await fetch('https://auth.mgpass.net/api/partner/events', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -163,7 +163,7 @@ console.log(`Awarded ${result.points_awarded} points`);
 import requests
 
 response = requests.post(
-    'https://pass.mediageneral.digital/api/partner/events',
+    'https://auth.mgpass.net/api/partner/events',
     headers={
         'Content-Type': 'application/json',
         'X-API-Key': os.environ['MGPASS_API_KEY'],
@@ -182,7 +182,7 @@ print(f"Awarded {result['points_awarded']} points")
 ```php PHP
 $response = Http::withHeaders([
     'X-API-Key' => config('services.mgpass.api_key'),
-])->post('https://pass.mediageneral.digital/api/partner/events', [
+])->post('https://auth.mgpass.net/api/partner/events', [
     'user_id' => $userId,
     'event_type' => 'article_read',
     'metadata' => ['reference_id' => $articleId],
@@ -202,7 +202,7 @@ You can receive notifications when points-related events occur. See the [Webhook
 Use the staging environment for testing:
 
 ```
-Base URL: https://pass.mgdm.dev
+Base URL: https://auth.mgpass.net
 ```
 
 Staging uses the same API key format but with a separate key issued for testing.

@@ -7,7 +7,7 @@ description: "Register and configure OAuth clients for authentication with mgPas
 
 An Application in mgPass represents any platform, website, or service that needs to authenticate users. When you register an application, mgPass issues it a **Client ID** and (for server-side apps) a **Client Secret** that it uses to initiate the OAuth 2.0 login flow.
 
-Every platform in the MG Digital ecosystem is a registered application: adesa+, 3News, mgTix, the admin console itself, and any third-party integrations.
+Every platform in your ecosystem is a registered application: your web apps, mobile apps, the admin console itself, and any third-party integrations.
 
 ## Application Types
 
@@ -50,7 +50,7 @@ Choosing the right type determines how the application authenticates and what se
     - PKCE required
     - Custom redirect URI schemes allowed
 
-    **Example:** The adesa+ mobile app, or the future mgOne super-app.
+    **Example:** Your mobile app or a native desktop client.
   </Accordion>
 
   <Accordion title="Machine-to-Machine (M2M)" icon="robot">
@@ -63,7 +63,7 @@ Choosing the right type determines how the application authenticates and what se
     - No user interaction
     - Token scopes come from M2M roles, not user roles
 
-    **Example:** mgRewards backend calling the mgPass Management API to look up user profiles. mgTix calling mgRewards to publish ticket purchase events.
+    **Example:** A rewards backend calling the mgPass Management API to look up user profiles. A ticketing service calling the rewards API to publish ticket purchase events.
   </Accordion>
 </AccordionGroup>
 
@@ -75,7 +75,7 @@ Choosing the right type determines how the application authenticates and what se
   </Step>
   <Step title="Click Create Application">
     Click the **Create Application** button. Fill in:
-    - **Name** — displayed to users on the consent screen (e.g., "adesa+", "3News")
+    - **Name** — displayed to users on the consent screen (e.g., "My App", "Partner Portal")
     - **Type** — select the appropriate type from the dropdown
     - **Description** — optional, shown on the consent screen
   </Step>
@@ -108,14 +108,14 @@ Choosing the right type determines how the application authenticates and what se
 ## Creating an Application via API
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/clients \
+curl -X POST https://auth.mgpass.net/api/clients \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "adesa+ Web",
+    "name": "My App Web",
     "type": "web",
-    "redirect_uris": ["https://adesa.com.gh/callback"],
-    "post_logout_uris": ["https://adesa.com.gh"],
+    "redirect_uris": ["https://yourapp.com/callback"],
+    "post_logout_uris": ["https://yourapp.com"],
     "allowed_scopes": ["openid", "profile", "email", "stream:live"],
     "cors_origins": [],
     "access_token_ttl": 3600,
@@ -128,10 +128,10 @@ curl -X POST https://pass.mediageneral.digital/api/clients \
 ```json
 {
   "id": "app_abc123",
-  "name": "adesa+ Web",
+  "name": "My App Web",
   "type": "web",
   "secret": "cs_live_xxxxxxxxxxxxxxxx",
-  "redirect_uris": ["https://adesa.com.gh/callback"],
+  "redirect_uris": ["https://yourapp.com/callback"],
   "allowed_scopes": ["openid", "profile", "email", "stream:live"]
 }
 ```
@@ -160,9 +160,9 @@ When a user logs in through your app, you can customize what they see on the con
 ```json
 {
   "branding": {
-    "logo_url": "https://cdn.adesa.com.gh/logo.png",
+    "logo_url": "https://cdn.yourapp.com/logo.png",
     "primary_color": "#FF6B00",
-    "app_name": "adesa+"
+    "app_name": "My App"
   }
 }
 ```
@@ -189,7 +189,7 @@ This is useful for internal tools — only users with the `mgpass:admin` role ca
 Rotate a client secret without downtime:
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/clients/app_abc123/rotate-secret \
+curl -X POST https://auth.mgpass.net/api/clients/app_abc123/rotate-secret \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 

@@ -27,7 +27,7 @@ graph TD
 An **API Resource** represents a protected API. **Scopes** define what capabilities that API exposes.
 
 Think of it like this:
-- **API Resource** = "adesa+ Streaming API" (the thing being protected)
+- **API Resource** = "Streaming API" (the thing being protected)
 - **Scopes** = "stream:live", "stream:vod", "content:download" (the permissions within it)
 
 ### Layer 2: Roles
@@ -37,10 +37,10 @@ A **Role** is a named collection of scopes drawn from one or more API resources.
 | Role | Scopes | Who gets it |
 |------|--------|------------|
 | mgpass:user | profile:read | Everyone (default role) |
-| adesa:subscriber | stream:live, stream:vod, profile:read | Paid adesa+ users |
-| adesa:premium | stream:live, stream:vod, content:download, profile:read | Premium subscribers |
-| mgtix:organizer | events:create, events:read, tickets:manage | Event organizers |
-| mgpass:admin | Full admin access | MG Digital staff |
+| app:subscriber | stream:live, stream:vod, profile:read | Paid subscribers |
+| app:premium | stream:live, stream:vod, content:download, profile:read | Premium subscribers |
+| tickets:organizer | events:create, events:read, tickets:manage | Event organizers |
+| mgpass:admin | Full admin access | Platform administrators |
 
 ### Layer 3: Role Assignment
 
@@ -62,8 +62,8 @@ Roles are assigned to users. A user can have multiple roles. Assignment happens 
   </Step>
   <Step title="Create the resource">
     Fill in:
-    - **Name** — human-readable label (e.g., "adesa+ Streaming API")
-    - **Identifier** — unique URI used as the `audience` in JWTs (e.g., `https://api.adesa.com.gh`)
+    - **Name** — human-readable label (e.g., "Streaming API")
+    - **Identifier** — unique URI used as the `audience` in JWTs (e.g., `https://api.yourapp.com`)
 
     Click **Create**.
   </Step>
@@ -91,7 +91,7 @@ admin:resource      → admin:users, admin:billing
   </Step>
   <Step title="Create a new role">
     Click **Create Role**. Fill in:
-    - **Name** — unique identifier (e.g., `adesa:subscriber`)
+    - **Name** — unique identifier (e.g., `app:subscriber`)
     - **Description** — what this role represents
     - **Type** — `user` for human users, `m2m` for machine-to-machine apps
   </Step>
@@ -124,19 +124,19 @@ admin:resource      → admin:users, admin:billing
 ### Create an API Resource
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/api-resources \
+curl -X POST https://auth.mgpass.net/api/api-resources \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "adesa+ Streaming API",
-    "identifier": "https://api.adesa.com.gh"
+    "name": "Streaming API",
+    "identifier": "https://api.yourapp.com"
   }'
 ```
 
 ### Add Scopes
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/api-resources/res_abc123/scopes \
+curl -X POST https://auth.mgpass.net/api/api-resources/res_abc123/scopes \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -148,12 +148,12 @@ curl -X POST https://pass.mediageneral.digital/api/api-resources/res_abc123/scop
 ### Create a Role
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/roles \
+curl -X POST https://auth.mgpass.net/api/roles \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "adesa:subscriber",
-    "description": "adesa+ subscriber with streaming access",
+    "name": "app:subscriber",
+    "description": "Subscriber with streaming access",
     "type": "user",
     "is_default": false
   }'
@@ -162,7 +162,7 @@ curl -X POST https://pass.mediageneral.digital/api/roles \
 ### Assign Scopes to a Role
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/roles/role_abc123/scopes \
+curl -X POST https://auth.mgpass.net/api/roles/role_abc123/scopes \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "scope_id": "scope_stream_live" }'
@@ -171,7 +171,7 @@ curl -X POST https://pass.mediageneral.digital/api/roles/role_abc123/scopes \
 ### Assign a Role to a User
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/roles \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/roles \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "role_id": "role_subscriber" }'
@@ -180,7 +180,7 @@ curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/roles \
 ### Remove a Role
 
 ```bash
-curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123/roles/role_subscriber \
+curl -X DELETE https://auth.mgpass.net/api/users/usr_abc123/roles/role_subscriber \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -198,10 +198,10 @@ When a user authenticates, mgPass builds their access token by:
 ```json
 {
   "sub": "usr_abc123",
-  "aud": "https://api.adesa.com.gh",
+  "aud": "https://api.yourapp.com",
   "scope": "stream:live stream:vod profile:read",
-  "roles": ["adesa:subscriber"],
-  "iss": "https://pass.mediageneral.digital",
+  "roles": ["app:subscriber"],
+  "iss": "https://auth.mgpass.net",
   "iat": 1711900000,
   "exp": 1711903600
 }
@@ -210,7 +210,7 @@ When a user authenticates, mgPass builds their access token by:
 Your API validates the token and checks the `scope` claim:
 
 ```javascript
-// In your adesa+ API middleware
+// In your API middleware
 const scopes = token.scope.split(' ');
 if (!scopes.includes('stream:live')) {
   return res.status(403).json({ error: 'insufficient_scope' });
@@ -248,22 +248,22 @@ Machine-to-machine applications (backend services) get roles too, but their role
 
 ---
 
-## Real-World Example: adesa+ Integration
+## Real-World Example: Streaming App Integration
 
-Here's how the full RBAC setup works for adesa+:
+Here's how the full RBAC setup works for a streaming application:
 
 <Steps>
   <Step title="Create API Resource">
-    Name: "adesa+ API", Identifier: `https://api.adesa.com.gh`
+    Name: "Streaming API", Identifier: `https://api.yourapp.com`
     Scopes: `stream:live`, `stream:vod`, `content:download`, `profile:read`
   </Step>
   <Step title="Create Roles">
-    - **adesa:free** — `stream:live` (limited), `profile:read`
-    - **adesa:subscriber** — `stream:live`, `stream:vod`, `profile:read`
-    - **adesa:premium** — all scopes including `content:download`
+    - **app:free** — `stream:live` (limited), `profile:read`
+    - **app:subscriber** — `stream:live`, `stream:vod`, `profile:read`
+    - **app:premium** — all scopes including `content:download`
   </Step>
-  <Step title="Register adesa+ as an Application">
-    Type: Native (mobile) / SPA (web). Allowed scopes: all adesa+ scopes.
+  <Step title="Register Your App as an Application">
+    Type: Native (mobile) / SPA (web). Allowed scopes: all streaming scopes.
   </Step>
   <Step title="Assign Roles on Subscription">
     When a user purchases a subscription through your billing system, call the mgPass API:
@@ -273,7 +273,7 @@ Here's how the full RBAC setup works for adesa+:
     ```
   </Step>
   <Step title="Check Scopes in Your API">
-    The adesa+ backend validates the JWT and checks for required scopes before granting access to streams.
+    Your backend validates the JWT and checks for required scopes before granting access to streams.
   </Step>
 </Steps>
 
@@ -286,7 +286,7 @@ Here's how the full RBAC setup works for adesa+:
     Give roles only the scopes they need. A subscriber doesn't need `content:download` — that's for premium.
   </Card>
   <Card title="Use Meaningful Names" icon="tag">
-    `adesa:subscriber` is better than `role_1`. Names appear in admin UI and audit logs.
+    `app:subscriber` is better than `role_1`. Names appear in admin UI and audit logs.
   </Card>
   <Card title="One Default Role" icon="user-check">
     Keep one default role for baseline access. Don't auto-assign premium permissions.

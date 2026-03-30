@@ -12,7 +12,7 @@ The rewards catalog contains items that users can redeem with their points -- me
 Users see available catalog items through your app:
 
 ```bash
-curl https://pass.mediageneral.digital/api/account/rewards/catalog \
+curl https://auth.mgpass.net/api/account/rewards/catalog \
   -H "Authorization: Bearer USER_TOKEN"
 ```
 
@@ -21,7 +21,7 @@ Each item includes eligibility info -- some items are restricted to specific tie
 ## Redeeming an Item
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/account/rewards/redeem \
+curl -X POST https://auth.mgpass.net/api/account/rewards/redeem \
   -H "Authorization: Bearer USER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -46,8 +46,8 @@ Before redemption, the API checks:
   "redemption_id": "rdm_xyz789",
   "reward": {
     "id": "rwd_abc123",
-    "name": "3News Premium (1 Month)",
-    "description": "One month of ad-free 3News access"
+    "name": "Premium Access (1 Month)",
+    "description": "One month of ad-free premium access"
   },
   "points_deducted": 500,
   "new_balance": 1000

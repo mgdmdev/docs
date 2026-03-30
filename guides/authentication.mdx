@@ -10,7 +10,7 @@ The mgPass Rewards API supports three authentication methods depending on who is
 For **external platforms** publishing events and awarding points.
 
 ```bash
-curl -X POST https://pass.mgdm.dev/api/partner/events \
+curl -X POST https://auth.mgpass.net/api/partner/events \
   -H "X-API-Key: pk_live_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "user_id": "usr_123", "event_type": "purchase" }'
@@ -37,7 +37,7 @@ For **user-facing apps** displaying balance, history, and initiating redemptions
 Users authenticate through mgPass OAuth 2.0 / OIDC and receive an access token. Pass it as a Bearer token:
 
 ```bash
-curl https://pass.mgdm.dev/api/account/rewards \
+curl https://auth.mgpass.net/api/account/rewards \
   -H "Authorization: Bearer eyJhbGciOiJFUzI1NiIs..."
 ```
 
@@ -46,7 +46,7 @@ curl https://pass.mgdm.dev/api/account/rewards \
 Your app redirects users to the mgPass authorization endpoint:
 
 ```
-https://pass.mediageneral.digital/authorize?
+https://auth.mgpass.net/authorize?
   client_id=YOUR_CLIENT_ID&
   response_type=code&
   redirect_uri=https://yourapp.com/callback&
@@ -54,7 +54,7 @@ https://pass.mediageneral.digital/authorize?
   state=random_state_value
 ```
 
-Exchange the authorization code for tokens at `/api/token`. See the [mgPass OAuth documentation](https://pass.mediageneral.digital/.well-known/openid-configuration) for full details.
+Exchange the authorization code for tokens at `/api/token`. See the [mgPass OAuth documentation](https://auth.mgpass.net/.well-known/openid-configuration) for full details.
 
 ---
 
@@ -63,7 +63,7 @@ Exchange the authorization code for tokens at `/api/token`. See the [mgPass OAut
 For **mgPass Admin Console** and internal tools. Requires the `mgpass:admin` scope in the access token.
 
 ```bash
-curl https://pass.mgdm.dev/api/rewards/rules \
+curl https://auth.mgpass.net/api/rewards/rules \
   -H "Authorization: Bearer ADMIN_ACCESS_TOKEN"
 ```
 

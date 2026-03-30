@@ -1,11 +1,11 @@
 ---
 title: "mgPass Identity Platform"
-description: "Developer documentation for mgPass — the identity, authentication, and rewards platform powering the MG Digital ecosystem."
+description: "Developer documentation for mgPass — the identity, authentication, and rewards platform."
 ---
 
 ## Welcome to mgPass
 
-mgPass is a complete identity platform built on Cloudflare Workers. It provides OAuth 2.0 / OIDC authentication, user management, role-based access control, and a loyalty rewards engine for the MG Digital ecosystem.
+mgPass is a complete identity platform. It provides OAuth 2.0 / OIDC authentication, user management, role-based access control, and a loyalty rewards engine for all your connected applications.
 
 <CardGroup cols={2}>
   <Card title="Authentication" icon="lock" href="/guides/oauth-flows">
@@ -30,7 +30,7 @@ mgPass is composed of three services:
 - **admin console** — Server-rendered admin dashboard for managing users, apps, roles, and rewards
 - **account portal** — User-facing self-service portal for profile, sessions, and rewards
 
-All services run on Cloudflare Workers with D1 (SQLite) for persistence, KV for sessions and caching, and R2 for file storage.
+All services run at the edge with a relational database for persistence, key-value storage for sessions and caching, and object storage for uploaded assets.
 
 ## Quick Links
 

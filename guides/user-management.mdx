@@ -11,7 +11,7 @@ The mgPass User Management API provides full CRUD operations on user accounts. A
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://pass.mediageneral.digital/api/users \
+curl -X POST https://auth.mgpass.net/api/users \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -23,7 +23,7 @@ curl -X POST https://pass.mediageneral.digital/api/users \
 ```
 
 ```javascript JavaScript
-const response = await fetch("https://pass.mediageneral.digital/api/users", {
+const response = await fetch("https://auth.mgpass.net/api/users", {
   method: "POST",
   headers: {
     Authorization: "Bearer ADMIN_TOKEN",
@@ -42,7 +42,7 @@ const response = await fetch("https://pass.mediageneral.digital/api/users", {
 import requests
 
 response = requests.post(
-    "https://pass.mediageneral.digital/api/users",
+    "https://auth.mgpass.net/api/users",
     headers={"Authorization": "Bearer ADMIN_TOKEN"},
     json={
         "email": "kwame@example.com",
@@ -59,7 +59,7 @@ response = requests.post(
 Retrieve a user by ID, including their assigned roles:
 
 ```bash
-curl https://pass.mediageneral.digital/api/users/usr_abc123 \
+curl https://auth.mgpass.net/api/users/usr_abc123 \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -89,7 +89,7 @@ curl https://pass.mediageneral.digital/api/users/usr_abc123 \
 Update profile fields with a PATCH request. Only include the fields you want to change.
 
 ```bash
-curl -X PATCH https://pass.mediageneral.digital/api/users/usr_abc123 \
+curl -X PATCH https://auth.mgpass.net/api/users/usr_abc123 \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -117,7 +117,7 @@ curl -X PATCH https://pass.mediageneral.digital/api/users/usr_abc123 \
 List users with pagination and search:
 
 ```bash
-curl "https://pass.mediageneral.digital/api/users?page=1&limit=20&q=kwame" \
+curl "https://auth.mgpass.net/api/users?page=1&limit=20&q=kwame" \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -133,11 +133,11 @@ Suspended users cannot sign in or obtain new tokens. Existing sessions are revok
 
 ```bash
 # Suspend
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/suspend \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/suspend \
   -H "Authorization: Bearer ADMIN_TOKEN"
 
 # Unsuspend
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/unsuspend \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/unsuspend \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -146,7 +146,7 @@ curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/unsuspend \
 Soft-deletes a user. The record is retained but the user can no longer sign in.
 
 ```bash
-curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123 \
+curl -X DELETE https://auth.mgpass.net/api/users/usr_abc123 \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -160,11 +160,11 @@ View and manage a user's active sessions:
 
 ```bash
 # List sessions
-curl https://pass.mediageneral.digital/api/users/usr_abc123/sessions \
+curl https://auth.mgpass.net/api/users/usr_abc123/sessions \
   -H "Authorization: Bearer ADMIN_TOKEN"
 
 # Revoke all sessions
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/sessions/revoke-all \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/sessions/revoke-all \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -173,7 +173,7 @@ curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/sessions/rev
 View a user's linked social accounts:
 
 ```bash
-curl https://pass.mediageneral.digital/api/users/usr_abc123/identities \
+curl https://auth.mgpass.net/api/users/usr_abc123/identities \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -182,7 +182,7 @@ curl https://pass.mediageneral.digital/api/users/usr_abc123/identities \
 View recent authentication events for a user:
 
 ```bash
-curl https://pass.mediageneral.digital/api/users/usr_abc123/login-history \
+curl https://auth.mgpass.net/api/users/usr_abc123/login-history \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -192,13 +192,13 @@ Assign and remove roles from users:
 
 ```bash
 # Assign a role
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/roles \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/roles \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "role_id": "role_premium" }'
 
 # Remove a role
-curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123/roles/role_premium \
+curl -X DELETE https://auth.mgpass.net/api/users/usr_abc123/roles/role_premium \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 

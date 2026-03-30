@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: mgPass API
   description: |
-    The mgPass API provides identity, authentication, authorization, and rewards capabilities for the MG Digital ecosystem.
+    The mgPass API provides identity, authentication, authorization, and rewards capabilities.
 
     ## Authentication
 
@@ -22,10 +22,8 @@ info:
     email: engineering@mediageneral.com
 
 servers:
-  - url: https://pass.mediageneral.digital
+  - url: https://auth.mgpass.net
     description: Production
-  - url: https://pass.mgdm.dev
-    description: Staging
 
 tags:
   - name: Partner Events
@@ -2884,19 +2882,19 @@ components:
       properties:
         issuer:
           type: string
-          example: https://pass.mediageneral.digital
+          example: https://auth.mgpass.net
         authorization_endpoint:
           type: string
-          example: https://pass.mediageneral.digital/oidc/auth
+          example: https://auth.mgpass.net/oidc/auth
         token_endpoint:
           type: string
-          example: https://pass.mediageneral.digital/api/token
+          example: https://auth.mgpass.net/api/token
         userinfo_endpoint:
           type: string
-          example: https://pass.mediageneral.digital/oidc/userinfo
+          example: https://auth.mgpass.net/oidc/userinfo
         jwks_uri:
           type: string
-          example: https://pass.mediageneral.digital/.well-known/jwks.json
+          example: https://auth.mgpass.net/.well-known/jwks.json
         scopes_supported:
           type: array
           items:

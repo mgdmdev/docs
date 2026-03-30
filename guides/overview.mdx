@@ -5,36 +5,36 @@ description: "An overview of the mgPass identity platform — architecture, serv
 
 ## Overview
 
-mgPass is an identity and loyalty platform purpose-built for the MG Digital ecosystem. It handles authentication, authorization, user management, and rewards across all MG Digital products including adesa+, 3News, and partner integrations.
+mgPass is an identity and loyalty platform that handles authentication, authorization, user management, and rewards across all connected applications and partner integrations.
 
 ## Architecture
 
-mgPass runs entirely on Cloudflare's edge infrastructure:
+mgPass runs entirely on edge infrastructure:
 
 ```mermaid
 graph LR
     Client[Client App] -->|OAuth / API| AW[auth-worker]
     Admin[Admin Console] -->|Service Binding| AW
     Account[Account Portal] -->|API calls| AW
-    AW --> D1[(D1 Database)]
-    AW --> KV[(KV Store)]
-    AW --> R2[(R2 Storage)]
+    AW --> DB[(Database)]
+    AW --> KV[(Key-Value Store)]
+    AW --> Storage[(Object Storage)]
 ```
 
 ### Three Surfaces
 
 | Service | Purpose | Domain |
 |---------|---------|--------|
-| **auth-worker** | Core API — OAuth, users, RBAC, rewards | `pass.mediageneral.digital` |
-| **admin console** | SSR admin dashboard for operators | `admin.mgdm.dev` (staging) |
-| **account portal** | User self-service (profile, sessions, rewards) | `account.mgdm.dev` (staging) |
+| **auth-worker** | Core API — OAuth, users, RBAC, rewards | `auth.mgpass.net` |
+| **admin console** | SSR admin dashboard for operators | `admin.mgpass.net` (staging) |
+| **account portal** | User self-service (profile, sessions, rewards) | `mgpass.net` (staging) |
 
 ### Infrastructure
 
-- **Cloudflare Workers** — Serverless compute at the edge
-- **D1** — SQLite-compatible relational database for all persistent data
-- **KV** — Key-value store for sessions, caching, and feature flags
-- **R2** — Object storage for user avatars and uploaded assets
+- **Edge Workers** — Serverless compute at the edge
+- **Relational Database** — SQLite-compatible database for all persistent data
+- **Key-Value Store** — Sessions, caching, and feature flags
+- **Object Storage** — User avatars and uploaded assets
 
 ## Core Concepts
 
@@ -45,7 +45,7 @@ Every person in the system has a user record with a unique ID, profile data (nam
 External applications register as OAuth clients to authenticate users. Each app has a client ID, secret, redirect URIs, and configured scopes. App types include Traditional Web, SPA, Native/Mobile, and Machine-to-Machine.
 
 ### API Resources and Scopes
-API resources represent protected APIs (e.g., `https://api.adesa.plus`). Each resource defines scopes — granular permissions like `stream:live` or `content:read`. Scopes appear in JWT access tokens.
+API resources represent protected APIs (e.g., `https://api.yourapp.com`). Each resource defines scopes — granular permissions like `stream:live` or `content:read`. Scopes appear in JWT access tokens.
 
 ### Roles
 Roles are named collections of scopes. Assign roles to users to grant permissions across multiple API resources. Roles can be marked as default (auto-assigned to new users) or restricted to M2M clients.
@@ -76,8 +76,7 @@ mgPass uses three authentication methods:
 
 | Environment | URL |
 |-------------|-----|
-| Production | `https://pass.mediageneral.digital` |
-| Staging | `https://pass.mgdm.dev` |
+| Production | `https://auth.mgpass.net` |
 
 ## Next Steps
 

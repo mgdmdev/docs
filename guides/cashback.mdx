@@ -29,7 +29,7 @@ sequenceDiagram
 ## Initiating a Cashback
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/account/cashback/redeem \
+curl -X POST https://auth.mgpass.net/api/account/cashback/redeem \
   -H "Authorization: Bearer USER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -140,6 +140,6 @@ On `rejected` status, points are automatically refunded to the user's balance.
 Users can check their redemption history:
 
 ```bash
-curl https://pass.mediageneral.digital/api/account/rewards/redemptions \
+curl https://auth.mgpass.net/api/account/rewards/redemptions \
   -H "Authorization: Bearer USER_TOKEN"
 ```

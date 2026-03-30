@@ -1,11 +1,11 @@
 ---
 title: "Single Sign-On (SSO)"
-description: "How mgPass provides seamless single sign-on across all MG Digital properties and partner applications."
+description: "How mgPass provides seamless single sign-on across all connected properties and partner applications."
 ---
 
 ## Overview
 
-mgPass provides Single Sign-On (SSO) so users authenticate once and are automatically recognized across all connected applications. Whether a user signs in on 3News and then visits adesa+, or logs into the admin console after authenticating on account.mgpass.net, mgPass handles the session sharing transparently.
+mgPass provides Single Sign-On (SSO) so users authenticate once and are automatically recognized across all connected applications. Whether a user signs in on one application and then visits another, or logs into the admin console after authenticating on the account portal, mgPass handles the session sharing transparently.
 
 There are two SSO modes depending on whether the applications share a domain.
 
@@ -15,7 +15,7 @@ All mgPass properties share the `.mgpass.net` parent domain:
 
 - `auth.mgpass.net` -- authentication server
 - `admin.mgpass.net` -- admin console
-- `account.mgpass.net` -- user account portal
+- `mgpass.net` -- user account portal
 
 When a user authenticates on any of these, mgPass sets a session cookie on the parent domain (`.mgpass.net`). Because all properties share this domain, the cookie is automatically sent with every request.
 
@@ -39,7 +39,7 @@ Same-domain SSO is completely transparent to the user. Visiting `admin.mgpass.ne
 
 ## Cross-Domain SSO
 
-Applications on different domains (3News, adesa+, partner sites) cannot share cookies with `.mgpass.net`. Instead, they use the OIDC `prompt=none` redirect pattern to check for an active session.
+Applications on different domains (your apps, partner sites) cannot share cookies with `.mgpass.net`. Instead, they use the OIDC `prompt=none` redirect pattern to check for an active session.
 
 ### How It Works
 
@@ -48,7 +48,7 @@ Applications on different domains (3News, adesa+, partner sites) cannot share co
     Your application redirects the user to mgPass with `prompt=none`. This tells mgPass to skip the login UI entirely:
 
     ```
-    GET https://pass.mediageneral.digital/oidc/auth?
+    GET https://auth.mgpass.net/oidc/auth?
       prompt=none
       &client_id=YOUR_CLIENT_ID
       &redirect_uri=https://yourapp.com/callback
@@ -91,7 +91,7 @@ function buildSilentAuthURL() {
     scope: "openid profile email",
     state: crypto.randomUUID(),
   });
-  return `https://pass.mediageneral.digital/oidc/auth?${params}`;
+  return `https://auth.mgpass.net/oidc/auth?${params}`;
 }
 
 // 2. On page load, try silent SSO
@@ -133,14 +133,14 @@ function redirectToFullAuth() {
     state: crypto.randomUUID(),
   });
   window.location.href =
-    `https://pass.mediageneral.digital/oidc/auth?${params}`;
+    `https://auth.mgpass.net/oidc/auth?${params}`;
 }
 ```
 
 ```javascript React / Next.js
 import { useEffect, useState } from "react";
 
-const MGPASS_AUTH = "https://pass.mediageneral.digital/oidc/auth";
+const MGPASS_AUTH = "https://auth.mgpass.net/oidc/auth";
 const CLIENT_ID = process.env.NEXT_PUBLIC_MGPASS_CLIENT_ID;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI;
 
@@ -198,10 +198,10 @@ export function useSSO() {
 ```mermaid
 sequenceDiagram
     participant User
-    participant App as 3news.com
+    participant App as yourapp.com
     participant Auth as auth.mgpass.net
 
-    User->>App: Visit 3news.com
+    User->>App: Visit yourapp.com
     App->>Auth: Redirect with prompt=none
     alt Has active session
         Auth-->>App: Redirect with code
@@ -219,7 +219,7 @@ When a user logs out from any mgPass surface, all sessions are destroyed everywh
 
 ### How It Works
 
-1. **User triggers logout** from any application (3News, adesa+, admin console, account portal)
+1. **User triggers logout** from any connected application (admin console, account portal, or a partner app)
 2. **mgPass revokes all sessions** -- the session cookie, all refresh tokens, and all active sessions are destroyed
 3. **Back-channel notifications** -- mgPass notifies the admin and account workers via Cloudflare service bindings to clear their local sessions
 4. **User is redirected** to the post-logout URL
@@ -229,7 +229,7 @@ When a user logs out from any mgPass surface, all sessions are destroyed everywh
 Redirect the user to the mgPass logout endpoint:
 
 ```
-GET https://pass.mediageneral.digital/logout?
+GET https://auth.mgpass.net/logout?
   id_token_hint=USER_ID_TOKEN
   &post_logout_redirect_uri=https://yourapp.com
 ```
@@ -247,7 +247,7 @@ function logout(idToken) {
     post_logout_redirect_uri: window.location.origin,
   });
   window.location.href =
-    `https://pass.mediageneral.digital/logout?${params}`;
+    `https://auth.mgpass.net/logout?${params}`;
 }
 ```
 
@@ -259,13 +259,13 @@ def get_logout_url(id_token: str, redirect_uri: str) -> str:
         "id_token_hint": id_token,
         "post_logout_redirect_uri": redirect_uri,
     })
-    return f"https://pass.mediageneral.digital/logout?{params}"
+    return f"https://auth.mgpass.net/logout?{params}"
 ```
 
 ```bash cURL
 # RP-Initiated Logout (browser redirect, not a REST call)
 # Redirect the user's browser to:
-https://pass.mediageneral.digital/logout?\
+https://auth.mgpass.net/logout?\
   id_token_hint=eyJhbGciOiJSUzI1NiIs...&\
   post_logout_redirect_uri=https://yourapp.com
 ```
@@ -278,10 +278,10 @@ After global logout, the user must re-authenticate on every application. There i
 ```mermaid
 sequenceDiagram
     participant User
-    participant App as 3news.com
+    participant App as yourapp.com
     participant Auth as auth.mgpass.net
     participant Admin as admin.mgpass.net
-    participant Account as account.mgpass.net
+    participant Account as mgpass.net
 
     User->>App: Click "Log out"
     App->>Auth: Redirect to /logout

@@ -46,7 +46,7 @@ Sessions are stored in both KV and D1 for performance and durability:
 
 ```json
 {
-  "iss": "https://pass.mediageneral.digital",
+  "iss": "https://auth.mgpass.net",
   "sub": "usr_abc123",
   "aud": "app_xyz789",
   "scope": "openid profile email stream:live",
@@ -60,7 +60,7 @@ Sessions are stored in both KV and D1 for performance and durability:
 
 ```json
 {
-  "iss": "https://pass.mediageneral.digital",
+  "iss": "https://auth.mgpass.net",
   "sub": "usr_abc123",
   "aud": "app_xyz789",
   "name": "Kwame Asante",
@@ -102,11 +102,11 @@ Users can view and revoke their own sessions from the account portal:
 
 ```bash
 # List own sessions
-curl https://pass.mediageneral.digital/api/account/sessions \
+curl https://auth.mgpass.net/api/account/sessions \
   -H "Authorization: Bearer USER_TOKEN"
 
 # Revoke a session
-curl -X POST https://pass.mediageneral.digital/api/account/sessions/sess_abc123/revoke \
+curl -X POST https://auth.mgpass.net/api/account/sessions/sess_abc123/revoke \
   -H "Authorization: Bearer USER_TOKEN"
 ```
 
@@ -115,7 +115,7 @@ curl -X POST https://pass.mediageneral.digital/api/account/sessions/sess_abc123/
 Admins can revoke all sessions for a user:
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/sessions/revoke-all \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/sessions/revoke-all \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 

@@ -66,14 +66,14 @@ When a role with `mfa_required: true` is assigned to a user who has not set up M
 If a user is locked out, an admin can disable MFA on their account:
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/mfa/disable \
+curl -X POST https://auth.mgpass.net/api/users/usr_abc123/mfa/disable \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
 ### Check MFA Status
 
 ```bash
-curl https://pass.mediageneral.digital/api/users/usr_abc123 \
+curl https://auth.mgpass.net/api/users/usr_abc123 \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 

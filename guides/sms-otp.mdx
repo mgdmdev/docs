@@ -43,7 +43,7 @@ Configure the Hubtel SMS connector in the mgPass admin console:
 ## Request an OTP
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/verification/sms/send \
+curl -X POST https://auth.mgpass.net/api/verification/sms/send \
   -H "Content-Type: application/json" \
   -d '{
     "phone": "+233241234567"
@@ -62,7 +62,7 @@ curl -X POST https://pass.mediageneral.digital/api/verification/sms/send \
 ## Verify an OTP
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/verification/sms/verify \
+curl -X POST https://auth.mgpass.net/api/verification/sms/verify \
   -H "Content-Type: application/json" \
   -d '{
     "verification_id": "ver_abc123",

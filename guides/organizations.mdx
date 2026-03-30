@@ -16,7 +16,7 @@ Organizations in mgPass provide multi-tenancy support. They represent partner co
 ## Create an Organization
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/organizations \
+curl -X POST https://auth.mgpass.net/api/organizations \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -39,7 +39,7 @@ curl -X POST https://pass.mediageneral.digital/api/organizations \
 ## List Organizations
 
 ```bash
-curl https://pass.mediageneral.digital/api/organizations \
+curl https://auth.mgpass.net/api/organizations \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -48,7 +48,7 @@ curl https://pass.mediageneral.digital/api/organizations \
 Add a user to an organization with an organization-scoped role:
 
 ```bash
-curl -X POST https://pass.mediageneral.digital/api/organizations/org_abc123/members \
+curl -X POST https://auth.mgpass.net/api/organizations/org_abc123/members \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

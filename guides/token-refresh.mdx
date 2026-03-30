@@ -65,7 +65,7 @@ class TokenManager {
   async refresh() {
     try {
       const response = await fetch(
-        "https://pass.mediageneral.digital/api/token",
+        "https://auth.mgpass.net/api/token",
         {
           method: "POST",
           headers: {
@@ -105,7 +105,7 @@ class TokenManager {
       state: crypto.randomUUID(),
     });
     window.location.href =
-      `https://pass.mediageneral.digital/oidc/auth?${params}`;
+      `https://auth.mgpass.net/oidc/auth?${params}`;
   }
 }
 ```
@@ -139,7 +139,7 @@ class TokenManager:
 
     def refresh(self):
         response = requests.post(
-            "https://pass.mediageneral.digital/api/token",
+            "https://auth.mgpass.net/api/token",
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": self.refresh_token,
@@ -349,7 +349,7 @@ The SPA only ever sees the access token (held in memory). The refresh token live
 Token lifetimes are configured per-application in the mgPass admin console or via the API:
 
 ```bash
-curl -X PATCH https://pass.mediageneral.digital/api/clients/app_abc123 \
+curl -X PATCH https://auth.mgpass.net/api/clients/app_abc123 \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

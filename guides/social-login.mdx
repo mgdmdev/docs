@@ -41,7 +41,7 @@ sequenceDiagram
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Create an OAuth 2.0 client ID (Web application type)
-3. Add `https://pass.mediageneral.digital/callback/google` as an authorized redirect URI
+3. Add `https://auth.mgpass.net/callback/google` as an authorized redirect URI
 4. Configure the connector in the mgPass admin console with the client ID and secret
 
 <Note>
@@ -63,7 +63,7 @@ Set `hosted_domains` to restrict sign-in to specific Google Workspace domains (e
 
 1. In Apple Developer Portal, enable "Sign in with Apple" for your App ID
 2. Create a Service ID and configure the web authentication settings
-3. Add `https://pass.mediageneral.digital/callback/apple` as a return URL
+3. Add `https://auth.mgpass.net/callback/apple` as a return URL
 4. Generate a private key for Sign in with Apple
 5. Configure the connector in the mgPass admin console
 
@@ -84,7 +84,7 @@ Apple only sends the user's name on the first authentication. mgPass stores it o
 
 1. Create a Facebook App at [developers.facebook.com](https://developers.facebook.com)
 2. Add Facebook Login product
-3. Add `https://pass.mediageneral.digital/callback/facebook` as a valid OAuth redirect URI
+3. Add `https://auth.mgpass.net/callback/facebook` as a valid OAuth redirect URI
 4. Configure the connector in the mgPass admin console
 
 ## Linking and Unlinking
@@ -96,7 +96,7 @@ When a user signs in with a social provider and their social email matches an ex
 ### Viewing Linked Accounts
 
 ```bash
-curl https://pass.mediageneral.digital/api/users/usr_abc123/identities \
+curl https://auth.mgpass.net/api/users/usr_abc123/identities \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
