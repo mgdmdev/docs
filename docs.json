@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "quill",
+  "theme": "maple",
   "name": "mgPass Rewards",
   "colors": {
     "primary": "#8B1A1A",
