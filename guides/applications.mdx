@@ -212,8 +212,23 @@ Rotate secrets at least every 90 days, or immediately if you suspect a leak.
 | A Next.js app with server components | **Traditional Web** | Has a server-side runtime |
 | A static site (Astro, Hugo) | **SPA** | No server-side runtime |
 
+## SSO Behavior
+
+All registered applications benefit from mgPass Single Sign-On automatically:
+
+- **Existing session?** If the user has an active mgPass session (from any app), they are logged in instantly with no login screen. mgPass uses a `prompt=none` redirect to issue an authorization code silently.
+- **First-time authorization:** The first time a user accesses your app, they see a consent screen asking to approve the requested scopes. After approval, subsequent logins are instant.
+- **No configuration needed:** SSO is enabled by default for every application. You do not need to opt in or configure anything beyond the standard OAuth setup.
+
+<Note>
+The consent screen is only shown once per user per application. After the user approves, they will never see it again for that app (unless you add new scopes).
+</Note>
+
+For a detailed guide on implementing SSO in your application, including cross-domain patterns and code examples, see the [SSO Guide](/guides/sso).
+
 ## Next Steps
 
-- [OAuth Flows](/guides/oauth-flows) — implement the login flow for your app type
-- [RBAC](/guides/rbac) — control what users can do in your app
-- [Per-App Webhooks](/guides/webhooks-identity) — get notified when users interact with your app
+- [SSO Guide](/guides/sso) -- implement seamless single sign-on in your app
+- [OAuth Flows](/guides/oauth-flows) -- implement the login flow for your app type
+- [RBAC](/guides/rbac) -- control what users can do in your app
+- [Per-App Webhooks](/guides/webhooks-identity) -- get notified when users interact with your app

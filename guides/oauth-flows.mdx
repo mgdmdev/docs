@@ -260,6 +260,55 @@ curl -X POST https://pass.mediageneral.digital/api/token \
 mgPass uses **refresh token rotation**. Each refresh returns a new refresh token and invalidates the old one. If a previously-used refresh token is submitted, all tokens for that session are revoked (replay detection).
 </Warning>
 
+## Silent Authentication (`prompt=none`)
+
+The `prompt=none` parameter lets you check if a user has an active mgPass session without showing any login UI. This is the foundation of [cross-domain SSO](/guides/sso) and a fallback mechanism for [token refresh](/guides/token-refresh).
+
+**Request:**
+
+```
+GET https://pass.mediageneral.digital/oidc/auth?
+  prompt=none
+  &client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapp.com/callback
+  &response_type=code
+  &scope=openid+profile+email
+  &state=RANDOM_STATE
+```
+
+**Possible responses:**
+
+| Outcome | Redirect | Next Step |
+|---------|----------|-----------|
+| User has active session and has authorized the app | `?code=AUTH_CODE&state=...` | Exchange code for tokens |
+| No active session | `?error=login_required&state=...` | Show login button or redirect without `prompt=none` |
+| Active session but first-time app | `?error=consent_required&state=...` | Redirect without `prompt=none` to show consent |
+
+**When to use `prompt=none`:**
+
+- **SSO check on page load** -- silently check if the user is already logged in on another MG Digital property
+- **Token renewal fallback** -- when a refresh token has expired, try silent auth before showing a login screen
+- **Session validation** -- periodically confirm the user's mgPass session is still active
+
+<Note>
+The `prompt=none` request is a browser redirect, not a background API call. The user briefly sees a redirect to mgPass and back, but no login UI is shown.
+</Note>
+
+## Remember Me
+
+The mgPass login screen includes a "Remember me for 30 days" checkbox that controls session persistence:
+
+| Setting | Cookie Type | Behavior |
+|---------|------------|----------|
+| **Checked** (default) | Persistent cookie (30-day expiry) | User stays logged in across browser restarts. Session extends on each use (sliding window). |
+| **Unchecked** | Session cookie | Session ends when the browser is closed. User must sign in again next time. |
+
+This affects the SSO session, not individual access tokens. Even with "Remember me" unchecked, access and refresh tokens work normally until the browser is closed.
+
+<Note>
+The "Remember me" preference only applies to the mgPass session cookie. It does not change access token or refresh token lifetimes, which are configured per-application.
+</Note>
+
 ## Scopes
 
 | Scope | Description |

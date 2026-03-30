@@ -87,3 +87,29 @@ Admin tokens are obtained through the same OAuth flow but require the user to ha
     Rotate your partner API key at least every 90 days. The admin console supports zero-downtime key rotation.
   </Accordion>
 </AccordionGroup>
+
+---
+
+## Session Lifetime
+
+mgPass authentication sessions use a **30-day sliding window**:
+
+| Property | Value |
+|----------|-------|
+| Default session duration | 30 days |
+| Sliding window | Every authentication use (SSO check, token refresh) extends the session |
+| "Remember me" checked | Persistent cookie (30-day expiry, survives browser restart) |
+| "Remember me" unchecked | Session cookie (cleared on browser close) |
+
+### Global Logout
+
+Logging out from **any** mgPass surface (admin console, account portal, or any connected application) revokes sessions everywhere:
+
+1. The session cookie on `.mgpass.net` is cleared
+2. All refresh tokens for the user are revoked
+3. Admin and account workers are notified via back-channel (Cloudflare service bindings) to destroy their local sessions
+4. The user must re-authenticate on every application
+
+This ensures that a single logout action provides complete session termination across the entire MG Digital ecosystem.
+
+For implementation details, see the [SSO Guide](/guides/sso#global-logout).

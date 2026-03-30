@@ -65,6 +65,13 @@
               "guides/migration",
               "guides/error-handling"
             ]
+          },
+          {
+            "group": "SSO & Sessions",
+            "pages": [
+              "guides/sso",
+              "guides/token-refresh"
+            ]
           }
         ]
       },
@@ -81,6 +88,7 @@
             "group": "Authentication",
             "pages": [
               "api-reference/authentication/token-exchange",
+              "api-reference/authentication/logout",
               "api-reference/authentication/oidc-discovery",
               "api-reference/authentication/jwks"
             ]
@@ -107,7 +115,8 @@
               "api-reference/account/get-profile",
               "api-reference/account/update-profile",
               "api-reference/account/list-sessions",
-              "api-reference/account/revoke-session"
+              "api-reference/account/revoke-session",
+              "api-reference/account/list-identities"
             ]
           },
           {
@@ -212,6 +221,24 @@
               "api-reference/admin-ledger/export-csv",
               "api-reference/admin-ledger/manual-credit",
               "api-reference/admin-ledger/reconcile"
+            ]
+          },
+          {
+            "group": "Admin - Benefits",
+            "pages": [
+              "api-reference/admin-benefits/list-benefits",
+              "api-reference/admin-benefits/create-benefit",
+              "api-reference/admin-benefits/get-benefit",
+              "api-reference/admin-benefits/update-benefit",
+              "api-reference/admin-benefits/delete-benefit"
+            ]
+          },
+          {
+            "group": "Admin - Templates",
+            "pages": [
+              "api-reference/admin-templates/list-templates",
+              "api-reference/admin-templates/get-template",
+              "api-reference/admin-templates/update-template"
             ]
           }
         ]
