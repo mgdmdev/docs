@@ -1,0 +1,65 @@
+---
+title: "Catalog Redemption"
+description: "How users browse and redeem rewards from the catalog."
+---
+
+## Overview
+
+The rewards catalog contains items that users can redeem with their points -- merchandise, digital goods, experiences, or partner offers.
+
+## Browsing the Catalog
+
+Users see available catalog items through your app:
+
+```bash
+curl https://pass.mediageneral.digital/api/account/rewards/catalog \
+  -H "Authorization: Bearer USER_TOKEN"
+```
+
+Each item includes eligibility info -- some items are restricted to specific tiers or roles.
+
+## Redeeming an Item
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/account/rewards/redeem \
+  -H "Authorization: Bearer USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reward_id": "rwd_abc123"
+  }'
+```
+
+### Validation
+
+Before redemption, the API checks:
+
+- User has enough points
+- Item is active and within valid dates
+- User's tier is in the item's `eligible_tiers` (if restricted)
+- Stock is available (if limited quantity)
+- User hasn't exceeded `max_per_user` limit
+
+### Response
+
+```json
+{
+  "redemption_id": "rdm_xyz789",
+  "reward": {
+    "id": "rwd_abc123",
+    "name": "3News Premium (1 Month)",
+    "description": "One month of ad-free 3News access"
+  },
+  "points_deducted": 500,
+  "new_balance": 1000
+}
+```
+
+## Fulfillment Types
+
+| Type | Description |
+|------|-------------|
+| `digital` | Instant delivery -- voucher codes, access grants, digital content |
+| `physical` | Requires shipping -- merchandise, branded items |
+| `experience` | Event access, VIP upgrades, meet-and-greet passes |
+
+Fulfillment details are managed by MG Digital admins and communicated to the user through the redemption status and instructions.

@@ -1,0 +1,121 @@
+---
+title: "Awarding Points"
+description: "How points are calculated, capped, and credited to users."
+---
+
+## Points Rules
+
+Every event type maps to a **points rule** that determines how many points to award. Rules are configured by MG Digital admins and can vary by:
+
+- **Platform** -- different rules for 3News vs adesa+ vs partners
+- **Event type** -- `article_read` awards different points than `purchase`
+- **Tier** -- Gold users can earn more per event than Bronze users
+
+## Rule Matching
+
+When an event is published, the engine finds the best matching rule:
+
+1. Exact match: `platform + event_type + tier`
+2. Tier fallback: `platform + event_type + tier IS NULL` (applies to all tiers)
+3. Platform fallback: `event_type + tier` (any platform)
+
+The most specific match wins.
+
+## Calculation Types
+
+### Flat Points
+
+A fixed number of points per event:
+
+```
+Rule: { points: 10, points_type: "flat" }
+Event: { event_type: "daily_login" }
+Result: 10 points (before multipliers)
+```
+
+### Per-Unit Points
+
+Points scale with a value in the event metadata:
+
+```
+Rule: { points: 1, points_type: "per_unit", unit_field: "amount" }
+Event: { event_type: "purchase", metadata: { amount: 75 } }
+Result: 75 points (before multipliers)
+```
+
+## Multipliers
+
+### Tier Multiplier
+
+Each tier has a `points_multiplier`:
+
+| Tier | Multiplier |
+|------|-----------|
+| Bronze | 1.0x |
+| Silver | 1.5x |
+| Gold | 2.0x |
+| Platinum | 3.0x |
+
+### Partner Multiplier
+
+Partners can have a bonus multiplier (e.g., 1.2x for a promotional period). This stacks with the tier multiplier.
+
+```
+Final Points = base_points * tier_multiplier * partner_multiplier
+```
+
+## Caps
+
+### Daily Cap
+
+Maximum points a user can earn from a specific event type in one day.
+
+Example: `daily_cap: 50` for `article_read` means reading 100 articles still awards at most 50 points/day.
+
+### Monthly Cap
+
+Maximum points per event type per calendar month.
+
+### Frequency
+
+Controls how often an event counts:
+
+| Frequency | Behavior |
+|-----------|----------|
+| `unlimited` | Every event counts (subject to caps) |
+| `once` | Only the first event ever counts |
+| `daily` | One event per day counts |
+| `weekly` | One event per week counts |
+| `monthly` | One event per month counts |
+
+## Tier Promotion
+
+After points are credited, the engine checks if the user qualifies for a tier upgrade:
+
+```
+if (lifetime_earned >= next_tier.min_points) {
+  promote user to next tier
+}
+```
+
+Tier promotion is **automatic and immediate**. The user's next event will use the new tier's multiplier.
+
+<Note>
+  Tiers are based on **lifetime earned** points, not current balance. Spending points on rewards does not affect tier status.
+</Note>
+
+## Idempotency
+
+Use `metadata.reference_id` to prevent duplicate awards:
+
+```json
+{
+  "user_id": "usr_123",
+  "event_type": "purchase",
+  "metadata": {
+    "reference_id": "order_456"
+  }
+}
+```
+
+If the same `reference_id` is published twice for the same user and event type, points are only awarded once.

@@ -1,0 +1,998 @@
+openapi: 3.1.0
+info:
+  title: mgPass Rewards API
+  description: |
+    The mgPass Rewards API enables partners to award points, manage rewards, and integrate cashback for users across the MG Digital ecosystem.
+
+    ## Authentication
+
+    ### Partner API Key
+    Partner endpoints use API key authentication via the `X-API-Key` header.
+    Keys are issued when a partner is onboarded via the mgPass Admin Console.
+
+    ### User Access Token
+    User-facing endpoints require a Bearer token obtained through the mgPass OAuth 2.0 / OIDC flow.
+
+    ### Admin Access Token
+    Admin endpoints require a Bearer token with the `mgpass:admin` scope.
+
+  version: "1.0.0"
+  contact:
+    name: MG Digital Engineering
+    email: engineering@mediageneral.com
+
+servers:
+  - url: https://pass.mediageneral.digital
+    description: Production
+  - url: https://pass.mgdm.dev
+    description: Staging
+
+tags:
+  - name: Partner Events
+    description: Publish events and award points to users
+  - name: User Rewards
+    description: User-facing balance, history, and redemption
+  - name: Cashback
+    description: Cashback calculation and mobile money redemption
+  - name: Catalog
+    description: Browse and redeem rewards catalog items
+  - name: Admin - Rules
+    description: Manage points rules (admin only)
+  - name: Admin - Tiers
+    description: Manage reward tiers (admin only)
+  - name: Admin - Partners
+    description: Manage partner integrations (admin only)
+  - name: Admin - Catalog
+    description: Manage rewards catalog (admin only)
+  - name: Admin - Redemptions
+    description: View and manage redemptions (admin only)
+  - name: Admin - Ledger
+    description: Search and export points ledger (admin only)
+
+paths:
+  # ──── Partner Events ────
+  /api/partner/events:
+    post:
+      operationId: publishPartnerEvent
+      tags: [Partner Events]
+      summary: Publish an event to award points
+      description: |
+        Submit a user event to the rewards engine. Points are calculated based on matching rules,
+        the user's tier multiplier, and any partner multiplier. Daily and monthly caps are enforced.
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, event_type]
+              properties:
+                user_id:
+                  type: string
+                  description: The mgPass user ID
+                  example: usr_abc123def456
+                event_type:
+                  type: string
+                  description: Event type (must be in partner's allowed list if configured)
+                  example: article_read
+                metadata:
+                  type: object
+                  description: Optional event-specific data. Used for per-unit calculations.
+                  properties:
+                    reference_id:
+                      type: string
+                      description: External reference ID for idempotency
+                    amount:
+                      type: number
+                      description: Transaction amount (for per-unit rules)
+                  example:
+                    reference_id: txn_abc123
+                    amount: 50
+      responses:
+        "200":
+          description: Event processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                    example: true
+                  points_awarded:
+                    type: integer
+                    example: 150
+                  event_id:
+                    type: string
+                    example: evt_xyz789
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Event type not allowed for this partner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  # ──── User Rewards ────
+  /api/account/rewards:
+    get:
+      operationId: getUserBalance
+      tags: [User Rewards]
+      summary: Get current balance and tier
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User's current rewards status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_points:
+                    type: integer
+                    example: 1500
+                  lifetime_earned:
+                    type: integer
+                    example: 5000
+                  tier:
+                    type: string
+                    example: silver
+                  tier_details:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      min_points:
+                        type: integer
+                      multiplier:
+                        type: number
+                  next_tier:
+                    type: object
+                    nullable: true
+                    properties:
+                      name:
+                        type: string
+                      min_points:
+                        type: integer
+                      points_needed:
+                        type: integer
+
+  /api/account/rewards/history:
+    get:
+      operationId: getUserHistory
+      tags: [User Rewards]
+      summary: Get points transaction history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated points history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LedgerEntry"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+
+  /api/account/rewards/redemptions:
+    get:
+      operationId: getUserRedemptions
+      tags: [User Rewards]
+      summary: Get user's redemption history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated redemptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Redemption"
+                  total:
+                    type: integer
+
+  /api/account/rewards/redeem:
+    post:
+      operationId: redeemCatalogItem
+      tags: [Catalog]
+      summary: Redeem a catalog item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reward_id]
+              properties:
+                reward_id:
+                  type: string
+                  example: rwd_abc123
+      responses:
+        "200":
+          description: Redemption created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redemption_id:
+                    type: string
+                  points_deducted:
+                    type: integer
+                  new_balance:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ──── Cashback ────
+  /api/account/cashback/redeem:
+    post:
+      operationId: redeemCashback
+      tags: [Cashback]
+      summary: Initiate a cashback redemption
+      description: |
+        Convert points to mobile money. Sends cash to the specified phone number via the configured payment provider.
+        Subject to fraud checks: daily redemption limits, daily amount caps, cooldown periods, and minimum point thresholds.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [points, phone_number, network]
+              properties:
+                points:
+                  type: integer
+                  minimum: 250
+                  description: Number of points to convert
+                  example: 1000
+                phone_number:
+                  type: string
+                  description: Mobile money recipient number
+                  example: "+233241234567"
+                network:
+                  type: string
+                  enum: [mtn, telecel, airteltigo]
+                  description: Mobile network for the transfer
+      responses:
+        "201":
+          description: Cashback redemption initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashbackResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          description: Fraud check failed (daily limit, cooldown, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/cashback/callback:
+    post:
+      operationId: cashbackCallback
+      tags: [Cashback]
+      summary: Payment provider callback
+      description: |
+        Called by the external payment service when a cashback transfer completes or fails.
+        On failure, points are automatically refunded to the user.
+        No authentication required — validated by redemption ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cashback_ID, status]
+              properties:
+                cashback_ID:
+                  type: string
+                  description: The redemption ID
+                  example: rdm_xyz789
+                status:
+                  type: string
+                  enum: [processed, rejected]
+                reason:
+                  type: string
+                  description: Rejection reason (when status is rejected)
+      responses:
+        "200":
+          description: Callback processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  # ──── Admin - Rules ────
+  /api/rewards/rules:
+    get:
+      operationId: listRules
+      tags: [Admin - Rules]
+      summary: List points rules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: event_type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated rules list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PointsRule"
+                  total:
+                    type: integer
+    post:
+      operationId: createRule
+      tags: [Admin - Rules]
+      summary: Create a points rule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointsRuleInput"
+      responses:
+        "201":
+          description: Rule created
+
+  /api/rewards/rules/{id}:
+    get:
+      operationId: getRule
+      tags: [Admin - Rules]
+      summary: Get a specific rule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rule details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointsRule"
+    patch:
+      operationId: updateRule
+      tags: [Admin - Rules]
+      summary: Update a rule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointsRuleInput"
+      responses:
+        "200":
+          description: Rule updated
+    delete:
+      operationId: deleteRule
+      tags: [Admin - Rules]
+      summary: Delete a rule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rule deleted
+
+  /api/rewards/event-types:
+    get:
+      operationId: listEventTypes
+      tags: [Admin - Rules]
+      summary: List all known event types
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sorted array of distinct event types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: [article_read, login, purchase, referral]
+
+  # ──── Admin - Partners ────
+  /api/rewards/partners:
+    get:
+      operationId: listPartners
+      tags: [Admin - Partners]
+      summary: List partners
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated partners
+    post:
+      operationId: createPartner
+      tags: [Admin - Partners]
+      summary: Create a partner
+      description: Returns the raw API key once. Store it securely — it cannot be retrieved again.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                organization_id:
+                  type: string
+                  nullable: true
+                allowed_event_types:
+                  type: array
+                  items:
+                    type: string
+                points_multiplier:
+                  type: number
+                  default: 1
+                webhook_url:
+                  type: string
+                is_active:
+                  type: boolean
+                  default: true
+      responses:
+        "201":
+          description: Partner created with API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  api_key:
+                    type: string
+                    description: Raw API key — shown once only
+
+  /api/rewards/partners/{id}/rotate-key:
+    post:
+      operationId: rotatePartnerKey
+      tags: [Admin - Partners]
+      summary: Rotate a partner's API key
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New API key generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key:
+                    type: string
+
+  # ──── Admin - Ledger ────
+  /api/rewards/ledger:
+    get:
+      operationId: searchLedger
+      tags: [Admin - Ledger]
+      summary: Search the points ledger
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 100
+        - name: user_email
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: event_type
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: integer
+            description: Unix timestamp lower bound
+        - name: to
+          in: query
+          schema:
+            type: integer
+            description: Unix timestamp upper bound
+      responses:
+        "200":
+          description: Paginated ledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LedgerEntry"
+                  total:
+                    type: integer
+
+  /api/rewards/ledger/export:
+    get:
+      operationId: exportLedger
+      tags: [Admin - Ledger]
+      summary: Export ledger as CSV
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_email
+          in: query
+          schema:
+            type: string
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: integer
+        - name: to
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  # ──── Admin - Redemptions ────
+  /api/rewards/redemptions:
+    get:
+      operationId: listRedemptions
+      tags: [Admin - Redemptions]
+      summary: List all redemptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, cancelled]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [catalog, cashback]
+        - name: q
+          in: query
+          description: Search by user email
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated redemptions
+
+  /api/rewards/cashback/redemptions/{id}:
+    patch:
+      operationId: updateRedemption
+      tags: [Admin - Redemptions]
+      summary: Approve or reject a redemption
+      description: |
+        Set status to `completed` (approve) or `cancelled` (reject).
+        Rejecting automatically refunds points to the user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [completed, cancelled]
+                reason:
+                  type: string
+                  description: Required when cancelling
+      responses:
+        "200":
+          description: Redemption updated
+
+  # ──── Admin - Manual Operations ────
+  /api/rewards/credit:
+    post:
+      operationId: manualCredit
+      tags: [Admin - Ledger]
+      summary: Manually credit points to a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, points]
+              properties:
+                user_id:
+                  type: string
+                points:
+                  type: integer
+                  minimum: 1
+                event_type:
+                  type: string
+                  default: admin_credit
+                metadata:
+                  type: object
+      responses:
+        "200":
+          description: Points credited
+
+  /api/rewards/reconcile/{userId}:
+    post:
+      operationId: reconcileUser
+      tags: [Admin - Ledger]
+      summary: Reconcile a user's balance from ledger
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reconciliation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cached:
+                    type: integer
+                  calculated:
+                    type: integer
+                  drift:
+                    type: integer
+                  fixed:
+                    type: boolean
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: X-API-Key
+      in: header
+      description: Partner API key issued during onboarding
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 access token from mgPass
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        event_type:
+          type: string
+        platform:
+          type: string
+        points:
+          type: integer
+          description: Positive = earned, negative = redeemed
+        rule_version:
+          type: string
+        reference_id:
+          type: string
+          nullable: true
+        metadata:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+          description: Unix timestamp
+
+    Redemption:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        reward_id:
+          type: string
+          nullable: true
+        points_cost:
+          type: integer
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+        redemption_type:
+          type: string
+          enum: [catalog, cashback]
+        cashback_amount:
+          type: number
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+        network:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+        updated_at:
+          type: integer
+
+    CashbackResult:
+      type: object
+      properties:
+        redemption_id:
+          type: string
+        status:
+          type: string
+          example: pending
+        points:
+          type: integer
+        tier:
+          type: string
+        rate:
+          type: number
+        gross_amount:
+          type: number
+        fee_rate:
+          type: number
+        fee_amount:
+          type: number
+        net_amount:
+          type: number
+
+    PointsRule:
+      type: object
+      properties:
+        id:
+          type: string
+        platform:
+          type: string
+          nullable: true
+        event_type:
+          type: string
+        tier:
+          type: string
+          nullable: true
+        points:
+          type: integer
+        points_type:
+          type: string
+          enum: [flat, per_unit]
+        unit_field:
+          type: string
+          nullable: true
+        daily_cap:
+          type: integer
+          nullable: true
+        monthly_cap:
+          type: integer
+          nullable: true
+        frequency:
+          type: string
+          enum: [once, daily, weekly, monthly, unlimited]
+        is_active:
+          type: integer
+        version:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+
+    PointsRuleInput:
+      type: object
+      required: [event_type, points]
+      properties:
+        platform:
+          type: string
+        event_type:
+          type: string
+        tier:
+          type: string
+          nullable: true
+        points:
+          type: integer
+          minimum: 0
+        points_type:
+          type: string
+          enum: [flat, per_unit]
+          default: flat
+        unit_field:
+          type: string
+        daily_cap:
+          type: integer
+        monthly_cap:
+          type: integer
+        frequency:
+          type: string
+          enum: [once, daily, weekly, monthly, unlimited]
+        is_active:
+          type: boolean
+          default: true
+        version:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: rate_limit_exceeded
+              error_description:
+                type: string

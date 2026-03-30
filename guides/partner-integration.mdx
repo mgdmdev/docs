@@ -1,0 +1,208 @@
+---
+title: "Partner Integration"
+description: "Complete guide for external partners integrating with mgPass Rewards."
+---
+
+## Overview
+
+As a partner, you integrate with mgPass Rewards by publishing **events** when users take actions on your platform. The rewards engine matches events to rules, calculates points, and credits them to the user's balance.
+
+## Onboarding
+
+1. MG Digital creates your partner account in the admin console
+2. You receive an **API key** and a list of **allowed event types**
+3. You map your user accounts to mgPass user IDs (via email or the mgPass OAuth flow)
+4. You start publishing events
+
+## Publishing Events
+
+### Basic Event
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/partner/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "user_id": "usr_abc123",
+    "event_type": "article_read"
+  }'
+```
+
+### Event with Metadata
+
+Include metadata for per-unit calculations or audit trails:
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/partner/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "user_id": "usr_abc123",
+    "event_type": "purchase",
+    "metadata": {
+      "reference_id": "order_789",
+      "amount": 150.00,
+      "currency": "GHS",
+      "item_count": 3
+    }
+  }'
+```
+
+<Info>
+  The `reference_id` in metadata serves as an idempotency key. Publishing the same `reference_id` twice will not double-award points.
+</Info>
+
+## Event Types
+
+Event types are strings that you define with MG Digital during onboarding. Common patterns:
+
+| Event Type | Description | Typical Points |
+|------------|-------------|----------------|
+| `article_read` | User read an article | 5 per read |
+| `video_watched` | User completed a video | 10 per video |
+| `purchase` | User made a purchase | 1 per GHS spent |
+| `signup` | User registered on your platform | 50 (one-time) |
+| `referral` | User referred someone | 100 (one-time) |
+| `daily_login` | User logged in today | 5 per day |
+| `share` | User shared content | 10 per share |
+
+Your partner config specifies which event types you're allowed to publish. Attempting to publish an unlisted type returns `403`.
+
+## Points Calculation
+
+Points are calculated using this formula:
+
+```
+base_points = rule.points (or rule.points * metadata[unit_field] for per-unit rules)
+tier_multiplier = user's tier multiplier (e.g., 1.0x for Bronze, 1.5x for Silver)
+partner_multiplier = your partner multiplier (default: 1.0x)
+
+final_points = base_points * tier_multiplier * partner_multiplier
+```
+
+### Example: Per-Unit Rule
+
+If the rule for `purchase` is "1 point per GHS spent" and the user is Silver tier (1.5x):
+
+```
+Event: { event_type: "purchase", metadata: { amount: 100 } }
+Rule: { points: 1, points_type: "per_unit", unit_field: "amount" }
+Calculation: 1 * 100 (amount) * 1.5 (tier) = 150 points
+```
+
+## Caps and Frequency
+
+Rules can have daily and monthly caps to prevent abuse:
+
+| Cap Type | Description |
+|----------|-------------|
+| `daily_cap` | Maximum points from this event type per user per day |
+| `monthly_cap` | Maximum points from this event type per user per month |
+| `frequency` | How often the event can be counted: `once`, `daily`, `weekly`, `monthly`, `unlimited` |
+
+If a cap is reached, the event is still accepted but `points_awarded` will be 0 or reduced.
+
+## Response Handling
+
+### Success
+
+```json
+{
+  "accepted": true,
+  "points_awarded": 150,
+  "event_id": "evt_xyz789"
+}
+```
+
+### No Matching Rule
+
+```json
+{
+  "accepted": true,
+  "points_awarded": 0,
+  "event_id": "evt_xyz789"
+}
+```
+
+<Note>
+  Events with no matching rule are still accepted and logged. Points awarded will be 0. This allows you to start publishing events before rules are configured.
+</Note>
+
+### Errors
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 400 | `invalid_request` | Missing `user_id` or `event_type` |
+| 401 | `unauthorized` | Invalid or missing API key |
+| 403 | `forbidden` | Event type not in your allowed list |
+| 429 | `rate_limit_exceeded` | Too many requests (30/min) |
+
+## Code Examples
+
+<CodeGroup>
+
+```javascript Node.js
+const response = await fetch('https://pass.mediageneral.digital/api/partner/events', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.MGPASS_API_KEY,
+  },
+  body: JSON.stringify({
+    user_id: userId,
+    event_type: 'article_read',
+    metadata: { reference_id: articleId },
+  }),
+});
+
+const result = await response.json();
+console.log(`Awarded ${result.points_awarded} points`);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://pass.mediageneral.digital/api/partner/events',
+    headers={
+        'Content-Type': 'application/json',
+        'X-API-Key': os.environ['MGPASS_API_KEY'],
+    },
+    json={
+        'user_id': user_id,
+        'event_type': 'article_read',
+        'metadata': {'reference_id': article_id},
+    },
+)
+
+result = response.json()
+print(f"Awarded {result['points_awarded']} points")
+```
+
+```php PHP
+$response = Http::withHeaders([
+    'X-API-Key' => config('services.mgpass.api_key'),
+])->post('https://pass.mediageneral.digital/api/partner/events', [
+    'user_id' => $userId,
+    'event_type' => 'article_read',
+    'metadata' => ['reference_id' => $articleId],
+]);
+
+$result = $response->json();
+```
+
+</CodeGroup>
+
+## Webhooks
+
+You can receive notifications when points-related events occur. See the [Webhooks guide](/guides/webhooks) for setup details.
+
+## Testing
+
+Use the staging environment for testing:
+
+```
+Base URL: https://pass.mgdm.dev
+```
+
+Staging uses the same API key format but with a separate key issued for testing.

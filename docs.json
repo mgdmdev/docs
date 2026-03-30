@@ -1,122 +1,152 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "quill",
+  "name": "mgPass Rewards",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#8B1A1A",
+    "light": "#B22222",
+    "dark": "#6B0F0F"
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guides",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+  "tabs": [
+    {
+      "name": "Guides",
+      "url": "guides"
+    },
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "navigation": {
+    "tabs": {
+      "guides": [
+        {
+          "group": "Getting Started",
+          "pages": [
+            "guides/introduction",
+            "guides/quickstart",
+            "guides/authentication"
+          ]
+        },
+        {
+          "group": "Integration Guides",
+          "pages": [
+            "guides/partner-integration",
+            "guides/awarding-points",
+            "guides/cashback",
+            "guides/catalog-redemption"
+          ]
+        },
+        {
+          "group": "Advanced",
+          "pages": [
+            "guides/webhooks",
+            "guides/tiers-and-benefits",
+            "guides/error-handling"
+          ]
+        }
+      ],
+      "api-reference": [
+        {
+          "group": "Overview",
+          "pages": [
+            "api-reference/introduction"
+          ]
+        },
+        {
+          "group": "Partner Events",
+          "pages": [
+            "api-reference/partner-events/publish-event"
+          ]
+        },
+        {
+          "group": "User Rewards",
+          "pages": [
+            "api-reference/user-rewards/get-balance",
+            "api-reference/user-rewards/get-history",
+            "api-reference/user-rewards/get-redemptions",
+            "api-reference/user-rewards/redeem-catalog-item"
+          ]
+        },
+        {
+          "group": "Cashback",
+          "pages": [
+            "api-reference/cashback/redeem-cashback",
+            "api-reference/cashback/callback"
+          ]
+        },
+        {
+          "group": "Admin - Rules",
+          "pages": [
+            "api-reference/admin-rules/list-rules",
+            "api-reference/admin-rules/create-rule",
+            "api-reference/admin-rules/get-rule",
+            "api-reference/admin-rules/update-rule",
+            "api-reference/admin-rules/delete-rule",
+            "api-reference/admin-rules/list-event-types"
+          ]
+        },
+        {
+          "group": "Admin - Partners",
+          "pages": [
+            "api-reference/admin-partners/list-partners",
+            "api-reference/admin-partners/create-partner",
+            "api-reference/admin-partners/rotate-key"
+          ]
+        },
+        {
+          "group": "Admin - Redemptions",
+          "pages": [
+            "api-reference/admin-redemptions/list-redemptions",
+            "api-reference/admin-redemptions/approve-reject"
+          ]
+        },
+        {
+          "group": "Admin - Ledger",
+          "pages": [
+            "api-reference/admin-ledger/search-ledger",
+            "api-reference/admin-ledger/export-csv",
+            "api-reference/admin-ledger/manual-credit",
+            "api-reference/admin-ledger/reconcile"
+          ]
+        }
+      ]
     }
   },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+  "api": {
+    "openapi": "/openapi.yaml",
+    "playground": {
+      "mode": "simple"
+    },
+    "request": {
+      "example": {
+        "showOptionalParams": false
+      }
+    }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+      "x": "https://x.com/AdesaPlus",
+      "website": "https://mediageneral.com"
+    },
+    "links": [
+      {
+        "title": "Company",
+        "links": [
+          { "label": "Media General", "url": "https://mediageneral.com" },
+          { "label": "adesa+", "url": "https://adesa.com.gh" },
+          { "label": "3News", "url": "https://3news.com" }
+        ]
+      }
+    ]
+  },
+  "feedback": {
+    "suggestEdit": true,
+    "raiseIssue": true
   }
 }

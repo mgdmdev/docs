@@ -1,97 +1,36 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "mgPass Rewards"
+description: "Developer documentation for the mgPass Rewards API — the loyalty engine powering the MG Digital ecosystem."
 ---
 
-## Setting up
+## Welcome
 
-Get your documentation site up and running in minutes.
+The mgPass Rewards API enables platforms and partners to award points, manage rewards, and offer mobile money cashback to users across the MG Digital ecosystem.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
+    Publish your first event and award points in 5 minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Partner Integration" icon="plug" href="/guides/partner-integration">
+    Full guide for external platform integration
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Complete endpoint documentation with interactive playground
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Cashback" icon="money-bill" href="/guides/cashback">
+    Convert points to mobile money (MTN, Telecel, AirtelTigo)
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## How It Works
 
-Everything you need to create world-class documentation.
+1. **Partners publish events** when users take actions (read articles, make purchases, refer friends)
+2. **The rewards engine** matches events to rules, calculates points with tier multipliers, and enforces caps
+3. **Users earn points** that accumulate toward tier upgrades and can be redeemed for rewards or cashback
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Quick Links
 
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+- [Authentication](/guides/authentication) — API keys, OAuth tokens, and security
+- [Webhooks](/guides/webhooks) — Real-time event notifications with signature verification
+- [Tiers & Benefits](/guides/tiers-and-benefits) — How the tier progression system works
+- [Error Handling](/guides/error-handling) — Status codes, rate limits, and retry strategies

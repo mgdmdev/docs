@@ -1,0 +1,128 @@
+---
+title: "Webhooks"
+description: "Receive real-time notifications when rewards events occur."
+---
+
+## Overview
+
+Webhooks allow your platform to receive real-time HTTP notifications when events occur in the mgPass rewards system. Instead of polling the API, events are pushed to your endpoint.
+
+## Setup
+
+Webhooks are configured by MG Digital admins via the admin console. You provide:
+
+- **Endpoint URL** -- your HTTPS endpoint that receives webhook payloads
+- **Event types** -- which events you want to subscribe to
+- **Application scope** (optional) -- only receive events from a specific OAuth client
+
+## Payload Format
+
+```json
+POST https://your-endpoint.com/webhook
+
+Headers:
+  Content-Type: application/json
+  X-Webhook-Signature: a1b2c3d4e5...
+
+Body:
+{
+  "event_type": "rewards.points_awarded",
+  "data": {
+    "user_id": "usr_abc123",
+    "points": 150,
+    "event_type": "purchase",
+    "platform": "3news"
+  },
+  "timestamp": "2025-01-15T10:30:00.000Z"
+}
+```
+
+## Verifying Signatures
+
+Every webhook includes an `X-Webhook-Signature` header -- an HMAC-SHA256 hex digest of the request body using your webhook secret.
+
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhook(body, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+
+// In your handler:
+app.post('/webhook', (req, res) => {
+  const isValid = verifyWebhook(
+    JSON.stringify(req.body),
+    req.headers['x-webhook-signature'],
+    process.env.WEBHOOK_SECRET
+  );
+
+  if (!isValid) return res.status(401).send('Invalid signature');
+
+  // Process the event
+  console.log(req.body.event_type, req.body.data);
+  res.status(200).send('OK');
+});
+```
+
+<Warning>
+  Always verify the signature before processing webhooks. Without verification, an attacker could send fake events to your endpoint.
+</Warning>
+
+## Event Types
+
+### Rewards Events
+
+| Event | Description |
+|-------|-------------|
+| `rewards.points_awarded` | Points credited to a user |
+| `rewards.tier_promoted` | User promoted to a higher tier |
+| `rewards.redeemed` | Catalog item redeemed |
+
+### Cashback Events
+
+| Event | Description |
+|-------|-------------|
+| `cashback.redeemed` | Cashback redemption initiated |
+| `cashback.processed` | Cashback payment delivered |
+| `cashback.rejected` | Cashback payment failed, points refunded |
+| `cashback.redemption_completed` | Admin approved redemption |
+| `cashback.redemption_cancelled` | Admin rejected redemption |
+
+### Management Events
+
+| Event | Description |
+|-------|-------------|
+| `rewards.rule_created` | Points rule created |
+| `rewards.catalog_created` | Catalog item added |
+| `rewards.partner_created` | New partner onboarded |
+
+### Wildcard
+
+Subscribe to `*` to receive all events.
+
+## Retry Policy
+
+Failed deliveries are retried with exponential backoff:
+
+| Attempt | Delay |
+|---------|-------|
+| 1 | Immediate |
+| 2 | 1 second |
+| 3 | 5 seconds |
+| 4 | 25 seconds |
+
+A delivery is considered successful on any `2xx` response. After 4 failed attempts, the delivery is marked as failed and can be manually replayed from the admin console.
+
+## Best Practices
+
+1. **Return 200 quickly** -- process events asynchronously if needed
+2. **Handle duplicates** -- use `event_type` + `data.user_id` + `timestamp` as an idempotency key
+3. **Log everything** -- webhook deliveries are logged on our side, but you should log on yours too
+4. **Use HTTPS** -- webhook endpoints must use HTTPS

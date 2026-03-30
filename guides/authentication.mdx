@@ -1,0 +1,89 @@
+---
+title: "Authentication"
+description: "How to authenticate with the mgPass Rewards API."
+---
+
+The mgPass Rewards API supports three authentication methods depending on who is making the request.
+
+## Partner API Key
+
+For **external platforms** publishing events and awarding points.
+
+```bash
+curl -X POST https://pass.mgdm.dev/api/partner/events \
+  -H "X-API-Key: pk_live_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{ "user_id": "usr_123", "event_type": "purchase" }'
+```
+
+<Info>
+  API keys are issued during partner onboarding via the mgPass Admin Console. They are hashed with SHA-256 before storage -- MG Digital cannot retrieve your key after issuance.
+</Info>
+
+### Key Rotation
+
+If your key is compromised, contact MG Digital to rotate it. The old key is immediately invalidated and a new one is issued.
+
+### Rate Limits
+
+Partner endpoints are rate-limited to **30 requests per minute** per IP address. If exceeded, you'll receive a `429` response with a `Retry-After` header.
+
+---
+
+## User Bearer Token (OAuth 2.0)
+
+For **user-facing apps** displaying balance, history, and initiating redemptions.
+
+Users authenticate through mgPass OAuth 2.0 / OIDC and receive an access token. Pass it as a Bearer token:
+
+```bash
+curl https://pass.mgdm.dev/api/account/rewards \
+  -H "Authorization: Bearer eyJhbGciOiJFUzI1NiIs..."
+```
+
+### Getting a User Token
+
+Your app redirects users to the mgPass authorization endpoint:
+
+```
+https://pass.mediageneral.digital/authorize?
+  client_id=YOUR_CLIENT_ID&
+  response_type=code&
+  redirect_uri=https://yourapp.com/callback&
+  scope=openid+profile+email&
+  state=random_state_value
+```
+
+Exchange the authorization code for tokens at `/api/token`. See the [mgPass OAuth documentation](https://pass.mediageneral.digital/.well-known/openid-configuration) for full details.
+
+---
+
+## Admin Bearer Token
+
+For **mgPass Admin Console** and internal tools. Requires the `mgpass:admin` scope in the access token.
+
+```bash
+curl https://pass.mgdm.dev/api/rewards/rules \
+  -H "Authorization: Bearer ADMIN_ACCESS_TOKEN"
+```
+
+Admin tokens are obtained through the same OAuth flow but require the user to have the `mgpass:admin` role assigned.
+
+---
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Never expose API keys in client-side code">
+    API keys should only be used in server-to-server communication. Never embed them in mobile apps, JavaScript bundles, or client-side code.
+  </Accordion>
+  <Accordion title="Use HTTPS always">
+    All API requests must use HTTPS. HTTP requests are automatically rejected.
+  </Accordion>
+  <Accordion title="Validate webhook signatures">
+    When receiving webhook events, always verify the `X-Webhook-Signature` header using HMAC-SHA256 with your webhook secret.
+  </Accordion>
+  <Accordion title="Rotate keys periodically">
+    Rotate your partner API key at least every 90 days. The admin console supports zero-downtime key rotation.
+  </Accordion>
+</AccordionGroup>

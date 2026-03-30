@@ -1,33 +1,58 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Complete reference for the mgPass Rewards API endpoints."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Base URLs
 
-## Welcome
-
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+| Environment | URL |
+|-------------|-----|
+| Production | `https://pass.mediageneral.digital` |
+| Staging | `https://pass.mgdm.dev` |
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+<CardGroup cols={3}>
+  <Card title="Partner API Key" icon="key">
+    `X-API-Key` header for partner event publishing
+  </Card>
+  <Card title="User Token" icon="user">
+    `Authorization: Bearer <token>` for user-facing endpoints
+  </Card>
+  <Card title="Admin Token" icon="shield">
+    Bearer token with `mgpass:admin` scope for management endpoints
+  </Card>
+</CardGroup>
+
+## Endpoint Groups
+
+| Group | Base Path | Auth | Purpose |
+|-------|-----------|------|---------|
+| Partner Events | `/api/partner/` | API Key | Publish events, award points |
+| User Rewards | `/api/account/rewards/` | User Token | Balance, history, redemptions |
+| Cashback | `/api/account/cashback/` | User Token | Mobile money redemption |
+| Admin Rules | `/api/rewards/rules/` | Admin Token | Manage points rules |
+| Admin Partners | `/api/rewards/partners/` | Admin Token | Manage partner configs |
+| Admin Redemptions | `/api/rewards/redemptions/` | Admin Token | View/manage redemptions |
+| Admin Ledger | `/api/rewards/ledger/` | Admin Token | Search/export transaction log |
+
+## Response Format
+
+All successful responses return JSON. Paginated endpoints include:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "results": [...],
+  "total": 150,
+  "page": 1
+}
 ```
+
+## Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| Partner events | 30 req/min per IP |
+| General API | 100 req/min per IP |
+
+See [Error Handling](/guides/error-handling) for retry strategies.

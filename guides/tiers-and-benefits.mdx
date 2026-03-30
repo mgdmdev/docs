@@ -1,0 +1,54 @@
+---
+title: "Tiers & Benefits"
+description: "Understanding the tier system and how users progress."
+---
+
+## Tier System
+
+Users progress through tiers based on their **lifetime earned** points. Higher tiers unlock better point multipliers and exclusive benefits.
+
+| Tier | Min Points | Multiplier | Example Benefits |
+|------|-----------|------------|-----------------|
+| Bronze | 0 | 1.0x | Base rewards access |
+| Silver | 1,000 | 1.5x | Priority cashback, bonus points |
+| Gold | 5,000 | 2.0x | Exclusive catalog items, higher cashback rates |
+| Platinum | 20,000 | 3.0x | VIP access, maximum cashback rates, early access |
+
+<Note>
+  Tier thresholds and multipliers are configurable by MG Digital admins. The values above are defaults.
+</Note>
+
+## Promotion
+
+Tier promotion is **automatic**. After every point credit, the engine checks:
+
+```
+if (lifetime_earned >= next_tier.min_points) → promote
+```
+
+- Promotion is immediate -- the next event uses the new multiplier
+- Users are notified via webhook event `rewards.tier_promoted`
+- Tier status is included in the user's JWT claims for downstream apps
+
+## Important: Lifetime vs Balance
+
+| Metric | Used For |
+|--------|----------|
+| `lifetime_earned` | Tier calculation -- only goes up |
+| `total_points` | Spending balance -- goes up and down |
+
+Redeeming points reduces `total_points` but does **not** affect `lifetime_earned`. A user who earned 10,000 points and spent 8,000 still qualifies for Gold tier.
+
+## Benefits
+
+Benefits are predefined perks attached to tiers:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `toggle` | On/off feature access | "Priority Support" |
+| `multiplier` | Numeric multiplier | "2x points on weekends" |
+| `discount` | Percentage discount | "10% off partner purchases" |
+| `access` | Exclusive content/features | "Early access to new rewards" |
+| `custom` | Freeform benefit | "Birthday bonus: 500 points" |
+
+Benefits are managed in the admin console and assigned to tiers via checkboxes.

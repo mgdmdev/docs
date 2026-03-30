@@ -1,0 +1,100 @@
+---
+title: "Error Handling"
+description: "How to handle API errors, rate limits, and edge cases."
+---
+
+## Error Response Format
+
+All errors follow a consistent JSON format:
+
+```json
+{
+  "error": "error_code",
+  "message": "Human-readable description"
+}
+```
+
+## HTTP Status Codes
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| `200` | Success | Process the response |
+| `201` | Created | Resource created successfully |
+| `400` | Bad Request | Fix the request body/params |
+| `401` | Unauthorized | Check your API key or token |
+| `403` | Forbidden | Event type not allowed or insufficient scope |
+| `404` | Not Found | Resource doesn't exist |
+| `429` | Rate Limited | Back off and retry after delay |
+| `500` | Server Error | Retry with exponential backoff |
+
+## Rate Limiting
+
+### Limits
+
+| Endpoint Group | Limit |
+|---------------|-------|
+| Partner events (`/api/partner/*`) | 30 requests/min per IP |
+| General API (`/api/rewards/*`) | 100 requests/min per IP |
+
+### Handling 429 Responses
+
+```json
+{
+  "error": "rate_limit_exceeded",
+  "error_description": "Too many requests. Please try again later."
+}
+```
+
+```javascript
+async function publishEventWithRetry(event, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status === 429) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+      await sleep(retryAfter * 1000);
+      continue;
+    }
+
+    return response.json();
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+## Common Errors
+
+### Partner Events
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Missing X-API-Key header` | No API key in request | Add `X-API-Key` header |
+| `Invalid API key` | Key doesn't match any active partner | Check key, ensure partner is active |
+| `Event type not allowed` | Event type not in partner's allowlist | Contact MG Digital to add the event type |
+| `user_id and event_type are required` | Missing required fields | Include both fields in request body |
+
+### Cashback
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Insufficient points` | User doesn't have enough points | Show balance to user before attempting |
+| `Maximum X cashback redemptions per day exceeded` | Daily limit hit | Wait until tomorrow |
+| `Daily cashback limit would be exceeded` | Amount exceeds daily GHS cap | Reduce points amount |
+| `Please wait X minutes` | Cooldown period active | Wait the specified time |
+
+## Best Practices
+
+<Steps>
+  <Step title="Validate before sending">
+    Check user balance client-side before attempting redemptions to avoid unnecessary API calls.
+  </Step>
+  <Step title="Use idempotency keys">
+    Always include `reference_id` in event metadata to prevent double-awarding on retries.
+  </Step>
+  <Step title="Implement exponential backoff">
+    For 429 and 500 errors, wait 1s, 2s, 4s, 8s between retries.
+  </Step>
+  <Step title="Log API responses">
+    Store response bodies for debugging. Include `event_id` in your logs for cross-referencing with MG Digital support.
+  </Step>
+</Steps>
