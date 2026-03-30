@@ -1,33 +1,127 @@
 ---
-title: "Role-Based Access Control"
-description: "Configure API resources, scopes, and roles to control access across the mgPass platform."
+title: "Roles, Scopes & Permissions"
+description: "Configure role-based access control (RBAC) to manage what users and applications can do."
 ---
 
-## Overview
+## How RBAC Works in mgPass
 
-mgPass implements role-based access control (RBAC) to manage what users and applications can do. The model has three layers:
-
-1. **API Resources** define protected APIs and their available scopes
-2. **Roles** group scopes into named permission sets
-3. **Users** are assigned roles, and their access tokens contain the granted scopes
+mgPass uses a three-layer RBAC model. Understanding these layers is essential for securing your applications:
 
 ```mermaid
 graph TD
     AR[API Resource] -->|defines| S1[Scope: stream:live]
     AR -->|defines| S2[Scope: stream:vod]
-    AR -->|defines| S3[Scope: content:read]
-    R[Role: subscriber] -->|includes| S1
-    R -->|includes| S2
-    R -->|includes| S3
-    U[User] -->|assigned| R
+    AR -->|defines| S3[Scope: content:download]
+    R1[Role: Subscriber] -->|includes| S1
+    R1 -->|includes| S2
+    R2[Role: Premium] -->|includes| S1
+    R2 -->|includes| S2
+    R2 -->|includes| S3
+    U[User: Kofi] -->|assigned| R1
     U -->|JWT contains| S1
     U -->|JWT contains| S2
-    U -->|JWT contains| S3
 ```
 
-## API Resources
+### Layer 1: API Resources & Scopes
 
-An API resource represents a protected API with a unique indicator (typically a URL).
+An **API Resource** represents a protected API. **Scopes** define what capabilities that API exposes.
+
+Think of it like this:
+- **API Resource** = "adesa+ Streaming API" (the thing being protected)
+- **Scopes** = "stream:live", "stream:vod", "content:download" (the permissions within it)
+
+### Layer 2: Roles
+
+A **Role** is a named collection of scopes drawn from one or more API resources. Roles are what you assign to users — not individual scopes.
+
+| Role | Scopes | Who gets it |
+|------|--------|------------|
+| mgpass:user | profile:read | Everyone (default role) |
+| adesa:subscriber | stream:live, stream:vod, profile:read | Paid adesa+ users |
+| adesa:premium | stream:live, stream:vod, content:download, profile:read | Premium subscribers |
+| mgtix:organizer | events:create, events:read, tickets:manage | Event organizers |
+| mgpass:admin | Full admin access | MG Digital staff |
+
+### Layer 3: Role Assignment
+
+Roles are assigned to users. A user can have multiple roles. Assignment happens through:
+
+- **Manual** — an admin assigns via the console or API
+- **Automatic** — roles marked `is_default` are assigned on registration
+- **Programmatic** — your backend calls the mgPass API when a subscription is purchased
+
+---
+
+## Setting Up RBAC (Admin Console)
+
+### Step 1: Create an API Resource
+
+<Steps>
+  <Step title="Navigate to Roles > API Resources">
+    In the admin console, go to **Roles** in the sidebar, then click the **API Resources** tab at the top.
+  </Step>
+  <Step title="Create the resource">
+    Fill in:
+    - **Name** — human-readable label (e.g., "adesa+ Streaming API")
+    - **Identifier** — unique URI used as the `audience` in JWTs (e.g., `https://api.adesa.com.gh`)
+
+    Click **Create**.
+  </Step>
+  <Step title="Add scopes">
+    On the resource row, use the inline form to add scopes one by one:
+    - **Name** — the scope identifier (e.g., `stream:live`)
+    - **Description** — what this scope allows (e.g., "Access live streams")
+
+    Repeat for each permission your API needs.
+  </Step>
+</Steps>
+
+**Common scope naming patterns:**
+```
+resource:action     → stream:live, events:create, tickets:purchase
+resource:modifier   → content:premium, support:priority
+admin:resource      → admin:users, admin:billing
+```
+
+### Step 2: Create Roles
+
+<Steps>
+  <Step title="Navigate to Roles">
+    Click **Roles** in the sidebar. You'll see existing roles.
+  </Step>
+  <Step title="Create a new role">
+    Click **Create Role**. Fill in:
+    - **Name** — unique identifier (e.g., `adesa:subscriber`)
+    - **Description** — what this role represents
+    - **Type** — `user` for human users, `m2m` for machine-to-machine apps
+  </Step>
+  <Step title="Assign scopes to the role">
+    On the role detail page, use the scope assignment section to add scopes from your API resources. Check the scopes this role should include.
+  </Step>
+  <Step title="(Optional) Set as default">
+    Click **Set as Default** if every new user should get this role on registration. Only use this for baseline roles like `mgpass:user`.
+  </Step>
+</Steps>
+
+### Step 3: Assign Roles to Users
+
+<Steps>
+  <Step title="Find the user">
+    Go to **Users**, search for the user, click their name to open the detail page.
+  </Step>
+  <Step title="Assign a role">
+    In the **Roles & Permissions** section, select a role from the dropdown and click **Assign**.
+  </Step>
+  <Step title="Verify">
+    The role appears in the user's role list. Their next access token will include the scopes from this role.
+  </Step>
+</Steps>
+
+---
+
+## Setting Up RBAC (API)
+
+### Create an API Resource
 
 ```bash
 curl -X POST https://pass.mediageneral.digital/api/api-resources \
@@ -35,12 +129,11 @@ curl -X POST https://pass.mediageneral.digital/api/api-resources \
   -H "Content-Type: application/json" \
   -d '{
     "name": "adesa+ Streaming API",
-    "indicator": "https://api.adesa.plus",
-    "is_default": false
+    "identifier": "https://api.adesa.com.gh"
   }'
 ```
 
-### Add Scopes to a Resource
+### Add Scopes
 
 ```bash
 curl -X POST https://pass.mediageneral.digital/api/api-resources/res_abc123/scopes \
@@ -52,10 +145,6 @@ curl -X POST https://pass.mediageneral.digital/api/api-resources/res_abc123/scop
   }'
 ```
 
-## Roles
-
-Roles are named collections of scopes from one or more API resources.
-
 ### Create a Role
 
 ```bash
@@ -63,75 +152,146 @@ curl -X POST https://pass.mediageneral.digital/api/roles \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "subscriber",
+    "name": "adesa:subscriber",
     "description": "adesa+ subscriber with streaming access",
-    "is_default": false,
     "type": "user",
-    "scope_ids": ["scope_stream_live", "scope_stream_vod", "scope_content_read"]
+    "is_default": false
   }'
 ```
 
-### Role Properties
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Unique role name |
-| `description` | string | Human-readable description |
-| `is_default` | boolean | Auto-assign to new users |
-| `type` | string | `user` or `machine_to_machine` |
-| `scope_ids` | string[] | Scopes included in this role |
-
-### Default Roles
-
-Roles marked `is_default: true` are automatically assigned to every new user on registration. Use this for baseline permissions that all users should have.
-
-### M2M Roles
-
-Roles with `type: "machine_to_machine"` can only be assigned to M2M applications, not to users. Use these for service-level permissions.
-
-## Assign Roles to Users
+### Assign Scopes to a Role
 
 ```bash
-# Assign
+curl -X POST https://pass.mediageneral.digital/api/roles/role_abc123/scopes \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "scope_id": "scope_stream_live" }'
+```
+
+### Assign a Role to a User
+
+```bash
 curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/roles \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "role_id": "role_subscriber" }'
+```
 
-# Remove
+### Remove a Role
+
+```bash
 curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123/roles/role_subscriber \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
+---
+
 ## How Scopes Appear in JWTs
 
-When a user authenticates, their access token includes scopes from all assigned roles (filtered to what the application requested):
+When a user authenticates, mgPass builds their access token by:
+
+1. Collecting all roles assigned to the user
+2. Gathering all scopes from those roles
+3. Filtering to only scopes the **application** is allowed to request
+4. Including the final scope list in the JWT
 
 ```json
 {
   "sub": "usr_abc123",
-  "aud": "https://api.adesa.plus",
-  "scope": "stream:live stream:vod content:read",
+  "aud": "https://api.adesa.com.gh",
+  "scope": "stream:live stream:vod profile:read",
+  "roles": ["adesa:subscriber"],
+  "iss": "https://pass.mediageneral.digital",
   "iat": 1711900000,
   "exp": 1711903600
 }
 ```
 
-## Example: adesa+ Subscriber Role
+Your API validates the token and checks the `scope` claim:
+
+```javascript
+// In your adesa+ API middleware
+const scopes = token.scope.split(' ');
+if (!scopes.includes('stream:live')) {
+  return res.status(403).json({ error: 'insufficient_scope' });
+}
+```
+
+---
+
+## Default Roles
+
+Roles with `is_default: true` are automatically assigned to every new user on registration. Use this for:
+
+- `mgpass:user` — basic profile access everyone needs
+- A "free tier" role with limited permissions
+
+<Note>
+Default roles only apply to new registrations. Existing users without the role are not affected. To backfill, assign the role via the API or admin console.
+</Note>
+
+---
+
+## M2M Roles
+
+Machine-to-machine applications (backend services) get roles too, but their roles have `type: "m2m"`. These roles:
+
+- Can only be assigned to M2M applications, not to users
+- Define what APIs the service can call
+- Scopes appear in the access token from the Client Credentials grant
+
+**Example:** mgRewards backend needs to call the mgPass Management API to look up user profiles:
+
+1. Create an M2M role `rewards:service` with scope `users:read`
+2. Assign it to the mgRewards M2M application
+3. mgRewards authenticates with Client Credentials and gets a token with `users:read`
+
+---
+
+## Real-World Example: adesa+ Integration
+
+Here's how the full RBAC setup works for adesa+:
 
 <Steps>
-  <Step title="Create the API resource">
-    Create a resource for the adesa+ streaming API with indicator `https://api.adesa.plus`.
+  <Step title="Create API Resource">
+    Name: "adesa+ API", Identifier: `https://api.adesa.com.gh`
+    Scopes: `stream:live`, `stream:vod`, `content:download`, `profile:read`
   </Step>
-  <Step title="Define scopes">
-    Add scopes: `stream:live`, `stream:vod`, `content:read`, `content:download`.
+  <Step title="Create Roles">
+    - **adesa:free** — `stream:live` (limited), `profile:read`
+    - **adesa:subscriber** — `stream:live`, `stream:vod`, `profile:read`
+    - **adesa:premium** — all scopes including `content:download`
   </Step>
-  <Step title="Create the role">
-    Create a "subscriber" role that includes `stream:live`, `stream:vod`, and `content:read`.
+  <Step title="Register adesa+ as an Application">
+    Type: Native (mobile) / SPA (web). Allowed scopes: all adesa+ scopes.
   </Step>
-  <Step title="Assign to users">
-    Assign the subscriber role to users who purchase an adesa+ subscription.
+  <Step title="Assign Roles on Subscription">
+    When a user purchases a subscription through your billing system, call the mgPass API:
+    ```bash
+    POST /api/users/{user_id}/roles
+    { "role_id": "role_adesa_subscriber" }
+    ```
+  </Step>
+  <Step title="Check Scopes in Your API">
+    The adesa+ backend validates the JWT and checks for required scopes before granting access to streams.
   </Step>
 </Steps>
 
-The adesa+ application then checks for the required scope in the access token before granting access to a stream.
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Principle of Least Privilege" icon="shield-check">
+    Give roles only the scopes they need. A subscriber doesn't need `content:download` — that's for premium.
+  </Card>
+  <Card title="Use Meaningful Names" icon="tag">
+    `adesa:subscriber` is better than `role_1`. Names appear in admin UI and audit logs.
+  </Card>
+  <Card title="One Default Role" icon="user-check">
+    Keep one default role for baseline access. Don't auto-assign premium permissions.
+  </Card>
+  <Card title="Scope at the API Level" icon="code">
+    Check scopes in your API, not in the frontend. The frontend can hide UI elements, but the API enforces access.
+  </Card>
+</CardGroup>
