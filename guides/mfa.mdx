@@ -1,0 +1,80 @@
+---
+title: "Multi-Factor Authentication"
+description: "Configure and enforce MFA with TOTP and recovery codes in mgPass."
+---
+
+## Overview
+
+mgPass supports multi-factor authentication (MFA) using time-based one-time passwords (TOTP). Administrators can configure MFA policies globally or per-role.
+
+## MFA Policy Modes
+
+| Mode | Description |
+|------|-------------|
+| `off` | MFA is disabled for all users |
+| `optional` | Users can opt in to MFA from the account portal |
+| `enforced` | All users must set up MFA on next login |
+
+## TOTP Setup Flow
+
+<Steps>
+  <Step title="Initiate setup">
+    The user initiates MFA setup from the account portal. mgPass generates a TOTP secret and returns a QR code URI.
+  </Step>
+  <Step title="Scan QR code">
+    The user scans the QR code with an authenticator app (Google Authenticator, Authy, 1Password, etc.).
+  </Step>
+  <Step title="Verify first code">
+    The user enters the 6-digit code from their authenticator app to confirm setup.
+  </Step>
+  <Step title="Save recovery codes">
+    mgPass generates 10 single-use recovery codes. The user must save these securely. Each code can only be used once.
+  </Step>
+</Steps>
+
+## Recovery Codes
+
+Recovery codes are 10 single-use codes generated when MFA is first enabled. They provide account recovery if the user loses access to their authenticator app.
+
+- 10 codes generated at MFA setup
+- Each code is 8 characters, alphanumeric
+- Each code can only be used once
+- Users can regenerate all codes (invalidating previous ones)
+
+<Warning>
+Recovery codes are shown only once during MFA setup. If a user loses both their authenticator device and recovery codes, an administrator must manually disable MFA on their account.
+</Warning>
+
+## Per-Role MFA Enforcement
+
+Enforce MFA for specific roles regardless of the global policy:
+
+```json
+{
+  "name": "admin",
+  "description": "Platform administrator",
+  "mfa_required": true
+}
+```
+
+When a role with `mfa_required: true` is assigned to a user who has not set up MFA, they will be prompted to configure it on their next login.
+
+## Admin Operations
+
+### Disable MFA for a User
+
+If a user is locked out, an admin can disable MFA on their account:
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/mfa/disable \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+### Check MFA Status
+
+```bash
+curl https://pass.mediageneral.digital/api/users/usr_abc123 \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+The user object includes `mfa_enabled: true|false` indicating whether MFA is configured.

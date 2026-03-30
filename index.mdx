@@ -1,36 +1,56 @@
 ---
-title: "mgPass Rewards"
-description: "Developer documentation for the mgPass Rewards API — the loyalty engine powering the MG Digital ecosystem."
+title: "mgPass Identity Platform"
+description: "Developer documentation for mgPass — the identity, authentication, and rewards platform powering the MG Digital ecosystem."
 ---
 
-## Welcome
+## Welcome to mgPass
 
-The mgPass Rewards API enables platforms and partners to award points, manage rewards, and offer mobile money cashback to users across the MG Digital ecosystem.
+mgPass is a complete identity platform built on Cloudflare Workers. It provides OAuth 2.0 / OIDC authentication, user management, role-based access control, and a loyalty rewards engine for the MG Digital ecosystem.
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
-    Publish your first event and award points in 5 minutes
+  <Card title="Authentication" icon="lock" href="/guides/oauth-flows">
+    OAuth 2.0 and OIDC flows for web, mobile, SPA, and machine-to-machine applications
   </Card>
-  <Card title="Partner Integration" icon="plug" href="/guides/partner-integration">
-    Full guide for external platform integration
+  <Card title="User Management" icon="users" href="/guides/user-management">
+    Create, update, and manage users with roles, social login, and MFA
+  </Card>
+  <Card title="Rewards" icon="star" href="/guides/quickstart">
+    Points engine with tier progression, catalog redemption, and mobile money cashback
   </Card>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
     Complete endpoint documentation with interactive playground
   </Card>
-  <Card title="Cashback" icon="money-bill" href="/guides/cashback">
-    Convert points to mobile money (MTN, Telecel, AirtelTigo)
-  </Card>
 </CardGroup>
 
-## How It Works
+## Platform Architecture
 
-1. **Partners publish events** when users take actions (read articles, make purchases, refer friends)
-2. **The rewards engine** matches events to rules, calculates points with tier multipliers, and enforces caps
-3. **Users earn points** that accumulate toward tier upgrades and can be redeemed for rewards or cashback
+mgPass is composed of three services:
+
+- **auth-worker** — The core API handling authentication, user management, RBAC, and rewards
+- **admin console** — Server-rendered admin dashboard for managing users, apps, roles, and rewards
+- **account portal** — User-facing self-service portal for profile, sessions, and rewards
+
+All services run on Cloudflare Workers with D1 (SQLite) for persistence, KV for sessions and caching, and R2 for file storage.
 
 ## Quick Links
 
-- [Authentication](/guides/authentication) — API keys, OAuth tokens, and security
-- [Webhooks](/guides/webhooks) — Real-time event notifications with signature verification
-- [Tiers & Benefits](/guides/tiers-and-benefits) — How the tier progression system works
-- [Error Handling](/guides/error-handling) — Status codes, rate limits, and retry strategies
+<CardGroup cols={3}>
+  <Card title="Platform Overview" icon="sitemap" href="/guides/overview">
+    Architecture and core concepts
+  </Card>
+  <Card title="OAuth Flows" icon="key" href="/guides/oauth-flows">
+    Authorization Code, PKCE, Client Credentials
+  </Card>
+  <Card title="Applications" icon="grid-2" href="/guides/applications">
+    Register and configure OAuth clients
+  </Card>
+  <Card title="RBAC" icon="shield" href="/guides/rbac">
+    Roles, scopes, and permissions
+  </Card>
+  <Card title="Social Login" icon="share-nodes" href="/guides/social-login">
+    Google, Apple, and Facebook connectors
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/guides/webhooks-identity">
+    Identity and rewards event notifications
+  </Card>
+</CardGroup>

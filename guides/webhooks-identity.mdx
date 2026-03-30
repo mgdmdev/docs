@@ -1,0 +1,134 @@
+---
+title: "Identity Webhooks"
+description: "Subscribe to identity lifecycle events — logins, registrations, suspensions, and more."
+---
+
+## Overview
+
+mgPass emits webhook events for identity lifecycle actions. These complement the [rewards webhooks](/guides/webhooks) and use the same delivery and signature verification mechanism.
+
+## Identity Events
+
+### Authentication Events
+
+| Event | Description |
+|-------|-------------|
+| `user.login.success` | User signed in successfully |
+| `user.login.failed` | Authentication attempt failed |
+
+### User Lifecycle Events
+
+| Event | Description |
+|-------|-------------|
+| `user.register` | New user account created |
+| `user.suspended` | User account suspended by admin |
+| `user.unsuspended` | User account unsuspended by admin |
+| `user.deleted` | User account deleted (soft delete) |
+
+### Session Events
+
+| Event | Description |
+|-------|-------------|
+| `session.created` | New session established |
+| `session.revoked` | Session manually revoked |
+
+### Token Events
+
+| Event | Description |
+|-------|-------------|
+| `token.issued` | Access token issued |
+| `token.refreshed` | Token refreshed via refresh token |
+
+### Role Events
+
+| Event | Description |
+|-------|-------------|
+| `role.assigned` | Role assigned to a user |
+| `role.removed` | Role removed from a user |
+
+### Admin Events
+
+| Event | Description |
+|-------|-------------|
+| `user.impersonated` | Admin impersonated a user |
+
+## Event Payload
+
+All identity webhook events follow the same envelope format:
+
+```json
+{
+  "id": "evt_abc123",
+  "type": "user.login.success",
+  "created_at": 1711900000,
+  "data": {
+    "user_id": "usr_abc123",
+    "email": "kwame@example.com",
+    "ip_address": "41.215.x.x",
+    "user_agent": "Mozilla/5.0...",
+    "method": "password"
+  }
+}
+```
+
+### Event-Specific Data
+
+**user.login.success:**
+```json
+{
+  "user_id": "usr_abc123",
+  "method": "password",
+  "client_id": "app_xyz789",
+  "ip_address": "41.215.x.x"
+}
+```
+
+**user.register:**
+```json
+{
+  "user_id": "usr_abc123",
+  "email": "kwame@example.com",
+  "method": "email_password",
+  "client_id": "app_xyz789"
+}
+```
+
+**role.assigned:**
+```json
+{
+  "user_id": "usr_abc123",
+  "role_id": "role_subscriber",
+  "role_name": "subscriber",
+  "assigned_by": "usr_admin456"
+}
+```
+
+## Signature Verification
+
+Identity webhooks use the same HMAC-SHA256 signature verification as rewards webhooks. The signature is sent in the `X-Webhook-Signature` header.
+
+<CodeGroup>
+```javascript JavaScript
+import { createHmac } from "crypto";
+
+function verifyWebhookSignature(payload, signature, secret) {
+  const expected = createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+  return signature === expected;
+}
+```
+
+```python Python
+import hmac
+import hashlib
+
+def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> bool:
+    expected = hmac.new(
+        secret.encode(), payload, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+```
+</CodeGroup>
+
+See the [rewards webhooks guide](/guides/webhooks) for full details on webhook configuration and retry behavior.

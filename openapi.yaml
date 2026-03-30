@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: mgPass Rewards API
+  title: mgPass API
   description: |
-    The mgPass Rewards API enables partners to award points, manage rewards, and integrate cashback for users across the MG Digital ecosystem.
+    The mgPass API provides identity, authentication, authorization, and rewards capabilities for the MG Digital ecosystem.
 
     ## Authentication
 
@@ -48,6 +48,22 @@ tags:
     description: View and manage redemptions (admin only)
   - name: Admin - Ledger
     description: Search and export points ledger (admin only)
+  - name: Authentication
+    description: OAuth 2.0 token exchange and OIDC discovery
+  - name: User Management
+    description: Admin endpoints for managing user accounts
+  - name: Account (Self-Service)
+    description: User-facing endpoints for managing own profile and sessions
+  - name: Applications
+    description: Register and manage OAuth clients (admin only)
+  - name: Roles & Permissions
+    description: Manage roles and scope assignments (admin only)
+  - name: API Resources
+    description: Manage API resources and their scopes (admin only)
+  - name: Organizations
+    description: Multi-tenancy organization management (admin only)
+  - name: Audit Logs
+    description: Query audit log entries (admin only)
 
 paths:
   # ──── Partner Events ────
@@ -737,6 +753,1255 @@ paths:
         "200":
           description: Redemption updated
 
+  # ──── Authentication ────
+  /api/token:
+    post:
+      operationId: exchangeToken
+      tags: [Authentication]
+      summary: Exchange tokens (authorization_code, refresh_token, client_credentials)
+      description: |
+        OAuth 2.0 token endpoint. Supports authorization code exchange, refresh token rotation,
+        and client credentials grant types.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code, refresh_token, client_credentials]
+                  description: The OAuth 2.0 grant type
+                code:
+                  type: string
+                  description: Authorization code (for authorization_code grant)
+                redirect_uri:
+                  type: string
+                  description: Must match the original redirect URI (for authorization_code grant)
+                client_id:
+                  type: string
+                  description: OAuth client ID
+                client_secret:
+                  type: string
+                  description: OAuth client secret (not required for PKCE flows)
+                refresh_token:
+                  type: string
+                  description: Refresh token (for refresh_token grant)
+                code_verifier:
+                  type: string
+                  description: PKCE code verifier (for authorization_code with PKCE)
+                scope:
+                  type: string
+                  description: Space-separated scopes (for client_credentials grant)
+      responses:
+        "200":
+          description: Tokens issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /.well-known/openid-configuration:
+    get:
+      operationId: getOIDCDiscovery
+      tags: [Authentication]
+      summary: OIDC discovery document
+      description: Returns the OpenID Connect discovery document with all endpoint URLs and supported features.
+      responses:
+        "200":
+          description: OIDC discovery document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OIDCDiscovery"
+
+  /.well-known/jwks.json:
+    get:
+      operationId: getJWKS
+      tags: [Authentication]
+      summary: JSON Web Key Set
+      description: Returns the public keys used to verify JWT signatures.
+      responses:
+        "200":
+          description: JWKS document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                          example: RSA
+                        use:
+                          type: string
+                          example: sig
+                        kid:
+                          type: string
+                        n:
+                          type: string
+                        e:
+                          type: string
+                        alg:
+                          type: string
+                          example: RS256
+
+  # ──── User Management (Admin) ────
+  /api/users:
+    get:
+      operationId: listUsers
+      tags: [User Management]
+      summary: List users
+      description: Retrieve a paginated list of users with optional search.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: q
+          in: query
+          description: Search by name or email
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  total:
+                    type: integer
+                    example: 1250
+                  page:
+                    type: integer
+                    example: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createUser
+      tags: [User Management]
+      summary: Create a user
+      description: Create a new user account with email and password.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/users/{id}:
+    get:
+      operationId: getUser
+      tags: [User Management]
+      summary: Get user with roles
+      description: Retrieve a user by ID including their assigned roles.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details with roles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/User"
+                  - type: object
+                    properties:
+                      roles:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Role"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateUser
+      tags: [User Management]
+      summary: Update a user
+      description: Update user profile fields. Only include fields you want to change.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: string
+                date_of_birth:
+                  type: string
+                  format: date
+                address:
+                  type: string
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [User Management]
+      summary: Soft delete a user
+      description: Soft-delete a user account. The record is retained but the user cannot sign in. Active sessions are revoked.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/users/{id}/suspend:
+    post:
+      operationId: suspendUser
+      tags: [User Management]
+      summary: Suspend a user
+      description: Suspend a user account. The user cannot sign in and all active sessions are revoked.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User suspended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/users/{id}/unsuspend:
+    post:
+      operationId: unsuspendUser
+      tags: [User Management]
+      summary: Unsuspend a user
+      description: Re-enable a suspended user account.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User unsuspended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/users/{id}/sessions:
+    get:
+      operationId: listUserSessions
+      tags: [User Management]
+      summary: List user sessions
+      description: Retrieve all active sessions for a user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        session_id:
+                          type: string
+                          example: sess_abc123
+                        user_agent:
+                          type: string
+                        ip_address:
+                          type: string
+                        last_active_at:
+                          type: integer
+                        created_at:
+                          type: integer
+
+  /api/users/{id}/sessions/revoke-all:
+    post:
+      operationId: revokeAllUserSessions
+      tags: [User Management]
+      summary: Revoke all user sessions
+      description: Revoke all active sessions for a user, forcing re-authentication.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All sessions revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked_count:
+                    type: integer
+                    example: 3
+
+  /api/users/{id}/identities:
+    get:
+      operationId: listUserIdentities
+      tags: [User Management]
+      summary: List linked social accounts
+      description: Retrieve all social identities linked to a user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Social identities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    provider:
+                      type: string
+                      example: google
+                    provider_user_id:
+                      type: string
+                    email:
+                      type: string
+                    name:
+                      type: string
+                    linked_at:
+                      type: integer
+
+  /api/users/{id}/login-history:
+    get:
+      operationId: getUserLoginHistory
+      tags: [User Management]
+      summary: Recent authentication events
+      description: Retrieve recent login attempts and authentication events for a user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Login history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    event_type:
+                      type: string
+                      example: user.login.success
+                    ip_address:
+                      type: string
+                    user_agent:
+                      type: string
+                    method:
+                      type: string
+                      example: password
+                    created_at:
+                      type: integer
+
+  /api/users/{id}/roles:
+    post:
+      operationId: assignUserRole
+      tags: [Roles & Permissions]
+      summary: Assign a role to a user
+      description: Assign a role to a user. The role's scopes will be included in the user's next access token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_id]
+              properties:
+                role_id:
+                  type: string
+                  example: role_subscriber
+      responses:
+        "200":
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/users/{id}/roles/{roleId}:
+    delete:
+      operationId: removeUserRole
+      tags: [Roles & Permissions]
+      summary: Remove a role from a user
+      description: Remove a previously assigned role from a user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  # ──── Account (Self-Service) ────
+  /api/account/profile:
+    get:
+      operationId: getOwnProfile
+      tags: [Account (Self-Service)]
+      summary: Get own profile
+      description: Retrieve the authenticated user's own profile.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateOwnProfile
+      tags: [Account (Self-Service)]
+      summary: Update own profile
+      description: Update the authenticated user's profile fields.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: string
+                date_of_birth:
+                  type: string
+                  format: date
+                address:
+                  type: string
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /api/account/sessions:
+    get:
+      operationId: listOwnSessions
+      tags: [Account (Self-Service)]
+      summary: List own sessions
+      description: Retrieve the authenticated user's active sessions.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        session_id:
+                          type: string
+                        user_agent:
+                          type: string
+                        ip_address:
+                          type: string
+                        device_type:
+                          type: string
+                        last_active_at:
+                          type: integer
+                        created_at:
+                          type: integer
+
+  /api/account/sessions/{id}/revoke:
+    post:
+      operationId: revokeOwnSession
+      tags: [Account (Self-Service)]
+      summary: Revoke own session
+      description: Revoke one of the authenticated user's sessions.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  # ──── Applications (Admin) ────
+  /api/clients:
+    get:
+      operationId: listClients
+      tags: [Applications]
+      summary: List OAuth clients
+      description: Retrieve all registered OAuth client applications.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated client list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OAuthClient"
+                  total:
+                    type: integer
+    post:
+      operationId: createClient
+      tags: [Applications]
+      summary: Create an OAuth client
+      description: Register a new OAuth client application. The client secret is returned once and cannot be retrieved again.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Client created with secret
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OAuthClient"
+                  - type: object
+                    properties:
+                      client_secret:
+                        type: string
+                        description: Shown once only
+                        example: cs_live_xxxxxxxxxxxxxxxx
+
+  /api/clients/{id}:
+    get:
+      operationId: getClient
+      tags: [Applications]
+      summary: Get an OAuth client
+      description: Retrieve details for a specific OAuth client.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthClient"
+    patch:
+      operationId: updateClient
+      tags: [Applications]
+      summary: Update an OAuth client
+      description: Update an existing OAuth client's configuration.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "200":
+          description: Client updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthClient"
+    delete:
+      operationId: deleteClient
+      tags: [Applications]
+      summary: Delete an OAuth client
+      description: Delete an OAuth client. All tokens issued to this client are immediately invalidated.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/clients/{id}/rotate-secret:
+    post:
+      operationId: rotateClientSecret
+      tags: [Applications]
+      summary: Rotate client secret
+      description: Generate a new client secret. The old secret remains valid for a grace period.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New secret generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_secret:
+                    type: string
+                    example: cs_live_new_xxxxxxxxxxxxxxxx
+
+  # ──── Roles (Admin) ────
+  /api/roles:
+    get:
+      operationId: listRoles
+      tags: [Roles & Permissions]
+      summary: List roles
+      description: Retrieve all roles with their scope counts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated role list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Role"
+                  total:
+                    type: integer
+    post:
+      operationId: createRole
+      tags: [Roles & Permissions]
+      summary: Create a role
+      description: Create a new role with specified scopes.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleInput"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+
+  /api/roles/{id}:
+    get:
+      operationId: getRole
+      tags: [Roles & Permissions]
+      summary: Get role with scopes
+      description: Retrieve a role by ID including all assigned scopes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role with scopes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Role"
+                  - type: object
+                    properties:
+                      scopes:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Scope"
+    patch:
+      operationId: updateRole
+      tags: [Roles & Permissions]
+      summary: Update a role
+      description: Update role properties or assigned scopes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleInput"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+    delete:
+      operationId: deleteRole
+      tags: [Roles & Permissions]
+      summary: Delete a role
+      description: Delete a role. Users who had this role will lose its scopes on their next token refresh.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  # ──── API Resources (Admin) ────
+  /api/api-resources:
+    get:
+      operationId: listApiResources
+      tags: [API Resources]
+      summary: List API resources
+      description: Retrieve all registered API resources.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: API resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiResource"
+                  total:
+                    type: integer
+    post:
+      operationId: createApiResource
+      tags: [API Resources]
+      summary: Create an API resource
+      description: Register a new API resource with a unique indicator URI.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, indicator]
+              properties:
+                name:
+                  type: string
+                  example: adesa+ Streaming API
+                indicator:
+                  type: string
+                  example: https://api.adesa.plus
+                is_default:
+                  type: boolean
+                  default: false
+      responses:
+        "201":
+          description: API resource created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResource"
+
+  /api/api-resources/{id}:
+    get:
+      operationId: getApiResource
+      tags: [API Resources]
+      summary: Get API resource with scopes
+      description: Retrieve an API resource by ID including all defined scopes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API resource with scopes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResource"
+                  - type: object
+                    properties:
+                      scopes:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Scope"
+
+  /api/api-resources/{id}/scopes:
+    post:
+      operationId: addResourceScope
+      tags: [API Resources]
+      summary: Add a scope to a resource
+      description: Define a new scope on an API resource.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: stream:live
+                description:
+                  type: string
+                  example: Access live streams
+      responses:
+        "201":
+          description: Scope added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scope"
+
+  # ──── Organizations (Admin) ────
+  /api/organizations:
+    get:
+      operationId: listOrganizations
+      tags: [Organizations]
+      summary: List organizations
+      description: Retrieve all organizations.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Organization"
+                  total:
+                    type: integer
+    post:
+      operationId: createOrganization
+      tags: [Organizations]
+      summary: Create an organization
+      description: Create a new organization for multi-tenancy.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: TV3 Network
+                description:
+                  type: string
+                  example: TV3 broadcast partner
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /api/organizations/{id}:
+    get:
+      operationId: getOrganization
+      tags: [Organizations]
+      summary: Get an organization
+      description: Retrieve organization details by ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /api/organizations/{id}/members:
+    post:
+      operationId: addOrgMember
+      tags: [Organizations]
+      summary: Add a member to an organization
+      description: Add a user to an organization with an organization-scoped role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                  example: usr_abc123
+                role_id:
+                  type: string
+                  example: role_org_admin
+      responses:
+        "200":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  # ──── Audit Logs (Admin) ────
+  /api/audit:
+    get:
+      operationId: listAuditLogs
+      tags: [Audit Logs]
+      summary: List audit log entries
+      description: Query paginated audit log entries with optional filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: user_id
+          in: query
+          description: Filter by actor user ID
+          schema:
+            type: string
+        - name: event_type
+          in: query
+          description: Filter by event type
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Unix timestamp lower bound
+          schema:
+            type: integer
+        - name: to
+          in: query
+          description: Unix timestamp upper bound
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+
   # ──── Admin - Manual Operations ────
   /api/rewards/credit:
     post:
@@ -970,6 +2235,349 @@ components:
           default: true
         version:
           type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: usr_abc123def456
+        email:
+          type: string
+          format: email
+          example: kwame@example.com
+        name:
+          type: string
+          example: Kwame Asante
+        phone:
+          type: string
+          example: "+233241234567"
+        avatar:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        is_suspended:
+          type: boolean
+          example: false
+        created_at:
+          type: integer
+          example: 1711900000
+        updated_at:
+          type: integer
+          example: 1711900000
+
+    UserInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: kwame@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecureP@ssw0rd
+        name:
+          type: string
+          example: Kwame Asante
+        phone:
+          type: string
+          example: "+233241234567"
+
+    OAuthClient:
+      type: object
+      properties:
+        id:
+          type: string
+          example: app_abc123
+        name:
+          type: string
+          example: adesa+ Web
+        type:
+          type: string
+          enum: [traditional_web, spa, native, machine_to_machine]
+          example: traditional_web
+        client_id:
+          type: string
+          example: app_abc123
+        redirect_uris:
+          type: array
+          items:
+            type: string
+          example: ["https://adesa.plus/callback"]
+        post_logout_redirect_uris:
+          type: array
+          items:
+            type: string
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+          example: ["openid", "profile", "email"]
+        cors_origins:
+          type: array
+          items:
+            type: string
+        access_token_ttl:
+          type: integer
+          example: 3600
+        refresh_token_ttl:
+          type: integer
+          example: 2592000
+        logo_uri:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: integer
+
+    ClientInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          example: adesa+ Web
+        type:
+          type: string
+          enum: [traditional_web, spa, native, machine_to_machine]
+        redirect_uris:
+          type: array
+          items:
+            type: string
+        post_logout_redirect_uris:
+          type: array
+          items:
+            type: string
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+        cors_origins:
+          type: array
+          items:
+            type: string
+        access_token_ttl:
+          type: integer
+          default: 3600
+        refresh_token_ttl:
+          type: integer
+          default: 2592000
+        logo_uri:
+          type: string
+        description:
+          type: string
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          example: role_subscriber
+        name:
+          type: string
+          example: subscriber
+        description:
+          type: string
+          example: adesa+ subscriber with streaming access
+        is_default:
+          type: boolean
+          example: false
+        type:
+          type: string
+          enum: [user, machine_to_machine]
+          example: user
+        created_at:
+          type: integer
+
+    RoleInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: subscriber
+        description:
+          type: string
+        is_default:
+          type: boolean
+          default: false
+        type:
+          type: string
+          enum: [user, machine_to_machine]
+          default: user
+        scope_ids:
+          type: array
+          items:
+            type: string
+          description: IDs of scopes to include in this role
+
+    ApiResource:
+      type: object
+      properties:
+        id:
+          type: string
+          example: res_abc123
+        name:
+          type: string
+          example: adesa+ Streaming API
+        indicator:
+          type: string
+          example: https://api.adesa.plus
+        is_default:
+          type: boolean
+          example: false
+        created_at:
+          type: integer
+
+    Scope:
+      type: object
+      properties:
+        id:
+          type: string
+          example: scope_stream_live
+        name:
+          type: string
+          example: stream:live
+        description:
+          type: string
+          example: Access live streams
+        resource_id:
+          type: string
+        created_at:
+          type: integer
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          example: org_abc123
+        name:
+          type: string
+          example: TV3 Network
+        description:
+          type: string
+          nullable: true
+          example: TV3 broadcast partner
+        created_at:
+          type: integer
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          example: aud_abc123
+        event_type:
+          type: string
+          example: user.login.success
+        actor_id:
+          type: string
+          example: usr_abc123
+        actor_email:
+          type: string
+          example: kwame@example.com
+        target_type:
+          type: string
+          example: user
+        target_id:
+          type: string
+          example: usr_abc123
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: integer
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJSUzI1NiIs...
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 3600
+        refresh_token:
+          type: string
+          nullable: true
+          example: rt_abc123...
+        id_token:
+          type: string
+          nullable: true
+          example: eyJhbGciOiJSUzI1NiIs...
+        scope:
+          type: string
+          example: openid profile email
+
+    OIDCDiscovery:
+      type: object
+      properties:
+        issuer:
+          type: string
+          example: https://pass.mediageneral.digital
+        authorization_endpoint:
+          type: string
+          example: https://pass.mediageneral.digital/oidc/auth
+        token_endpoint:
+          type: string
+          example: https://pass.mediageneral.digital/api/token
+        userinfo_endpoint:
+          type: string
+          example: https://pass.mediageneral.digital/oidc/userinfo
+        jwks_uri:
+          type: string
+          example: https://pass.mediageneral.digital/.well-known/jwks.json
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          example: [openid, profile, email, phone, offline_access]
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          example: [code]
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          example: [authorization_code, refresh_token, client_credentials]
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          example: [public]
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: [RS256]
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+          example: [S256]
 
   responses:
     BadRequest:

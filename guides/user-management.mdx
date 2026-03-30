@@ -1,0 +1,205 @@
+---
+title: "User Management"
+description: "Create, update, search, and manage users via the mgPass API."
+---
+
+## Overview
+
+The mgPass User Management API provides full CRUD operations on user accounts. All endpoints require admin authentication with the `mgpass:admin` scope.
+
+## Create a User
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://pass.mediageneral.digital/api/users \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "kwame@example.com",
+    "password": "SecureP@ssw0rd",
+    "name": "Kwame Asante",
+    "phone": "+233241234567"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://pass.mediageneral.digital/api/users", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer ADMIN_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    email: "kwame@example.com",
+    password: "SecureP@ssw0rd",
+    name: "Kwame Asante",
+    phone: "+233241234567",
+  }),
+});
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://pass.mediageneral.digital/api/users",
+    headers={"Authorization": "Bearer ADMIN_TOKEN"},
+    json={
+        "email": "kwame@example.com",
+        "password": "SecureP@ssw0rd",
+        "name": "Kwame Asante",
+        "phone": "+233241234567",
+    },
+)
+```
+</CodeGroup>
+
+## Get a User
+
+Retrieve a user by ID, including their assigned roles:
+
+```bash
+curl https://pass.mediageneral.digital/api/users/usr_abc123 \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+
+```json
+{
+  "id": "usr_abc123",
+  "email": "kwame@example.com",
+  "name": "Kwame Asante",
+  "phone": "+233241234567",
+  "avatar": null,
+  "gender": null,
+  "date_of_birth": null,
+  "address": null,
+  "is_suspended": false,
+  "created_at": 1711900000,
+  "updated_at": 1711900000,
+  "roles": [
+    { "id": "role_subscriber", "name": "subscriber" }
+  ]
+}
+```
+
+## Update a User
+
+Update profile fields with a PATCH request. Only include the fields you want to change.
+
+```bash
+curl -X PATCH https://pass.mediageneral.digital/api/users/usr_abc123 \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Kwame Asante-Mensah",
+    "phone": "+233551234567",
+    "gender": "male",
+    "date_of_birth": "1990-05-15"
+  }'
+```
+
+### Updatable Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Display name |
+| `email` | string | Email address |
+| `phone` | string | Phone number (E.164 format) |
+| `avatar` | string | Avatar URL |
+| `gender` | string | Gender |
+| `date_of_birth` | string | Date of birth (YYYY-MM-DD) |
+| `address` | string | Physical address |
+
+## Search and List Users
+
+List users with pagination and search:
+
+```bash
+curl "https://pass.mediageneral.digital/api/users?page=1&limit=20&q=kwame" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `page` | integer | Page number (default: 1) |
+| `limit` | integer | Results per page (default: 20, max: 100) |
+| `q` | string | Search by name or email |
+
+## Suspend / Unsuspend
+
+Suspended users cannot sign in or obtain new tokens. Existing sessions are revoked on suspension.
+
+```bash
+# Suspend
+curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/suspend \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+
+# Unsuspend
+curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/unsuspend \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+## Delete a User
+
+Soft-deletes a user. The record is retained but the user can no longer sign in.
+
+```bash
+curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123 \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+<Warning>
+Deletion is a soft delete -- the user record is marked as deleted but not removed from the database. Active sessions are revoked immediately.
+</Warning>
+
+## User Sessions
+
+View and manage a user's active sessions:
+
+```bash
+# List sessions
+curl https://pass.mediageneral.digital/api/users/usr_abc123/sessions \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+
+# Revoke all sessions
+curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/sessions/revoke-all \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+## Social Identities
+
+View a user's linked social accounts:
+
+```bash
+curl https://pass.mediageneral.digital/api/users/usr_abc123/identities \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+## Login History
+
+View recent authentication events for a user:
+
+```bash
+curl https://pass.mediageneral.digital/api/users/usr_abc123/login-history \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+## User Roles
+
+Assign and remove roles from users:
+
+```bash
+# Assign a role
+curl -X POST https://pass.mediageneral.digital/api/users/usr_abc123/roles \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "role_id": "role_premium" }'
+
+# Remove a role
+curl -X DELETE https://pass.mediageneral.digital/api/users/usr_abc123/roles/role_premium \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+See [RBAC](/guides/rbac) for details on roles and scopes.

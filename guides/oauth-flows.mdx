@@ -1,0 +1,272 @@
+---
+title: "OAuth 2.0 / OIDC Flows"
+description: "Complete guide to implementing OAuth 2.0 and OpenID Connect authentication with mgPass."
+---
+
+## Overview
+
+mgPass implements OAuth 2.0 and OpenID Connect (OIDC) for authentication and authorization. Choose the flow that matches your application type.
+
+| Flow | Use Case |
+|------|----------|
+| Authorization Code | Traditional web apps with a backend |
+| Authorization Code + PKCE | SPAs and mobile/native apps |
+| Client Credentials | Machine-to-machine (M2M) |
+| Refresh Token | Renewing expired access tokens |
+
+## Discovery Endpoint
+
+The OIDC discovery document provides all endpoint URLs and supported features:
+
+```
+GET https://pass.mediageneral.digital/.well-known/openid-configuration
+```
+
+The JWKS endpoint for token verification:
+
+```
+GET https://pass.mediageneral.digital/.well-known/jwks.json
+```
+
+## Authorization Code Flow
+
+Best for traditional web applications with a server-side backend.
+
+<Steps>
+  <Step title="Redirect to authorize">
+    Redirect the user to the authorization endpoint:
+
+    ```
+    GET https://pass.mediageneral.digital/oidc/auth?
+      response_type=code
+      &client_id=YOUR_CLIENT_ID
+      &redirect_uri=https://yourapp.com/callback
+      &scope=openid profile email
+      &state=random_state_value
+    ```
+
+    | Parameter | Required | Description |
+    |-----------|----------|-------------|
+    | `response_type` | Yes | Must be `code` |
+    | `client_id` | Yes | Your application's client ID |
+    | `redirect_uri` | Yes | Must match a registered redirect URI |
+    | `scope` | Yes | Space-separated scopes (include `openid` for OIDC) |
+    | `state` | Recommended | CSRF protection value |
+  </Step>
+
+  <Step title="User authenticates">
+    mgPass displays the sign-in screen. The user authenticates with email/password or a social connector. If consent is required, a consent screen is shown.
+  </Step>
+
+  <Step title="Receive authorization code">
+    After successful auth, mgPass redirects to your `redirect_uri` with a code:
+
+    ```
+    https://yourapp.com/callback?code=AUTH_CODE&state=random_state_value
+    ```
+  </Step>
+
+  <Step title="Exchange code for tokens">
+    Exchange the authorization code for tokens:
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://pass.mediageneral.digital/api/token \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "grant_type=authorization_code" \
+      -d "code=AUTH_CODE" \
+      -d "redirect_uri=https://yourapp.com/callback" \
+      -d "client_id=YOUR_CLIENT_ID" \
+      -d "client_secret=YOUR_CLIENT_SECRET"
+    ```
+
+    ```javascript JavaScript
+    const response = await fetch("https://pass.mediageneral.digital/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: "AUTH_CODE",
+        redirect_uri: "https://yourapp.com/callback",
+        client_id: "YOUR_CLIENT_ID",
+        client_secret: "YOUR_CLIENT_SECRET",
+      }),
+    });
+    const tokens = await response.json();
+    ```
+
+    ```python Python
+    import requests
+
+    response = requests.post(
+        "https://pass.mediageneral.digital/api/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": "AUTH_CODE",
+            "redirect_uri": "https://yourapp.com/callback",
+            "client_id": "YOUR_CLIENT_ID",
+            "client_secret": "YOUR_CLIENT_SECRET",
+        },
+    )
+    tokens = response.json()
+    ```
+    </CodeGroup>
+
+    **Response:**
+
+    ```json
+    {
+      "access_token": "eyJhbGciOiJSUzI1NiIs...",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "rt_abc123...",
+      "id_token": "eyJhbGciOiJSUzI1NiIs...",
+      "scope": "openid profile email"
+    }
+    ```
+  </Step>
+</Steps>
+
+## Authorization Code + PKCE
+
+Required for SPAs and mobile apps that cannot securely store a client secret.
+
+<Steps>
+  <Step title="Generate PKCE values">
+    Generate a random `code_verifier` and derive the `code_challenge`:
+
+    ```javascript
+    function generateCodeVerifier() {
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      return btoa(String.fromCharCode(...array))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    async function generateCodeChallenge(verifier) {
+      const hash = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier)
+      );
+      return btoa(String.fromCharCode(...new Uint8Array(hash)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    ```
+  </Step>
+
+  <Step title="Redirect with PKCE parameters">
+    ```
+    GET https://pass.mediageneral.digital/oidc/auth?
+      response_type=code
+      &client_id=YOUR_CLIENT_ID
+      &redirect_uri=https://yourapp.com/callback
+      &scope=openid profile email
+      &state=random_state_value
+      &code_challenge=CODE_CHALLENGE
+      &code_challenge_method=S256
+    ```
+  </Step>
+
+  <Step title="Exchange code with verifier">
+    Include `code_verifier` instead of `client_secret`:
+
+    ```javascript
+    const response = await fetch("https://pass.mediageneral.digital/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: "AUTH_CODE",
+        redirect_uri: "https://yourapp.com/callback",
+        client_id: "YOUR_CLIENT_ID",
+        code_verifier: "ORIGINAL_CODE_VERIFIER",
+      }),
+    });
+    ```
+  </Step>
+</Steps>
+
+## Client Credentials Flow
+
+For server-to-server (M2M) communication where no user is involved.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://pass.mediageneral.digital/api/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_M2M_CLIENT_ID" \
+  -d "client_secret=YOUR_M2M_CLIENT_SECRET" \
+  -d "scope=api:read api:write"
+```
+
+```javascript JavaScript
+const response = await fetch("https://pass.mediageneral.digital/api/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: "YOUR_M2M_CLIENT_ID",
+    client_secret: "YOUR_M2M_CLIENT_SECRET",
+    scope: "api:read api:write",
+  }),
+});
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://pass.mediageneral.digital/api/token",
+    data={
+        "grant_type": "client_credentials",
+        "client_id": "YOUR_M2M_CLIENT_ID",
+        "client_secret": "YOUR_M2M_CLIENT_SECRET",
+        "scope": "api:read api:write",
+    },
+)
+```
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "api:read api:write"
+}
+```
+
+<Note>
+Client credentials tokens do not include a `refresh_token` or `id_token` since there is no user context.
+</Note>
+
+## Refresh Token Rotation
+
+When an access token expires, use the refresh token to get a new pair:
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=refresh_token" \
+  -d "refresh_token=rt_abc123..." \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET"
+```
+
+<Warning>
+mgPass uses **refresh token rotation**. Each refresh returns a new refresh token and invalidates the old one. If a previously-used refresh token is submitted, all tokens for that session are revoked (replay detection).
+</Warning>
+
+## Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `openid` | Required for OIDC, returns an ID token |
+| `profile` | User profile claims (name, avatar, etc.) |
+| `email` | Email address and verification status |
+| `phone` | Phone number and verification status |
+| `offline_access` | Include a refresh token |
+| Custom scopes | Defined per API resource (e.g., `stream:live`) |

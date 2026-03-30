@@ -1,0 +1,103 @@
+---
+title: "SMS OTP Verification"
+description: "Configure and use SMS one-time passwords via Hubtel for user verification in mgPass."
+---
+
+## Overview
+
+mgPass supports SMS-based one-time password (OTP) verification via Hubtel. This is used for phone number verification, passwordless sign-in, and as a second factor in MFA flows.
+
+## How OTP Works
+
+<Steps>
+  <Step title="Request OTP">
+    The application requests an OTP for a phone number. mgPass generates a 6-digit code and sends it via Hubtel SMS.
+  </Step>
+  <Step title="User receives SMS">
+    The user receives an SMS with the code. The message includes the code and a note that it expires in 10 minutes.
+  </Step>
+  <Step title="Verify OTP">
+    The application submits the code. mgPass verifies it against the stored code, checking expiry and attempt count.
+  </Step>
+</Steps>
+
+## Configuration
+
+Configure the Hubtel SMS connector in the mgPass admin console:
+
+| Field | Description |
+|-------|-------------|
+| `api_key` | Hubtel API key |
+| `client_id` | Hubtel client ID |
+| `sender_id` | SMS sender name (e.g., "mgPass") |
+
+## OTP Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Code length | 6 digits |
+| Expiry | 10 minutes |
+| Max verification attempts | 3 |
+| Lockout duration | 15 minutes |
+
+## Request an OTP
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/verification/sms/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "+233241234567"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "verification_id": "ver_abc123",
+  "expires_at": 1711900600
+}
+```
+
+## Verify an OTP
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/verification/sms/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "verification_id": "ver_abc123",
+    "code": "482951"
+  }'
+```
+
+**Response (success):**
+
+```json
+{
+  "verified": true,
+  "phone": "+233241234567"
+}
+```
+
+**Response (failure):**
+
+```json
+{
+  "verified": false,
+  "attempts_remaining": 2,
+  "error": "invalid_code"
+}
+```
+
+## Error Handling
+
+| Error | Description |
+|-------|-------------|
+| `invalid_code` | The submitted code does not match |
+| `expired` | The OTP has expired (after 10 minutes) |
+| `max_attempts` | Too many failed attempts, locked for 15 minutes |
+| `rate_limited` | Too many OTP requests for this phone number |
+
+<Warning>
+After 3 failed verification attempts, the OTP is invalidated and the phone number is locked for 15 minutes. A new OTP must be requested after the lockout expires.
+</Warning>

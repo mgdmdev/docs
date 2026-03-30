@@ -1,0 +1,102 @@
+---
+title: "Audit Logs"
+description: "Query and understand audit logs for compliance and security monitoring in mgPass."
+---
+
+## Overview
+
+mgPass records audit logs for security-sensitive operations. Audit logs are immutable records that capture who did what, when, and from where.
+
+## What Gets Logged
+
+### Authentication Events
+
+- User login (success and failure)
+- Token issuance and refresh
+- Session creation and revocation
+- MFA setup and verification
+
+### User Management Events
+
+- User creation, update, deletion
+- Suspension and unsuspension
+- Role assignment and removal
+- Password changes and resets
+
+### Application Management Events
+
+- OAuth client creation, update, deletion
+- Secret rotation
+- Scope changes
+
+### Administrative Events
+
+- API resource and scope management
+- Role creation, update, deletion
+- Organization changes
+- Partner management
+- User impersonation
+
+## Querying Audit Logs
+
+```bash
+curl "https://pass.mediageneral.digital/api/audit?page=1&limit=50" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+### Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `page` | integer | Page number (default: 1) |
+| `limit` | integer | Results per page (default: 50, max: 100) |
+| `user_id` | string | Filter by user who performed the action |
+| `event_type` | string | Filter by event type |
+| `from` | integer | Unix timestamp lower bound |
+| `to` | integer | Unix timestamp upper bound |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "id": "aud_abc123",
+      "event_type": "user.login.success",
+      "actor_id": "usr_abc123",
+      "actor_email": "kwame@example.com",
+      "target_type": "user",
+      "target_id": "usr_abc123",
+      "ip_address": "41.215.x.x",
+      "user_agent": "Mozilla/5.0...",
+      "metadata": {
+        "method": "password",
+        "client_id": "app_xyz789"
+      },
+      "created_at": 1711900000
+    }
+  ],
+  "total": 1250,
+  "page": 1
+}
+```
+
+## Event Types
+
+| Category | Event Types |
+|----------|-------------|
+| Authentication | `user.login.success`, `user.login.failed`, `token.issued`, `token.refreshed` |
+| Sessions | `session.created`, `session.revoked` |
+| Users | `user.created`, `user.updated`, `user.deleted`, `user.suspended`, `user.unsuspended` |
+| Roles | `role.created`, `role.updated`, `role.deleted`, `role.assigned`, `role.removed` |
+| Applications | `client.created`, `client.updated`, `client.deleted`, `client.secret_rotated` |
+| MFA | `mfa.enabled`, `mfa.disabled`, `mfa.verified` |
+| Admin | `user.impersonated`, `settings.updated` |
+
+## Retention
+
+Audit logs are retained in D1 indefinitely. For compliance requirements, logs can be exported via the admin console.
+
+<Note>
+Audit logs are read-only. They cannot be modified or deleted through any API.
+</Note>

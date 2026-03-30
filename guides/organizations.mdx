@@ -1,0 +1,83 @@
+---
+title: "Organizations"
+description: "Multi-tenancy with organizations in mgPass for partner companies and enterprise clients."
+---
+
+## Overview
+
+Organizations in mgPass provide multi-tenancy support. They represent partner companies, enterprise clients, or business units that need isolated user management and access control.
+
+## Use Cases
+
+- **Partner companies** — Give each partner their own organization with scoped API credentials
+- **Enterprise clients** — Isolate user pools and roles per enterprise customer
+- **Business units** — Separate internal teams with different permission sets
+
+## Create an Organization
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/organizations \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "TV3 Network",
+    "description": "TV3 broadcast partner"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "id": "org_abc123",
+  "name": "TV3 Network",
+  "description": "TV3 broadcast partner",
+  "created_at": 1711900000
+}
+```
+
+## List Organizations
+
+```bash
+curl https://pass.mediageneral.digital/api/organizations \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+## Add Members
+
+Add a user to an organization with an organization-scoped role:
+
+```bash
+curl -X POST https://pass.mediageneral.digital/api/organizations/org_abc123/members \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "role_id": "role_org_admin"
+  }'
+```
+
+## Organization-Scoped Roles
+
+Organization roles are separate from global roles. A user might be a basic "subscriber" globally but an "admin" within their organization.
+
+| Scope | Description |
+|-------|-------------|
+| Global roles | Apply across all resources |
+| Organization roles | Apply only within the organization context |
+
+## Organization-Scoped API Credentials
+
+M2M applications can be scoped to an organization. Tokens issued to these apps include an `org_id` claim:
+
+```json
+{
+  "sub": "app_m2m_abc123",
+  "org_id": "org_abc123",
+  "scope": "api:read api:write",
+  "iat": 1711900000,
+  "exp": 1711903600
+}
+```
+
+This allows API resources to filter data by organization automatically.
