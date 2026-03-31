@@ -892,6 +892,75 @@ paths:
                     type: boolean
                     example: true
 
+  # ──── One Tap SDK ────
+  /onetap/check:
+    get:
+      operationId: onetapCheck
+      tags: [Authentication]
+      summary: One Tap session check (iframe)
+      description: |
+        Returns an HTML page that checks for the mgpass_session cookie and posts user info
+        to the parent window via postMessage. Used internally by the One Tap SDK.
+      responses:
+        "200":
+          description: HTML page with embedded JavaScript
+
+  /onetap/session:
+    get:
+      operationId: onetapSession
+      tags: [Authentication]
+      summary: One Tap session check (JSON API)
+      description: |
+        Returns current session status and basic user info.
+        Requires cookies (same-origin or CORS with credentials).
+      responses:
+        "200":
+          description: Session status and optional user info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    description: Whether the user has an active mgPass session
+                  user:
+                    type: object
+                    nullable: true
+                    description: Basic user profile (null if not authenticated)
+                    properties:
+                      id:
+                        type: string
+                        description: The mgPass user ID
+                      name:
+                        type: string
+                        nullable: true
+                        description: User's display name
+                      email:
+                        type: string
+                        nullable: true
+                        description: User's email address
+                      avatar:
+                        type: string
+                        nullable: true
+                        description: URL to the user's avatar image
+
+  /sdk/onetap.js:
+    get:
+      operationId: onetapSdk
+      tags: [Authentication]
+      summary: One Tap JavaScript SDK
+      description: |
+        Self-contained JavaScript SDK for cross-domain SSO.
+        Embed via script tag: `<script src="https://auth.mgpass.net/sdk/onetap.js"></script>`
+      responses:
+        "200":
+          description: JavaScript file
+          content:
+            application/javascript:
+              schema:
+                type: string
+
   # ──── Account - Identities ────
   /api/account/identities:
     get:

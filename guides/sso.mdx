@@ -5,9 +5,14 @@ description: "How mgPass provides seamless single sign-on across all connected p
 
 ## Overview
 
-mgPass provides Single Sign-On (SSO) so users authenticate once and are automatically recognized across all connected applications. Whether a user signs in on one application and then visits another, or logs into the admin console after authenticating on the account portal, mgPass handles the session sharing transparently.
+mgPass provides Single Sign-On (SSO) so users authenticate once and are automatically recognized across all connected applications. There are two SSO mechanisms depending on whether the application shares the `.mgpass.net` domain.
 
-There are two SSO modes depending on whether the applications share a domain.
+| Mechanism | When to use | How it works |
+|-----------|-------------|--------------|
+| Same-domain SSO | Apps on `*.mgpass.net` | Shared session cookie on `.mgpass.net` |
+| Cross-domain SSO | Partner sites on other domains | One Tap SDK with hidden iframe |
+
+---
 
 ## Same-Domain SSO
 
@@ -17,212 +22,185 @@ All mgPass properties share the `.mgpass.net` parent domain:
 - `admin.mgpass.net` -- admin console
 - `mgpass.net` -- user account portal
 
-When a user authenticates on any of these, mgPass sets a session cookie on the parent domain (`.mgpass.net`). Because all properties share this domain, the cookie is automatically sent with every request.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Auth as auth.mgpass.net
-    participant Admin as admin.mgpass.net
-
-    User->>Auth: Sign in with email/password
-    Auth-->>User: Set session cookie on .mgpass.net
-    User->>Admin: Visit admin.mgpass.net
-    Admin->>Auth: prompt=none redirect (cookie sent automatically)
-    Auth-->>Admin: Authorization code (instant, no UI)
-    Admin-->>User: Logged in instantly
-```
-
-<Note>
-Same-domain SSO is completely transparent to the user. Visiting `admin.mgpass.net` while logged into `auth.mgpass.net` triggers a `prompt=none` redirect behind the scenes -- the user never sees a login screen.
-</Note>
-
-## Cross-Domain SSO
-
-Applications on different domains (your apps, partner sites) cannot share cookies with `.mgpass.net`. Instead, they use the OIDC `prompt=none` redirect pattern to check for an active session.
+When a user authenticates, the auth-worker sets a `mgpass_session` cookie on the `.mgpass.net` domain. Because all mgPass properties are subdomains, the cookie is sent with every request automatically.
 
 ### How It Works
 
 <Steps>
-  <Step title="Check for existing session">
-    Your application redirects the user to mgPass with `prompt=none`. This tells mgPass to skip the login UI entirely:
-
-    ```
-    GET https://auth.mgpass.net/oidc/auth?
-      prompt=none
-      &client_id=YOUR_CLIENT_ID
-      &redirect_uri=https://yourapp.com/callback
-      &response_type=code
-      &scope=openid+profile+email
-      &state=RANDOM_STATE
-    ```
+  <Step title="User signs in">
+    The user authenticates on any mgPass surface (e.g. the account portal at `mgpass.net`). The auth-worker sets the `mgpass_session` cookie on `.mgpass.net`.
   </Step>
 
-  <Step title="mgPass checks the session">
-    mgPass checks if the user has an active session cookie. Three outcomes are possible:
-
-    | Outcome | Response | Meaning |
-    |---------|----------|---------|
-    | Active session, app authorized | Redirect with `?code=AUTH_CODE&state=...` | Instant SSO login |
-    | No session | Redirect with `?error=login_required` | User must sign in |
-    | Session exists, first-time app | Redirect with `?error=consent_required` | Consent screen needed |
+  <Step title="User visits another mgPass property">
+    The user navigates to `admin.mgpass.net`. The session guard detects no local session.
   </Step>
 
-  <Step title="Handle the response">
-    Your callback page inspects the redirect parameters and acts accordingly:
+  <Step title="Silent authorization">
+    The session guard auto-redirects to `auth.mgpass.net/authorize?prompt=none`. Because the browser sends the shared `.mgpass.net` cookie, the auth-worker finds the active session.
+  </Step>
 
-    - **Got a code?** Exchange it for tokens -- user is logged in.
-    - **Got `login_required`?** Show a "Sign in with mgPass" button.
-    - **Got `consent_required`?** Redirect again without `prompt=none` to show the consent screen.
+  <Step title="Code issued silently">
+    The auth-worker issues an authorization code and redirects back to `admin.mgpass.net`. No login UI is shown.
+  </Step>
+
+  <Step title="Token exchange">
+    The admin app exchanges the authorization code for tokens. The user is logged in instantly.
   </Step>
 </Steps>
 
-### JavaScript Implementation
+```mermaid
+sequenceDiagram
+    participant User
+    participant Admin as admin.mgpass.net
+    participant Auth as auth.mgpass.net
 
-<CodeGroup>
-```javascript Browser (Vanilla JS)
-// 1. Build the silent auth URL
-function buildSilentAuthURL() {
-  const params = new URLSearchParams({
-    prompt: "none",
-    client_id: "YOUR_CLIENT_ID",
-    redirect_uri: window.location.origin + "/callback",
-    response_type: "code",
-    scope: "openid profile email",
-    state: crypto.randomUUID(),
-  });
-  return `https://auth.mgpass.net/oidc/auth?${params}`;
-}
-
-// 2. On page load, try silent SSO
-async function trySilentSSO() {
-  // Redirect to mgPass with prompt=none
-  window.location.href = buildSilentAuthURL();
-}
-
-// 3. Handle the callback
-function handleCallback() {
-  const params = new URLSearchParams(window.location.search);
-
-  if (params.has("code")) {
-    // SSO success -- exchange code for tokens
-    exchangeCodeForTokens(params.get("code"));
-  } else if (params.get("error") === "login_required") {
-    // No active session -- show login button
-    showLoginButton();
-  } else if (params.get("error") === "consent_required") {
-    // First-time app -- redirect without prompt=none
-    redirectToFullAuth();
-  }
-}
-
-function showLoginButton() {
-  const section = document.getElementById("login-section");
-  const button = document.createElement("button");
-  button.textContent = "Sign in with mgPass";
-  button.addEventListener("click", redirectToFullAuth);
-  section.appendChild(button);
-}
-
-function redirectToFullAuth() {
-  const params = new URLSearchParams({
-    client_id: "YOUR_CLIENT_ID",
-    redirect_uri: window.location.origin + "/callback",
-    response_type: "code",
-    scope: "openid profile email",
-    state: crypto.randomUUID(),
-  });
-  window.location.href =
-    `https://auth.mgpass.net/oidc/auth?${params}`;
-}
+    User->>Admin: Visit admin.mgpass.net
+    Admin->>Admin: No local session found
+    Admin->>Auth: Redirect: /authorize?prompt=none
+    Note over Auth: Browser sends mgpass_session<br/>cookie (shared on .mgpass.net)
+    Auth->>Auth: Validate session cookie
+    Auth-->>Admin: Redirect with authorization code
+    Admin->>Auth: Exchange code for tokens
+    Auth-->>Admin: Access token + ID token
+    Admin-->>User: Logged in (no UI shown)
 ```
 
-```javascript React / Next.js
-import { useEffect, useState } from "react";
+<Note>
+Same-domain SSO is completely transparent to the user. The entire redirect chain happens in milliseconds and no login screen is ever displayed.
+</Note>
 
-const MGPASS_AUTH = "https://auth.mgpass.net/oidc/auth";
-const CLIENT_ID = process.env.NEXT_PUBLIC_MGPASS_CLIENT_ID;
-const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI;
+### Session Cookie Details
 
-export function useSSO() {
-  const [status, setStatus] = useState("checking");
-  // status: "checking" | "authenticated" | "unauthenticated"
+| Property | Value |
+|----------|-------|
+| Cookie name | `mgpass_session` |
+| Domain | `.mgpass.net` |
+| Lifetime | 30 days (sliding window) |
+| HttpOnly | Yes |
+| Secure | Yes |
+| SameSite | Lax |
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+Every time the session is used for SSO (visiting any mgPass property), the 30-day expiry resets. Active users effectively never need to re-authenticate.
 
-    if (params.has("code")) {
-      // Exchange code for tokens on the server side
-      fetch("/api/auth/callback?code=" + params.get("code"))
-        .then((res) => res.json())
-        .then(() => setStatus("authenticated"));
-    } else if (params.get("error") === "login_required") {
-      setStatus("unauthenticated");
-    } else if (params.get("error") === "consent_required") {
-      // Redirect to full auth (shows consent screen)
-      redirectToAuth();
-    } else {
-      // Try silent SSO check
-      trySilentSSO();
-    }
-  }, []);
+---
 
-  function trySilentSSO() {
-    const params = new URLSearchParams({
-      prompt: "none",
-      client_id: CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
-      response_type: "code",
-      scope: "openid profile email",
-      state: crypto.randomUUID(),
-    });
-    window.location.href = `${MGPASS_AUTH}?${params}`;
-  }
+## Cross-Domain SSO
 
-  function redirectToAuth() {
-    const params = new URLSearchParams({
-      client_id: CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
-      response_type: "code",
-      scope: "openid profile email",
-      state: crypto.randomUUID(),
-    });
-    window.location.href = `${MGPASS_AUTH}?${params}`;
-  }
+Applications on different domains (your apps, partner sites) cannot share cookies with `.mgpass.net`. For these, mgPass provides the **One Tap SDK** -- a lightweight JavaScript SDK that checks for an active mgPass session using a hidden iframe.
 
-  return { status, redirectToAuth };
-}
+### How It Works
+
+<Steps>
+  <Step title="Embed the SDK">
+    The partner site includes the One Tap SDK script tag. The SDK creates a hidden iframe pointing to `auth.mgpass.net/onetap/check`.
+  </Step>
+
+  <Step title="Iframe checks session">
+    The iframe is on the `auth.mgpass.net` origin, so it CAN read the `mgpass_session` cookie. If a valid session exists, the iframe posts the user's basic profile info (name, email, avatar) back to the parent page via `postMessage`.
+  </Step>
+
+  <Step title="Banner displayed">
+    The SDK renders a floating "Continue as [Name]" banner in the bottom-right corner of the page. If no session exists, the SDK is completely invisible.
+  </Step>
+
+  <Step title="User clicks the banner">
+    Clicking the banner starts an OAuth authorization flow with `prompt=none`. Because the session exists, the auth-worker issues an authorization code instantly.
+  </Step>
+
+  <Step title="Redirect and token exchange">
+    The user is redirected to the partner's `redirect_uri` with an authorization code. The partner exchanges the code for tokens and the user is logged in.
+  </Step>
+</Steps>
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Site as yoursite.com
+    participant SDK as One Tap SDK
+    participant IFrame as Hidden iframe<br/>(auth.mgpass.net)
+    participant Auth as auth.mgpass.net
+
+    User->>Site: Visit yoursite.com
+    Site->>SDK: Load onetap.js
+    SDK->>IFrame: Create iframe: /onetap/check
+    Note over IFrame: Same origin as auth.mgpass.net<br/>Can read mgpass_session cookie
+    IFrame->>IFrame: Check mgpass_session cookie
+    alt Session exists
+        IFrame->>SDK: postMessage({ name, email, avatar })
+        SDK->>Site: Render "Continue as [Name]" banner
+        User->>SDK: Click banner
+        SDK->>Auth: Redirect: /authorize?prompt=none
+        Auth-->>Site: Redirect with authorization code
+        Site->>Auth: Exchange code for tokens
+        Site-->>User: Logged in instantly
+    else No session
+        IFrame->>SDK: postMessage({ authenticated: false })
+        Note over SDK: SDK stays invisible<br/>Nothing shown to user
+    end
 ```
-</CodeGroup>
+
+<Note>
+The One Tap SDK never exposes tokens, session IDs, or any sensitive data to the partner site. Only basic profile information (name, email, avatar) is shared via `postMessage` to render the banner.
+</Note>
+
+For full integration instructions, see the [One Tap SDK Guide](/guides/onetap-sdk).
+
+---
+
+## Global Logout
+
+When a user logs out from **any** mgPass surface, all sessions are destroyed everywhere. This is a security guarantee -- there is no way to log out of a single app while remaining logged in elsewhere.
+
+### What Happens
+
+<Steps>
+  <Step title="User triggers logout">
+    The user clicks "Log out" on any connected application (admin console, account portal, or a partner app).
+  </Step>
+
+  <Step title="Redirect to auth-worker">
+    The application redirects to `auth.mgpass.net/logout` with an `id_token_hint` parameter.
+  </Step>
+
+  <Step title="Session cookie cleared">
+    The auth-worker clears the shared `mgpass_session` cookie on `.mgpass.net`.
+  </Step>
+
+  <Step title="All sessions revoked">
+    All active sessions for the user are revoked in the D1 database.
+  </Step>
+
+  <Step title="All refresh tokens revoked">
+    Every refresh token issued to the user is invalidated.
+  </Step>
+
+  <Step title="Back-channel logout">
+    The auth-worker calls the admin and account workers via Cloudflare service bindings to destroy their local sessions immediately.
+  </Step>
+
+  <Step title="User redirected">
+    The user is redirected to the `post_logout_redirect_uri`.
+  </Step>
+</Steps>
 
 ```mermaid
 sequenceDiagram
     participant User
     participant App as yourapp.com
     participant Auth as auth.mgpass.net
+    participant DB as D1 Database
+    participant Admin as admin.mgpass.net
+    participant Account as mgpass.net
 
-    User->>App: Visit yourapp.com
-    App->>Auth: Redirect with prompt=none
-    alt Has active session
-        Auth-->>App: Redirect with code
-        App->>Auth: Exchange code for tokens
-        App-->>User: Logged in (instant)
-    else No session
-        Auth-->>App: Redirect with error=login_required
-        App-->>User: Show "Sign in" button
-    end
+    User->>App: Click "Log out"
+    App->>Auth: Redirect: /logout?id_token_hint=...
+    Auth->>Auth: Clear mgpass_session cookie
+    Auth->>DB: DELETE all user sessions
+    Auth->>DB: REVOKE all refresh tokens
+    Auth->>Admin: Back-channel: destroy sessions (service binding)
+    Auth->>Account: Back-channel: destroy sessions (service binding)
+    Auth-->>User: Redirect to post_logout_redirect_uri
 ```
-
-## Global Logout
-
-When a user logs out from any mgPass surface, all sessions are destroyed everywhere.
-
-### How It Works
-
-1. **User triggers logout** from any connected application (admin console, account portal, or a partner app)
-2. **mgPass revokes all sessions** -- the session cookie, all refresh tokens, and all active sessions are destroyed
-3. **Back-channel notifications** -- mgPass notifies the admin and account workers via Cloudflare service bindings to clear their local sessions
-4. **User is redirected** to the post-logout URL
 
 ### Implementing Logout
 
@@ -236,8 +214,8 @@ GET https://auth.mgpass.net/logout?
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `id_token_hint` | Recommended | The user's ID token -- helps mgPass identify the session without cookies |
-| `post_logout_redirect_uri` | Optional | Where to redirect after logout. Must be registered in your app's `post_logout_uris` |
+| `id_token_hint` | Recommended | The user's ID token. Helps mgPass identify the session without relying on cookies. Expired tokens are accepted (per OIDC spec). |
+| `post_logout_redirect_uri` | Optional | Where to redirect after logout. Must be registered in your application's `post_logout_uris`. |
 
 <CodeGroup>
 ```javascript JavaScript
@@ -261,81 +239,59 @@ def get_logout_url(id_token: str, redirect_uri: str) -> str:
     })
     return f"https://auth.mgpass.net/logout?{params}"
 ```
-
-```bash cURL
-# RP-Initiated Logout (browser redirect, not a REST call)
-# Redirect the user's browser to:
-https://auth.mgpass.net/logout?\
-  id_token_hint=eyJhbGciOiJSUzI1NiIs...&\
-  post_logout_redirect_uri=https://yourapp.com
-```
 </CodeGroup>
 
 <Warning>
-After global logout, the user must re-authenticate on every application. There is no way to log out of a single app while remaining logged in elsewhere -- this is by design for security.
+After global logout, the user must re-authenticate on every application. This is by design for security -- a single logout action provides complete session termination across all connected properties.
 </Warning>
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant App as yourapp.com
-    participant Auth as auth.mgpass.net
-    participant Admin as admin.mgpass.net
-    participant Account as mgpass.net
-
-    User->>App: Click "Log out"
-    App->>Auth: Redirect to /logout
-    Auth->>Auth: Revoke session cookie
-    Auth->>Auth: Revoke all refresh tokens
-    Auth->>Admin: Back-channel: clear sessions (service binding)
-    Auth->>Account: Back-channel: clear sessions (service binding)
-    Auth-->>User: Redirect to post_logout_redirect_uri
-```
+---
 
 ## Session Lifetime
 
-mgPass sessions use a **30-day sliding window** by default:
+mgPass sessions use a **30-day sliding window**:
 
 | Setting | Value |
 |---------|-------|
 | Default session duration | 30 days |
-| Sliding window | Every SSO use extends the session by 30 days |
-| "Remember me" checked | 30-day persistent cookie (survives browser restart) |
+| Sliding window | Every SSO use (silent auth, token refresh) extends the session by 30 days |
+| "Remember me" checked | Persistent cookie with 30-day expiry (survives browser restart) |
 | "Remember me" unchecked | Session cookie (cleared when browser closes) |
-
-### Remember Me
 
 The mgPass login form includes a "Remember me for 30 days" checkbox:
 
-- **Checked (default):** mgPass sets a persistent cookie with a 30-day expiry. The user stays logged in across browser restarts.
-- **Unchecked:** mgPass sets a session cookie. Closing the browser ends the session.
+- **Checked (default):** Sets a persistent cookie. The user stays logged in across browser restarts and the 30-day window resets on every use.
+- **Unchecked:** Sets a session cookie. Closing the browser ends the session regardless of the 30-day window.
 
 <Note>
-Every time a user's session is used for SSO (visiting any connected application), the 30-day window resets. Active users effectively never need to re-authenticate.
+Active users who interact with any mgPass-connected application at least once every 30 days will never need to re-authenticate.
 </Note>
+
+---
 
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion title="Always try silent SSO first">
-    On your application's landing page, redirect to mgPass with `prompt=none` before showing any login UI. This makes the experience seamless for users who are already signed in.
+  <Accordion title="Use the One Tap SDK for cross-domain SSO">
+    Instead of manually implementing `prompt=none` redirects for cross-domain SSO, use the One Tap SDK. It handles the iframe session check, user prompt, and OAuth redirect automatically with a single script tag.
   </Accordion>
 
-  <Accordion title="Handle all three callback states">
-    Your callback handler must handle `code` (success), `error=login_required` (no session), and `error=consent_required` (first-time app). Missing any of these causes a broken experience.
+  <Accordion title="Handle all callback states">
+    Your OAuth callback handler must handle three outcomes: `code` (success), `error=login_required` (no session), and `error=consent_required` (first-time app). Missing any of these causes a broken experience.
   </Accordion>
 
   <Accordion title="Store the ID token for logout">
-    Save the `id_token` from the token exchange response. You need it for the `id_token_hint` parameter during logout.
+    Save the `id_token` from the token exchange response. You need it for the `id_token_hint` parameter during logout. Expired tokens are accepted, so you do not need to keep a fresh one.
   </Accordion>
 
   <Accordion title="Register post-logout URIs">
-    Make sure your application's `post_logout_redirect_uris` are configured in the mgPass admin console. Without this, the user sees a generic "logged out" page instead of being redirected back to your app.
+    Configure your application's `post_logout_redirect_uris` in the mgPass admin console. Without this, the user sees a generic "logged out" page instead of being redirected back to your app.
   </Accordion>
 </AccordionGroup>
 
 ## Next Steps
 
+- [One Tap SDK](/guides/onetap-sdk) -- integrate cross-domain SSO with a single script tag
 - [Token Refresh](/guides/token-refresh) -- keep users authenticated with automatic token renewal
 - [OAuth Flows](/guides/oauth-flows) -- full details on the authorization code flow
 - [Applications](/guides/applications) -- register your app to use SSO

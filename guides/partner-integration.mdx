@@ -197,6 +197,21 @@ $result = $response->json();
 
 You can receive notifications when points-related events occur. See the [Webhooks guide](/guides/webhooks) for setup details.
 
+## Single Sign-On for Your Users
+
+If your users also have mgPass accounts, you can offer seamless SSO using the One Tap SDK. When a user visits your site while logged into mgPass, the SDK shows a "Continue as [Name]" banner that lets them sign in with a single click -- no passwords, no redirects.
+
+<CardGroup cols={2}>
+  <Card title="One Tap SDK Guide" icon="bolt" href="/guides/onetap-sdk">
+    Full integration guide for the One Tap SDK. One script tag, one function call.
+  </Card>
+  <Card title="SSO Architecture" icon="diagram-project" href="/guides/sso">
+    How mgPass SSO works across same-domain and cross-domain applications.
+  </Card>
+</CardGroup>
+
+---
+
 ## Testing
 
 Use the staging environment for testing:

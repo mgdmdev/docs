@@ -70,6 +70,7 @@
             "group": "SSO & Sessions",
             "pages": [
               "guides/sso",
+              "guides/onetap-sdk",
               "guides/token-refresh"
             ]
           }
@@ -90,7 +91,10 @@
               "api-reference/authentication/token-exchange",
               "api-reference/authentication/logout",
               "api-reference/authentication/oidc-discovery",
-              "api-reference/authentication/jwks"
+              "api-reference/authentication/jwks",
+              "api-reference/authentication/onetap-check",
+              "api-reference/authentication/onetap-session",
+              "api-reference/authentication/onetap-sdk"
             ]
           },
           {
