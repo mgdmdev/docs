@@ -10,7 +10,7 @@ mgPass provides Single Sign-On (SSO) so users authenticate once and are automati
 | Mechanism | When to use | How it works |
 |-----------|-------------|--------------|
 | Same-domain SSO | Apps on `*.mgpass.net` | Shared session cookie on `.mgpass.net` |
-| Cross-domain SSO | Partner sites on other domains | One Tap SDK with hidden iframe |
+| Cross-domain SSO | Partner sites on other domains | FedCM (browser-native identity federation) |
 
 ---
 
@@ -86,64 +86,55 @@ Every time the session is used for SSO (visiting any mgPass property), the 30-da
 
 ## Cross-Domain SSO
 
-Applications on different domains (your apps, partner sites) cannot share cookies with `.mgpass.net`. For these, mgPass provides the **One Tap SDK** -- a lightweight JavaScript SDK that checks for an active mgPass session using a hidden iframe.
+Applications on different domains (your apps, partner sites) cannot share cookies with `.mgpass.net`. For these, mgPass uses **FedCM (Federated Credential Management)** -- a browser-native API where the browser itself mediates the identity check. No iframes, no third-party cookies, no custom UI.
 
 ### How It Works
 
 <Steps>
-  <Step title="Embed the SDK">
-    The partner site includes the One Tap SDK script tag. The SDK creates a hidden iframe pointing to `auth.mgpass.net/onetap/check`.
+  <Step title="Request credentials">
+    Your site calls `navigator.credentials.get()` with the mgPass FedCM configuration (or loads the mgPass SDK which does this automatically).
   </Step>
 
-  <Step title="Iframe checks session">
-    The iframe is on the `auth.mgpass.net` origin, so it CAN read the `mgpass_session` cookie. If a valid session exists, the iframe posts the user's basic profile info (name, email, avatar) back to the parent page via `postMessage`.
+  <Step title="Browser checks session">
+    The browser calls `auth.mgpass.net/fedcm/accounts` with first-party cookies. This happens in the browser's internal network stack -- no JavaScript or iframes are involved.
   </Step>
 
-  <Step title="Banner displayed">
-    The SDK renders a floating "Continue as [Name]" banner in the bottom-right corner of the page. If no session exists, the SDK is completely invisible.
+  <Step title="Native prompt shown">
+    If the user has an active mgPass session, the browser displays a native account picker showing the user's name, email, and avatar. If no session exists, nothing happens.
   </Step>
 
-  <Step title="User clicks the banner">
-    Clicking the banner starts an OAuth authorization flow with `prompt=none`. Because the session exists, the auth-worker issues an authorization code instantly.
+  <Step title="User consents">
+    The user clicks "Continue" on the native browser prompt.
   </Step>
 
-  <Step title="Redirect and token exchange">
-    The user is redirected to the partner's `redirect_uri` with an authorization code. The partner exchanges the code for tokens and the user is logged in.
+  <Step title="Token issued and delivered">
+    The browser calls `auth.mgpass.net/fedcm/assertion`, which issues a signed JWT token. The browser passes the token back to your site's JavaScript callback. Your site sends the token to your backend for verification.
   </Step>
 </Steps>
 
 ```mermaid
 sequenceDiagram
     participant User
+    participant Browser
     participant Site as yoursite.com
-    participant SDK as One Tap SDK
-    participant IFrame as Hidden iframe<br/>(auth.mgpass.net)
     participant Auth as auth.mgpass.net
 
-    User->>Site: Visit yoursite.com
-    Site->>SDK: Load onetap.js
-    SDK->>IFrame: Create iframe: /onetap/check
-    Note over IFrame: Same origin as auth.mgpass.net<br/>Can read mgpass_session cookie
-    IFrame->>IFrame: Check mgpass_session cookie
-    alt Session exists
-        IFrame->>SDK: postMessage({ name, email, avatar })
-        SDK->>Site: Render "Continue as [Name]" banner
-        User->>SDK: Click banner
-        SDK->>Auth: Redirect: /authorize?prompt=none
-        Auth-->>Site: Redirect with authorization code
-        Site->>Auth: Exchange code for tokens
-        Site-->>User: Logged in instantly
-    else No session
-        IFrame->>SDK: postMessage({ authenticated: false })
-        Note over SDK: SDK stays invisible<br/>Nothing shown to user
-    end
+    Site->>Browser: navigator.credentials.get()
+    Browser->>Auth: GET /fedcm/accounts (first-party cookies)
+    Auth-->>Browser: { accounts: [{ name, email, picture }] }
+    Browser->>User: Show native account picker
+    User->>Browser: Click "Continue"
+    Browser->>Auth: POST /fedcm/assertion (account_id, client_id)
+    Auth-->>Browser: { token: "signed-jwt" }
+    Browser-->>Site: credential.token = "signed-jwt"
+    Site->>Site: Verify token on backend
 ```
 
 <Note>
-The One Tap SDK never exposes tokens, session IDs, or any sensitive data to the partner site. Only basic profile information (name, email, avatar) is shared via `postMessage` to render the banner.
+FedCM works without third-party cookies and is not affected by browser privacy features like Safari ITP or Firefox ETP. The browser mediates the entire flow -- your site never communicates directly with the identity provider during the credential check.
 </Note>
 
-For full integration instructions, see the [One Tap SDK Guide](/guides/onetap-sdk).
+For full integration instructions, see the [FedCM Integration Guide](/guides/onetap-sdk).
 
 ---
 
@@ -272,8 +263,8 @@ Active users who interact with any mgPass-connected application at least once ev
 ## Best Practices
 
 <AccordionGroup>
-  <Accordion title="Use the One Tap SDK for cross-domain SSO">
-    Instead of manually implementing `prompt=none` redirects for cross-domain SSO, use the One Tap SDK. It handles the iframe session check, user prompt, and OAuth redirect automatically with a single script tag.
+  <Accordion title="Use FedCM for cross-domain SSO">
+    For cross-domain SSO, use the FedCM integration (via the mgPass SDK or the direct browser API). The browser handles the session check and user prompt natively -- no iframes, no third-party cookies, no custom UI needed.
   </Accordion>
 
   <Accordion title="Handle all callback states">
@@ -291,7 +282,7 @@ Active users who interact with any mgPass-connected application at least once ev
 
 ## Next Steps
 
-- [One Tap SDK](/guides/onetap-sdk) -- integrate cross-domain SSO with a single script tag
+- [FedCM Integration](/guides/onetap-sdk) -- integrate cross-domain SSO with the browser-native FedCM API
 - [Token Refresh](/guides/token-refresh) -- keep users authenticated with automatic token renewal
 - [OAuth Flows](/guides/oauth-flows) -- full details on the authorization code flow
 - [Applications](/guides/applications) -- register your app to use SSO

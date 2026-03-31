@@ -94,7 +94,12 @@
               "api-reference/authentication/jwks",
               "api-reference/authentication/onetap-check",
               "api-reference/authentication/onetap-session",
-              "api-reference/authentication/onetap-sdk"
+              "api-reference/authentication/onetap-sdk",
+              "api-reference/authentication/fedcm-discovery",
+              "api-reference/authentication/fedcm-config",
+              "api-reference/authentication/fedcm-accounts",
+              "api-reference/authentication/fedcm-assertion",
+              "api-reference/authentication/fedcm-client-metadata"
             ]
           },
           {

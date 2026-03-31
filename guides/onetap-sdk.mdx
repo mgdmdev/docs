@@ -1,23 +1,23 @@
 ---
-title: "One Tap SDK"
-description: "Integrate cross-domain single sign-on with the mgPass One Tap SDK. One script tag gives your users seamless authentication."
+title: "FedCM Integration"
+description: "Integrate cross-domain single sign-on using FedCM (Federated Credential Management) -- the browser-native identity federation API. No iframes, no third-party cookies."
 ---
 
 ## Overview
 
-The mgPass One Tap SDK enables cross-domain SSO for partner sites. If your users have an active mgPass session, the SDK displays a floating "Continue as [Name]" banner that lets them sign in with a single click -- no password, no redirect chain, no friction.
+mgPass uses **FedCM (Federated Credential Management)** for cross-domain SSO. FedCM is a W3C standard browser API where the browser itself mediates the identity check -- no iframes, no third-party cookies, no custom UI.
 
-If no mgPass session exists, the SDK is completely invisible. It adds no UI, no prompts, and no overhead.
+When a user has an active mgPass session, the browser shows a native account picker prompt. The user clicks "Continue" and receives a signed JWT token -- zero friction, zero redirect chains.
 
 <CardGroup cols={2}>
-  <Card title="One script tag" icon="code">
-    Add a single `<script>` tag and call `mgpass.onetap()` with your client ID.
+  <Card title="Browser-native" icon="globe">
+    The browser mediates the entire identity flow. No custom UI, no iframes, no popups.
   </Card>
   <Card title="Zero friction" icon="bolt">
-    Users click once to authenticate. No login form, no password entry.
+    Users click once on the native browser prompt to authenticate. No login form, no password entry.
   </Card>
-  <Card title="Privacy-first" icon="shield">
-    No tokens or session IDs are exposed. Only basic profile info is shared.
+  <Card title="No third-party cookies" icon="shield">
+    FedCM works without third-party cookies. Future-proof against browser privacy changes.
   </Card>
   <Card title="Invisible when inactive" icon="eye-slash">
     If the user has no mgPass session, nothing is shown. Your page is unaffected.
@@ -26,250 +26,212 @@ If no mgPass session exists, the SDK is completely invisible. It adds no UI, no 
 
 ---
 
-## Quick Start
+## What is FedCM
 
-Add the SDK to any page where you want to offer One Tap sign-in:
+FedCM (Federated Credential Management) is a W3C standard browser API for identity federation. Instead of relying on iframes, redirects, or third-party cookies, the browser itself acts as the intermediary between the identity provider and the relying party.
 
-```html
-<script src="https://auth.mgpass.net/sdk/onetap.js"></script>
-<script>
-  mgpass.onetap({
-    client_id: 'your_client_id',
-    redirect_uri: 'https://yoursite.com/callback',
-    scope: 'openid profile email'
-  });
-</script>
-```
+Key properties:
 
-That is the complete integration. The SDK handles everything else: session detection, banner rendering, and the OAuth redirect.
+- The browser calls the identity provider's endpoints directly with first-party cookies
+- The user sees a native browser prompt (not a custom UI)
+- No third-party cookies are needed -- works in all privacy modes
+- The identity provider never sees which site the user is visiting until the user consents
 
----
+### Browser Support
 
-## Configuration Options
-
-| Option | Type | Required | Default | Description |
-|--------|------|----------|---------|-------------|
-| `client_id` | string | Yes | -- | Your OAuth client ID from the mgPass admin console |
-| `redirect_uri` | string | Yes | -- | Where to redirect after authentication. Must be registered in your app's allowed redirect URIs. |
-| `scope` | string | No | `openid profile email` | OAuth scopes to request |
-
-<CodeGroup>
-```html Minimal
-<script src="https://auth.mgpass.net/sdk/onetap.js"></script>
-<script>
-  mgpass.onetap({
-    client_id: 'your_client_id',
-    redirect_uri: 'https://yoursite.com/callback'
-  });
-</script>
-```
-
-```html Custom scopes
-<script src="https://auth.mgpass.net/sdk/onetap.js"></script>
-<script>
-  mgpass.onetap({
-    client_id: 'your_client_id',
-    redirect_uri: 'https://yoursite.com/callback',
-    scope: 'openid profile email rewards:read'
-  });
-</script>
-```
-</CodeGroup>
+| Browser | Support |
+|---------|---------|
+| Chrome 108+ | Fully supported |
+| Edge 108+ | Fully supported |
+| Firefox | Behind flag |
+| Safari | In development |
 
 ---
 
 ## How It Works
 
 <Steps>
-  <Step title="SDK loads">
-    The `onetap.js` script loads and registers the `mgpass.onetap()` function on the global `mgpass` object.
+  <Step title="Partner site requests credentials">
+    Your site calls `navigator.credentials.get()` with the mgPass FedCM configuration, or loads the mgPass SDK which does this automatically.
   </Step>
 
-  <Step title="Hidden iframe created">
-    The SDK creates a hidden iframe pointing to `auth.mgpass.net/onetap/check`. Because the iframe is on the `auth.mgpass.net` origin, it can read the `mgpass_session` cookie (same-origin policy).
+  <Step title="Browser checks for active session">
+    The browser calls `auth.mgpass.net/fedcm/accounts` with first-party cookies. This happens in the browser's internal network stack -- no JavaScript is involved.
   </Step>
 
-  <Step title="Session check">
-    Inside the iframe, JavaScript checks for the `mgpass_session` cookie and validates the session. A 5-second timeout is enforced -- if the iframe does not respond, it is cleaned up silently.
+  <Step title="Native prompt shown">
+    If the user has an active mgPass session, the browser displays a native account picker showing the user's name, email, and avatar. If no session exists, nothing happens.
   </Step>
 
-  <Step title="Result posted to parent">
-    The iframe posts the result to the parent page via `postMessage`:
-    - **Session found:** `{ authenticated: true, user: { name, email, avatar } }`
-    - **No session:** `{ authenticated: false }`
+  <Step title="User consents">
+    The user clicks "Continue" on the native browser prompt.
   </Step>
 
-  <Step title="Banner shown (if session exists)">
-    If an active session was found, the SDK renders a floating banner in the bottom-right corner displaying the user's name, email, and avatar with a "Continue as [Name]" call to action.
+  <Step title="Token issued">
+    The browser calls `auth.mgpass.net/fedcm/assertion` with the selected account and your client ID. mgPass issues a signed JWT token.
   </Step>
 
-  <Step title="User clicks the banner">
-    Clicking the banner redirects to `auth.mgpass.net/authorize` with `prompt=none` and the configured `client_id`, `redirect_uri`, and `scope`. Because the session exists, the auth-worker issues an authorization code instantly.
-  </Step>
-
-  <Step title="Token exchange">
-    The user lands on your `redirect_uri` with an authorization code. Your server exchanges the code for access and ID tokens via the `/api/token` endpoint.
+  <Step title="Token delivered to your site">
+    The browser passes the JWT token back to your JavaScript callback. Your site sends the token to your backend for verification.
   </Step>
 </Steps>
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Site as yoursite.com
+    participant Auth as auth.mgpass.net
+
+    Site->>Browser: navigator.credentials.get()
+    Browser->>Auth: GET /fedcm/accounts (with first-party cookies)
+    Auth-->>Browser: { accounts: [{ name, email, picture }] }
+    Browser->>User: Show native account picker prompt
+    User->>Browser: Click "Continue"
+    Browser->>Auth: POST /fedcm/assertion (account_id, client_id)
+    Auth-->>Browser: { token: "signed-jwt" }
+    Browser-->>Site: credential.token = "signed-jwt"
+    Site->>Site: Send token to backend for verification
+```
+
 ---
 
-## Banner Behavior
+## Quick Start (Using SDK)
 
-The One Tap banner appears in the **bottom-right corner** of the page with a slide-in animation.
+The mgPass SDK wraps the FedCM API with automatic fallback for unsupported browsers.
 
-### What the banner shows
+```html
+<script src="https://auth.mgpass.net/sdk/onetap.js"></script>
+<script>
+  mgpass.onetap({
+    client_id: 'your_client_id',
+    callback: function(token) {
+      // Send token to your backend to verify
+      fetch('/api/auth/fedcm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token })
+      });
+    }
+  });
+</script>
+```
 
-- User's avatar (or initials fallback)
-- User's display name
-- User's email address
-- "Continue as [Name]" button
-- Close button (X) in the top-right corner
-- "Secured by mgPass" branding at the bottom
+---
 
-### Dismiss behavior
+## Quick Start (Direct API)
 
-- Clicking the **X** button dismisses the banner for the current browser session (tracked in `sessionStorage`).
-- Navigating to a new page on your site where the SDK is loaded will **not** re-show the banner if the user dismissed it.
-- Closing and reopening the browser clears `sessionStorage`, so the banner will appear again on the next visit.
+You can call the FedCM API directly without the SDK:
 
-### When nothing is shown
+```javascript
+const credential = await navigator.credentials.get({
+  identity: {
+    providers: [{
+      configURL: 'https://auth.mgpass.net/fedcm/config.json',
+      clientId: 'your_client_id'
+    }]
+  }
+});
 
-The SDK is completely invisible when:
+if (credential) {
+  // credential.token is a JWT signed by mgPass
+  const response = await fetch('/api/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token: credential.token })
+  });
+}
+```
 
-- No active mgPass session exists
-- The user previously dismissed the banner (current browser session)
-- The iframe times out after 5 seconds (network issues)
+---
+
+## Token Verification (Backend)
+
+The FedCM flow delivers a signed JWT token to your frontend. Verify it on your backend before creating a session:
+
+```javascript
+import * as jose from 'jose';
+
+const JWKS = jose.createRemoteJWKSet(
+  new URL('https://auth.mgpass.net/.well-known/jwks.json')
+);
+
+const { payload } = await jose.jwtVerify(token, JWKS, {
+  issuer: 'https://auth.mgpass.net',
+  audience: 'your_client_id'
+});
+
+// payload.sub = user ID
+// payload.scope = granted scopes
+```
+
+<Warning>
+Always verify the token on your backend. Never trust the JWT payload on the client side without server-side verification.
+</Warning>
+
+---
+
+## FedCM Endpoints
+
+These endpoints are called by the browser during the FedCM flow. You do not call them directly -- they are listed here for reference.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/.well-known/web-identity` | FedCM provider discovery |
+| `/fedcm/config.json` | IdP configuration |
+| `/fedcm/accounts` | Returns logged-in user accounts |
+| `/fedcm/assertion` | Issues JWT token |
+| `/fedcm/client-metadata` | RP terms/privacy URLs |
+
+See the [API Reference](/api-reference/authentication/fedcm-discovery) for full endpoint documentation.
+
+---
+
+## Fallback for Unsupported Browsers
+
+FedCM is not yet supported in all browsers. Use the standard OAuth redirect flow as a fallback:
+
+```javascript
+if (!window.IdentityCredential) {
+  // FedCM not supported -- fall back to OAuth redirect
+  window.location.href = 'https://auth.mgpass.net/authorize?' +
+    new URLSearchParams({
+      response_type: 'code',
+      client_id: 'your_client_id',
+      redirect_uri: 'https://yoursite.com/callback',
+      scope: 'openid profile email'
+    });
+}
+```
+
+<Note>
+The mgPass SDK (`onetap.js`) handles this fallback automatically. If FedCM is not available, the SDK falls back to the OAuth redirect flow.
+</Note>
 
 ---
 
 ## Security
 
 <AccordionGroup>
-  <Accordion title="Sandboxed iframe">
-    The hidden iframe uses `allow-same-origin allow-scripts` sandbox attributes. It cannot navigate the parent page, submit forms, or access parent DOM.
+  <Accordion title="Browser-mediated flow">
+    The browser itself mediates the entire identity flow. Your site never communicates directly with the identity provider during the credential check -- the browser handles all network requests internally.
   </Accordion>
 
-  <Accordion title="postMessage origin verification">
-    The SDK verifies that every `postMessage` event originates from `auth.mgpass.net`. Messages from any other origin are ignored.
+  <Accordion title="User consent required">
+    The browser always shows a native prompt before sharing any identity information. The identity provider does not learn which site the user is visiting until the user explicitly consents.
   </Accordion>
 
-  <Accordion title="No sensitive data exposed">
-    The iframe only sends basic profile information (name, email, avatar) to the parent page. Tokens, session IDs, and cookies are never exposed to the partner site.
+  <Accordion title="No third-party cookies">
+    FedCM uses first-party cookies on the identity provider's origin. It works regardless of third-party cookie blocking settings (Safari ITP, Firefox ETP, Chrome Privacy Sandbox).
   </Accordion>
 
-  <Accordion title="No URL parameter leakage">
-    User data is passed via `postMessage`, not URL parameters. Nothing is exposed in browser history, server logs, or referrer headers.
+  <Accordion title="Signed JWT tokens">
+    The assertion endpoint issues a JWT signed with the mgPass signing key. Verify the signature and claims on your backend using the published JWKS endpoint.
   </Accordion>
 
-  <Accordion title="Automatic cleanup">
-    The iframe has a 5-second timeout. If no response is received (e.g. the user has third-party cookies blocked), the iframe is removed from the DOM silently.
+  <Accordion title="Client ID validation">
+    The FedCM assertion endpoint validates the `client_id` against registered applications. Tokens are audience-bound -- a token issued for one client cannot be used by another.
   </Accordion>
 </AccordionGroup>
-
----
-
-## Advanced Usage
-
-### Programmatic Dismiss
-
-You can hide the banner programmatically (e.g. when the user starts interacting with your own login form):
-
-```javascript
-mgpass.dismissOnetap();
-```
-
-This has the same effect as clicking the X button -- the banner is hidden and will not reappear for the current browser session.
-
-### Handling the Callback
-
-After the user clicks the banner and completes the OAuth flow, they arrive at your `redirect_uri` with an authorization code:
-
-```
-https://yoursite.com/callback?code=AUTH_CODE&state=RANDOM_STATE
-```
-
-Exchange the code for tokens on your server:
-
-<CodeGroup>
-```javascript Node.js
-app.get('/callback', async (req, res) => {
-  const { code } = req.query;
-
-  const tokenResponse = await fetch('https://auth.mgpass.net/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: 'https://yoursite.com/callback',
-      client_id: 'your_client_id',
-      client_secret: 'your_client_secret',
-    }),
-  });
-
-  const tokens = await tokenResponse.json();
-  // tokens.access_token, tokens.id_token, tokens.refresh_token
-
-  // Create a local session for the user
-  req.session.user = tokens;
-  res.redirect('/');
-});
-```
-
-```python Python (Flask)
-@app.route('/callback')
-def callback():
-    code = request.args.get('code')
-
-    token_response = requests.post(
-        'https://auth.mgpass.net/api/token',
-        data={
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': 'https://yoursite.com/callback',
-            'client_id': 'your_client_id',
-            'client_secret': 'your_client_secret',
-        },
-    )
-
-    tokens = token_response.json()
-    session['user'] = tokens
-    return redirect('/')
-```
-</CodeGroup>
-
----
-
-## Styling
-
-The banner uses **inline styles with fixed positioning**. It does not interfere with your page layout or existing CSS.
-
-| Property | Value |
-|----------|-------|
-| Position | Fixed, bottom-right corner |
-| Z-index | 999999 |
-| Width | 360px |
-| Animation | Slide-in from bottom |
-| Shadow | Subtle drop shadow |
-
-The banner is self-contained and does not inject any global CSS. Your stylesheets will not affect it, and it will not affect yours.
-
----
-
-## Browser Support
-
-The One Tap SDK works in all modern browsers that support:
-
-- `postMessage` API
-- `sessionStorage`
-- `<iframe>` with sandbox attributes
-
-This includes Chrome, Firefox, Safari, and Edge (all current versions).
-
-<Warning>
-Browsers with aggressive third-party cookie blocking (e.g. Safari ITP, Firefox ETP) may prevent the iframe from reading the `mgpass_session` cookie. In these cases, the SDK silently falls back to showing nothing. Users can still sign in using the standard OAuth flow.
-</Warning>
 
 ---
 

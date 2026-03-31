@@ -961,6 +961,139 @@ paths:
               schema:
                 type: string
 
+  # ──── FedCM (Federated Credential Management) ────
+  /.well-known/web-identity:
+    get:
+      operationId: fedcmDiscovery
+      tags: [Authentication]
+      summary: FedCM provider discovery
+      description: Returns the list of FedCM provider config URLs. Called by the browser to discover FedCM-capable identity providers.
+      responses:
+        "200":
+          description: FedCM provider URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider_urls:
+                    type: array
+                    items:
+                      type: string
+
+  /fedcm/config.json:
+    get:
+      operationId: fedcmConfig
+      tags: [Authentication]
+      summary: FedCM IdP configuration
+      description: Returns the FedCM identity provider configuration including endpoint URLs and branding information.
+      responses:
+        "200":
+          description: IdP configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts_endpoint:
+                    type: string
+                  id_assertion_endpoint:
+                    type: string
+                  client_metadata_endpoint:
+                    type: string
+                  login_url:
+                    type: string
+                  branding:
+                    type: object
+
+  /fedcm/accounts:
+    get:
+      operationId: fedcmAccounts
+      tags: [Authentication]
+      summary: FedCM accounts list
+      description: Returns logged-in user accounts. Called by the browser with first-party cookies and Sec-Fetch-Dest webidentity header.
+      responses:
+        "200":
+          description: Logged-in accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        picture:
+                          type: string
+                        approved_clients:
+                          type: array
+                          items:
+                            type: string
+        "401":
+          description: No active session
+
+  /fedcm/assertion:
+    post:
+      operationId: fedcmAssertion
+      tags: [Authentication]
+      summary: FedCM token assertion
+      description: Issues a JWT token for the selected account. Called by the browser after the user consents to sharing their identity.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                account_id:
+                  type: string
+                client_id:
+                  type: string
+                disclosure_text_shown:
+                  type: string
+      responses:
+        "200":
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT signed by mgPass
+
+  /fedcm/client-metadata:
+    get:
+      operationId: fedcmClientMetadata
+      tags: [Authentication]
+      summary: FedCM client metadata
+      description: Returns the privacy policy and terms of service URLs for the requesting client.
+      parameters:
+        - name: client_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Client metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  privacy_policy_url:
+                    type: string
+                  terms_of_service_url:
+                    type: string
+
   # ──── Account - Identities ────
   /api/account/identities:
     get:
