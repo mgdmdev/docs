@@ -192,7 +192,6 @@
               "api-reference/subscriptions-tenant/cancel-subscription",
               "api-reference/subscriptions-tenant/reactivate-subscription",
               "api-reference/subscriptions-tenant/create-checkout-session",
-              "api-reference/subscriptions-tenant/get-checkout-session",
               "api-reference/subscriptions-tenant/list-promo-codes",
               "api-reference/subscriptions-tenant/create-promo-code",
               "api-reference/subscriptions-tenant/apply-promo",

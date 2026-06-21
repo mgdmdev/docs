@@ -26,8 +26,23 @@ Requires an OAuth Bearer access token.
 `200 OK`.
 
 <ResponseField name="success" type="boolean">Always `true` on success.</ResponseField>
-<ResponseField name="seat_id" type="string">The seat the user now holds.</ResponseField>
 <ResponseField name="subscription_id" type="string">The subscription the seat belongs to.</ResponseField>
+<ResponseField name="plan" type="object">
+  Snapshot of the plan the seat unlocks. `null` if the plan row was deleted.
+  <Expandable title="plan">
+    <ResponseField name="id" type="string">Plan id, e.g. `plan_pro`.</ResponseField>
+    <ResponseField name="name" type="string">Display name, e.g. `Pro`.</ResponseField>
+    <ResponseField name="slug" type="string">URL-safe identifier.</ResponseField>
+  </Expandable>
+</ResponseField>
+<ResponseField name="application" type="object">
+  The Application that owns the subscription. `null` if the Application row was deleted.
+  <Expandable title="application">
+    <ResponseField name="id" type="string">Application id, e.g. `app_3news`.</ResponseField>
+    <ResponseField name="name" type="string">Display name, e.g. `3News`.</ResponseField>
+    <ResponseField name="slug" type="string">URL-safe identifier.</ResponseField>
+  </Expandable>
+</ResponseField>
 
 ## Errors
 
@@ -58,7 +73,7 @@ const res = await fetch("https://auth.mgpass.net/api/account/seats/accept", {
   },
   body: JSON.stringify({ token: rawTokenFromInviteEmail }),
 });
-const { seat_id, subscription_id } = await res.json();
+const { subscription_id, plan, application } = await res.json();
 ```
 
 </CodeGroup>
