@@ -1,0 +1,106 @@
+---
+title: "Applications API"
+description: "Manage the unified Applications spine and its OAuth, rewards, and subscriptions capabilities."
+---
+
+In mgPass v3, every integration is a single `applications` row (the **spine**) with zero or more **capability** rows attached: OAuth, rewards, and subscriptions. The legacy `oauth_clients`, `rewards_partners`, and `subscription_tenants` tables are gone — one `application_id` flows end-to-end through the platform, including outbound webhooks.
+
+A capability is present when its row exists. Enabling a capability inserts the row; disabling it deletes the row. Secrets (`client_secret`, `api_key`, webhook `secret`) are returned exactly **once** at create or rotate time — we store hashes (bcrypt for OAuth client secrets, SHA-256 for rewards/subscriptions API keys) and the raw HMAC for webhook signing.
+
+All endpoints below require an admin bearer token. Use the `applications:read` scope for `GET` calls and `applications:write` for everything else. For the conceptual walkthrough — when to enable each capability, naming conventions, and the relationship to organizations — see the [Applications guide](/guides/applications).
+
+## Spine
+
+<CardGroup cols={2}>
+  <Card title="List applications" icon="list" href="/api-reference/applications/list-applications">
+    Page through every application, optionally filtered by capability.
+  </Card>
+  <Card title="Create application" icon="plus" href="/api-reference/applications/create-application">
+    Create a spine row. Capabilities are added in follow-up calls.
+  </Card>
+  <Card title="Get application" icon="magnifying-glass" href="/api-reference/applications/get-application">
+    Fetch a spine row joined with its capability rows and webhook count.
+  </Card>
+  <Card title="Update application" icon="pen" href="/api-reference/applications/update-application">
+    Patch spine columns: name, branding, support contacts, active flag.
+  </Card>
+  <Card title="Delete application" icon="trash" href="/api-reference/applications/delete-application">
+    Soft delete by default; `?hard=true` cascades through every dependent row.
+  </Card>
+</CardGroup>
+
+## OAuth capability
+
+<CardGroup cols={2}>
+  <Card title="Enable OAuth" icon="key" href="/api-reference/applications/enable-oauth-capability">
+    Add the OAuth capability and (for confidential clients) issue the client secret.
+  </Card>
+  <Card title="Update OAuth" icon="pen" href="/api-reference/applications/update-oauth-capability">
+    Adjust redirect URIs, scopes, token TTLs, and auth methods.
+  </Card>
+  <Card title="Rotate OAuth secret" icon="rotate" href="/api-reference/applications/rotate-oauth-secret">
+    Issue a new `client_secret` for `web` and `m2m` clients.
+  </Card>
+  <Card title="Disable OAuth" icon="ban" href="/api-reference/applications/disable-oauth-capability">
+    Remove the OAuth capability row.
+  </Card>
+</CardGroup>
+
+## Rewards capability
+
+<CardGroup cols={2}>
+  <Card title="Enable rewards" icon="gift" href="/api-reference/applications/enable-rewards-capability">
+    Add the rewards capability and issue the partner `api_key`.
+  </Card>
+  <Card title="Update rewards" icon="pen" href="/api-reference/applications/update-rewards-capability">
+    Edit allowed event types, custom rules, and the points multiplier.
+  </Card>
+  <Card title="Rotate rewards key" icon="rotate" href="/api-reference/applications/rotate-rewards-key">
+    Issue a new rewards `api_key`. Use during credential rotation drills.
+  </Card>
+  <Card title="Disable rewards" icon="ban" href="/api-reference/applications/disable-rewards-capability">
+    Remove the rewards capability row.
+  </Card>
+</CardGroup>
+
+## Subscriptions capability
+
+<CardGroup cols={2}>
+  <Card title="Enable subscriptions" icon="credit-card" href="/api-reference/applications/enable-subscriptions-capability">
+    Add the subscriptions capability and issue the tenant `api_key`.
+  </Card>
+  <Card title="Update subscriptions" icon="pen" href="/api-reference/applications/update-subscriptions-capability">
+    Edit billing email, JWT entitlement mode, widget origins, and notification config.
+  </Card>
+  <Card title="Rotate subscriptions key" icon="rotate" href="/api-reference/applications/rotate-subscriptions-key">
+    Issue a new subscriptions `api_key`.
+  </Card>
+  <Card title="Disable subscriptions" icon="ban" href="/api-reference/applications/disable-subscriptions-capability">
+    Remove the subscriptions capability row.
+  </Card>
+</CardGroup>
+
+## Webhooks
+
+One application can have many webhooks. Each webhook subscribes to a chosen set of event types across every enabled capability and is signed with its own raw HMAC `secret`. See the [Webhooks guide](/guides/webhooks) for signature verification and the full event catalog.
+
+<CardGroup cols={2}>
+  <Card title="List webhooks" icon="list" href="/api-reference/applications/list-webhooks">
+    Page through the webhooks registered on an application.
+  </Card>
+  <Card title="Create webhook" icon="plus" href="/api-reference/applications/create-webhook">
+    Register a new endpoint URL and event-type subscription.
+  </Card>
+  <Card title="Get webhook" icon="magnifying-glass" href="/api-reference/applications/get-webhook">
+    Fetch a single webhook config (secret is masked).
+  </Card>
+  <Card title="Update webhook" icon="pen" href="/api-reference/applications/update-webhook">
+    Edit endpoint URL, name, event types, or active flag.
+  </Card>
+  <Card title="Rotate webhook secret" icon="rotate" href="/api-reference/applications/rotate-webhook-secret">
+    Issue a new HMAC signing key.
+  </Card>
+  <Card title="Delete webhook" icon="trash" href="/api-reference/applications/delete-webhook">
+    Hard-delete the webhook config and stop further dispatches.
+  </Card>
+</CardGroup>

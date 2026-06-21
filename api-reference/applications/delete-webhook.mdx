@@ -1,0 +1,47 @@
+---
+title: "Delete webhook"
+description: "Hard-delete a webhook config. Subsequent events are not dispatched to this endpoint."
+api: "DELETE /api/applications/{id}/webhooks/{webhookId}"
+---
+
+Removes the webhook row. Any deliveries already queued and signed before this call may still land at the receiver; new events stop reaching it immediately. Past `webhook_deliveries` rows are retained for audit.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+<ParamField path="webhookId" type="string" required>
+  Webhook ID.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` when the webhook was deleted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Webhook does not exist or does not belong to this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/applications/app_mgtix/webhooks/whk_01HXYZ" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/webhooks/whk_01HXYZ",
+  { method: "DELETE", headers: { Authorization: `Bearer ${adminToken}` } }
+);
+```
+
+</CodeGroup>

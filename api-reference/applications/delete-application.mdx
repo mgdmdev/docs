@@ -1,0 +1,56 @@
+---
+title: "Delete application"
+description: "Soft-deactivate an application, or hard-delete it together with every dependent row."
+api: "DELETE /api/applications/{id}"
+---
+
+By default this is a **soft delete**: `is_active` flips to `0`, capability rows and dependent data (sessions, refresh tokens, plans, subscriptions, webhooks, deliveries, audit) stay intact for forensic and reactivation purposes. Pass `?hard=true` to invoke the cascading hard delete — every row that references this application via `FK ON DELETE CASCADE` goes with it.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Warning>
+A hard delete is irreversible and removes every OAuth session, refresh token, subscription, invoice, webhook, and delivery for the application. Use it only for genuinely test or abandoned applications.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Query parameters
+
+<ParamField query="hard" type="boolean" default="false">
+  Set to `true` to hard-delete instead of soft-deactivating.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` when the operation completed.
+</ResponseField>
+
+<ResponseField name="hard" type="boolean">
+  Echoed when `?hard=true` was used.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+# Soft delete (default).
+curl -X DELETE "https://auth.mgpass.net/api/applications/app_3news" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Hard delete — cascades through every dependent row.
+curl -X DELETE "https://auth.mgpass.net/api/applications/app_3news?hard=true" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/applications/app_3news", {
+  method: "DELETE",
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+```
+
+</CodeGroup>

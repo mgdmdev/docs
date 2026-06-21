@@ -1,0 +1,73 @@
+---
+title: "List webhooks"
+description: "Page through the webhooks registered against an application."
+api: "GET /api/applications/{id}/webhooks"
+---
+
+Returns the webhook configs attached to an application. One application can have many webhooks, each subscribing to a chosen set of event types across every enabled capability. Raw signing secrets are masked as `"****"` in the list view.
+
+Requires an admin bearer token with the `applications:read` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Query parameters
+
+<ParamField query="page" type="integer" default="1">
+  1-indexed page number.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Page size. Capped at 100.
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of webhook rows with `webhook_secret` masked.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of webhooks on this application.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl -X GET "https://auth.mgpass.net/api/applications/app_mgtix/webhooks" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/webhooks",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>
+
+## Example response
+
+```json
+{
+  "results": [
+    {
+      "id": "whk_01HXYZ...",
+      "application_id": "app_mgtix",
+      "name": "Production subscriptions",
+      "endpoint_url": "https://api.mgtix.com/webhooks/mgpass",
+      "event_types": "[\"subscription.created\",\"subscription.renewed\"]",
+      "is_active": 1,
+      "webhook_secret": "****"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
+```

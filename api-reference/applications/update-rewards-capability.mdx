@@ -1,0 +1,71 @@
+---
+title: "Update rewards capability"
+description: "Edit the rewards allow-list, custom rules, points multiplier, or active flag."
+api: "PATCH /api/applications/{id}/capabilities/rewards"
+---
+
+Updates the existing `application_rewards` row. Send only the fields you want to change. This endpoint never returns the API key — use the [rotate endpoint](/api-reference/applications/rotate-rewards-key) for that.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Body
+
+<ParamField body="allowed_event_types" type="string[]">
+  Replaces the stored allow-list. Pass `null` to remove the restriction and allow every event type.
+</ParamField>
+
+<ParamField body="custom_rules" type="object">
+  Replaces the stored rules JSON. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="points_multiplier" type="number">
+  Global multiplier for awarded points.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Toggle whether the rewards ingest endpoints accept events from this application.
+</ParamField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Body contained no recognized fields. |
+| 404 | `not_found` | Rewards capability is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "points_multiplier": 2.0,
+    "allowed_event_types": ["article.read", "video.watched", "comment.posted"]
+  }'
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      points_multiplier: 2.0,
+      allowed_event_types: ["article.read", "video.watched", "comment.posted"],
+    }),
+  }
+);
+```
+
+</CodeGroup>

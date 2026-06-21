@@ -1,0 +1,43 @@
+---
+title: "Disable rewards capability"
+description: "Remove the rewards capability row from an application."
+api: "DELETE /api/applications/{id}/capabilities/rewards"
+---
+
+Deletes the `application_rewards` row. Inbound rewards ingest calls authenticated with this application's `api_key` start failing with `401`. Existing ledger entries and user balances are unaffected.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` when the capability row was removed.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Rewards capability is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards",
+  { method: "DELETE", headers: { Authorization: `Bearer ${adminToken}` } }
+);
+```
+
+</CodeGroup>

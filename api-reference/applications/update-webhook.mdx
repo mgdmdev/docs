@@ -1,0 +1,85 @@
+---
+title: "Update webhook"
+description: "Edit the endpoint URL, name, event-type subscription, or active flag of a webhook."
+api: "PATCH /api/applications/{id}/webhooks/{webhookId}"
+---
+
+Updates an existing webhook config in place. Send only the fields you want to change. This endpoint never returns the signing secret — use the [rotate endpoint](/api-reference/applications/rotate-webhook-secret) for that.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+<ParamField path="webhookId" type="string" required>
+  Webhook ID.
+</ParamField>
+
+## Body
+
+<ParamField body="name" type="string">
+  Replace the human-readable name.
+</ParamField>
+
+<ParamField body="endpoint_url" type="string">
+  Replace the destination URL.
+</ParamField>
+
+<ParamField body="event_types" type="string[]">
+  Replaces the subscribed event-type list wholesale.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Toggle delivery. Pausing a webhook stops dispatch but does not retroactively drop queued deliveries.
+</ParamField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Body contained no recognized fields. |
+| 404 | `not_found` | Webhook does not exist or does not belong to this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/applications/app_mgtix/webhooks/whk_01HXYZ" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint_url": "https://api.mgtix.com/v2/webhooks/mgpass",
+    "event_types": [
+      "subscription.created",
+      "subscription.renewed",
+      "subscription.cancelled",
+      "subscription.payment_failed"
+    ]
+  }'
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/webhooks/whk_01HXYZ",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      endpoint_url: "https://api.mgtix.com/v2/webhooks/mgpass",
+      event_types: [
+        "subscription.created",
+        "subscription.renewed",
+        "subscription.cancelled",
+        "subscription.payment_failed",
+      ],
+    }),
+  }
+);
+```
+
+</CodeGroup>

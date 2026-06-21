@@ -1,0 +1,110 @@
+---
+title: "Create webhook"
+description: "Register a webhook against an application. Returns the raw HMAC signing secret once."
+api: "POST /api/applications/{id}/webhooks"
+---
+
+Registers a new webhook for an application and subscribes it to the chosen event types. The `webhook_secret` is the **raw** HMAC signing key — mgPass stores it as-is (not hashed) because the dispatcher must sign every outgoing payload with it. The raw value is returned **once** in this response under the `secret` field.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Warning>
+The plaintext `secret` is only returned by this call and by `rotate-webhook-secret`. Save it to your secret manager immediately and load it into your webhook receiver to verify signatures.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Body
+
+<ParamField body="name" type="string" required>
+  Human-readable name for the webhook (used in admin UI and audit logs).
+</ParamField>
+
+<ParamField body="endpoint_url" type="string" required>
+  HTTPS URL that receives `POST` deliveries.
+</ParamField>
+
+<ParamField body="event_types" type="string[]" required>
+  Event types to subscribe to. Examples: `subscription.created`, `subscription.activated`, `subscription.renewed`, `subscription.payment_failed`, `subscription.unpaid`, `subscription.cancelled`, `subscription.expired`, `subscription.trial_ending`, `subscription.plan_changed`. See the Webhooks guide for the full catalog.
+</ParamField>
+
+<ParamField body="is_active" type="boolean" default="true">
+  Set to `false` to register the webhook without immediately receiving deliveries.
+</ParamField>
+
+<ParamField body="secret" type="string">
+  Optional. Supply your own HMAC key (32+ characters recommended). If omitted, mgPass generates a random 32-character key.
+</ParamField>
+
+## Response
+
+Returns `201 Created`. The stored `webhook_secret` field is masked; the raw value is in `secret`.
+
+<ResponseField name="id" type="string">
+  Generated webhook ID, prefix `whk_`.
+</ResponseField>
+
+<ResponseField name="application_id" type="string">
+  Echo of the application ID.
+</ResponseField>
+
+<ResponseField name="secret" type="string">
+  Raw HMAC signing key. Shown once.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `name`, `endpoint_url`, or `event_types` is missing. |
+| 404 | `not_found` | Unknown application ID. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/app_mgtix/webhooks" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production subscriptions",
+    "endpoint_url": "https://api.mgtix.com/webhooks/mgpass",
+    "event_types": [
+      "subscription.created",
+      "subscription.activated",
+      "subscription.renewed",
+      "subscription.payment_failed",
+      "subscription.cancelled"
+    ]
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/webhooks",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "Production subscriptions",
+      endpoint_url: "https://api.mgtix.com/webhooks/mgpass",
+      event_types: [
+        "subscription.created",
+        "subscription.activated",
+        "subscription.renewed",
+        "subscription.payment_failed",
+        "subscription.cancelled",
+      ],
+    }),
+  }
+);
+const { id, secret } = await res.json();
+```
+
+</CodeGroup>

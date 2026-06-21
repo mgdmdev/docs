@@ -1,0 +1,110 @@
+---
+title: "Enable subscriptions capability"
+description: "Add the subscriptions capability to an application and issue the tenant api_key."
+api: "POST /api/applications/{id}/capabilities/subscriptions"
+---
+
+Adds the `application_subscriptions` row that turns this application into a subscriptions tenant. A 32-character `api_key` is generated, SHA-256 hashed for storage, and returned **once**. Use it as the `X-API-Key` header on `/v1/checkout`, `/v1/plans`, `/v1/subscriptions`, `/v1/promo-codes`, and `/v1/notifications`.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Warning>
+The plaintext `api_key` is only returned here and by `rotate-subscriptions-key`. Save it to your secret manager before this response leaves your terminal.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID, e.g. `app_mgtix`.
+</ParamField>
+
+## Body
+
+<ParamField body="billing_email" type="string">
+  Address that receives platform-level billing notifications for this tenant.
+</ParamField>
+
+<ParamField body="notification_config" type="object">
+  Tenant-level overrides for outbound notification copy and channels. JSON blob consumed by the notification worker.
+</ParamField>
+
+<ParamField body="entitlement_jwt_mode" type="string" default="plan_status">
+  Controls what the entitlement endpoint returns inside JWT claims.
+
+  - `plan_status` — minimal claims: `plan_id` plus `status`.
+  - `full_features` — embeds the resolved feature flag set so consumers can read entitlements offline.
+</ParamField>
+
+<ParamField body="allowed_widget_origins" type="string[]">
+  Origins permitted to load the embeddable checkout widget iframe for this application. Trailing slashes are stripped on store.
+</ParamField>
+
+<ParamField body="is_active" type="boolean" default="true">
+  Set to `false` to provision the row without immediately accepting tenant API calls.
+</ParamField>
+
+## Response
+
+Returns `201 Created` with the capability row and the `api_key` plaintext value.
+
+<ResponseField name="application_id" type="string">
+  Echo of the application ID.
+</ResponseField>
+
+<ResponseField name="api_key" type="string">
+  Plaintext API key. Shown once.
+</ResponseField>
+
+<ResponseField name="entitlement_jwt_mode" type="string">
+  Echo of the chosen mode.
+</ResponseField>
+
+<ResponseField name="allowed_widget_origins" type="string">
+  JSON-encoded array of normalized origins (column is JSON-at-rest).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `entitlement_jwt_mode` is not `plan_status` or `full_features`. |
+| 404 | `not_found` | Unknown application ID. |
+| 409 | `capability_exists` | Subscriptions capability is already enabled. Use `PATCH` instead. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/app_mgtix/capabilities/subscriptions" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "billing_email": "billing@mgtix.com",
+    "entitlement_jwt_mode": "full_features",
+    "allowed_widget_origins": ["https://mgtix.com", "https://staging.mgtix.com"]
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/capabilities/subscriptions",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      billing_email: "billing@mgtix.com",
+      entitlement_jwt_mode: "full_features",
+      allowed_widget_origins: ["https://mgtix.com", "https://staging.mgtix.com"],
+    }),
+  }
+);
+const { api_key } = await res.json();
+```
+
+</CodeGroup>
+
+<Note>
+**Hubtel mobile-money note**: card billing via Paystack is fully supported, but Hubtel MoMo Repeat Payments are deferred to a future release. Plans on `interval=annual` must use a card payment method — `POST /v1/checkout` rejects `interval=annual` + `payment_provider=hubtel`.
+</Note>

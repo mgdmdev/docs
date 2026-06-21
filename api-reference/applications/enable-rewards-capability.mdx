@@ -1,0 +1,92 @@
+---
+title: "Enable rewards capability"
+description: "Add the rewards capability to an application and issue the partner api_key."
+api: "POST /api/applications/{id}/capabilities/rewards"
+---
+
+Adds the `application_rewards` row that lets this application publish events to the rewards engine and earn points for its users. A 32-character `api_key` is generated, SHA-256 hashed for storage, and returned **once** in this response. Use it as the `X-API-Key` header on `POST /api/partner/events` and related rewards ingest calls.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Warning>
+The plaintext `api_key` is only returned here and by `rotate-rewards-key`. Save it to your secret manager before this response leaves your terminal.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID, e.g. `app_3news`.
+</ParamField>
+
+## Body
+
+<ParamField body="allowed_event_types" type="string[]">
+  Allow-list of event types this application may publish. Omit or pass `null` to allow every event type.
+</ParamField>
+
+<ParamField body="custom_rules" type="object">
+  JSON blob of partner-specific rules consumed by the points engine.
+</ParamField>
+
+<ParamField body="points_multiplier" type="number" default="1.0">
+  Global multiplier applied to points awarded for this application's events.
+</ParamField>
+
+<ParamField body="is_active" type="boolean" default="true">
+  Set to `false` to provision the row without immediately accepting events.
+</ParamField>
+
+## Response
+
+Returns `201 Created` with the capability row and the `api_key` plaintext value.
+
+<ResponseField name="application_id" type="string">
+  Echo of the application ID.
+</ResponseField>
+
+<ResponseField name="api_key" type="string">
+  Plaintext API key. Shown once.
+</ResponseField>
+
+<ResponseField name="points_multiplier" type="number">
+  The effective multiplier.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Unknown application ID. |
+| 409 | `capability_exists` | Rewards capability is already enabled. Use `PATCH` instead. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "allowed_event_types": ["article.read", "video.watched"],
+    "points_multiplier": 1.5
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      allowed_event_types: ["article.read", "video.watched"],
+      points_multiplier: 1.5,
+    }),
+  }
+);
+const { api_key } = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,84 @@
+---
+title: "Update subscriptions capability"
+description: "Edit billing email, JWT entitlement mode, widget origins, notification config, or active flag."
+api: "PATCH /api/applications/{id}/capabilities/subscriptions"
+---
+
+Updates the existing `application_subscriptions` row. Send only the fields you want to change. This endpoint never returns the API key — use the [rotate endpoint](/api-reference/applications/rotate-subscriptions-key) for that.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Body
+
+<ParamField body="billing_email" type="string">
+  Replace the billing contact, or pass `null` to clear.
+</ParamField>
+
+<ParamField body="notification_config" type="object">
+  Replaces the stored JSON. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="entitlement_jwt_mode" type="string">
+  One of `plan_status` or `full_features`.
+</ParamField>
+
+<ParamField body="allowed_widget_origins" type="string[]">
+  Replaces the stored list of embed origins. Trailing slashes are stripped automatically.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Toggle tenant API ingest.
+</ParamField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `entitlement_jwt_mode` is not one of the allowed values. |
+| 400 | `no_fields` | Body contained no recognized fields. |
+| 404 | `not_found` | Subscriptions capability is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/applications/app_mgtix/capabilities/subscriptions" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "allowed_widget_origins": [
+      "https://mgtix.com",
+      "https://www.mgtix.com",
+      "https://checkout.mgtix.com"
+    ],
+    "entitlement_jwt_mode": "plan_status"
+  }'
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_mgtix/capabilities/subscriptions",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      allowed_widget_origins: [
+        "https://mgtix.com",
+        "https://www.mgtix.com",
+        "https://checkout.mgtix.com",
+      ],
+      entitlement_jwt_mode: "plan_status",
+    }),
+  }
+);
+```
+
+</CodeGroup>

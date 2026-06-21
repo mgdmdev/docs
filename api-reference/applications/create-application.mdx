@@ -1,0 +1,111 @@
+---
+title: "Create application"
+description: "Create a new application spine row. Capabilities are added in follow-up calls."
+api: "POST /api/applications"
+---
+
+Creates an `applications` row — the spine that every capability hangs off. No OAuth client, rewards key, or subscriptions tenant is provisioned here; call the corresponding `POST /api/applications/:id/capabilities/*` endpoint after this returns.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Body
+
+<ParamField body="slug" type="string" required>
+  URL-safe identifier, unique across the platform. Used in customer-visible URLs and embed snippets.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Display name shown in admin and customer-facing surfaces.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Short description of the integration.
+</ParamField>
+
+<ParamField body="logo_url" type="string">
+  Absolute URL to a square logo (PNG or SVG, ideally 512x512).
+</ParamField>
+
+<ParamField body="support_email" type="string">
+  Public support address shown to end-users.
+</ParamField>
+
+<ParamField body="support_url" type="string">
+  Public support page URL.
+</ParamField>
+
+<ParamField body="branding" type="object">
+  JSON object for theming (e.g. `primary_color`, `font_family`). Stored verbatim and surfaced to hosted checkout and email templates.
+</ParamField>
+
+<ParamField body="organization_id" type="string">
+  Optional. Attach the application to an organization for multi-tenant grouping.
+</ParamField>
+
+## Response
+
+Returns `201 Created` with the new spine row.
+
+<ResponseField name="id" type="string">
+  Generated application ID, e.g. `app_3news`.
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  The slug you provided.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name you provided.
+</ResponseField>
+
+<ResponseField name="is_active" type="integer">
+  `1` for active. New applications start active.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `slug` or `name` is missing. |
+| 409 | `slug_taken` | Another application already uses this slug. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slug": "3news",
+    "name": "3News",
+    "description": "Ghana'\''s leading news destination.",
+    "logo_url": "https://cdn.mgpass.net/apps/3news.png",
+    "support_email": "support@3news.com",
+    "branding": { "primary_color": "#d62828" }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/applications", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    slug: "3news",
+    name: "3News",
+    description: "Ghana's leading news destination.",
+    logo_url: "https://cdn.mgpass.net/apps/3news.png",
+    support_email: "support@3news.com",
+    branding: { primary_color: "#d62828" },
+  }),
+});
+const application = await res.json();
+```
+
+</CodeGroup>

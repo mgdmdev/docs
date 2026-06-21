@@ -1,0 +1,92 @@
+---
+title: "Update application"
+description: "Patch mutable spine columns: name, slug, branding, support contacts, organization, or active flag."
+api: "PATCH /api/applications/{id}"
+---
+
+Updates one or more spine fields in place. Capability rows are untouched — use the capability-specific endpoints to edit OAuth/rewards/subscriptions config.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID, e.g. `app_mgtix`.
+</ParamField>
+
+## Body
+
+Send only the fields you want to change.
+
+<ParamField body="slug" type="string">
+  Replace the URL-safe identifier. Must remain globally unique.
+</ParamField>
+
+<ParamField body="name" type="string">
+  Display name.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Short description.
+</ParamField>
+
+<ParamField body="logo_url" type="string">
+  Absolute URL to the logo.
+</ParamField>
+
+<ParamField body="support_email" type="string">
+  Public support email.
+</ParamField>
+
+<ParamField body="support_url" type="string">
+  Public support URL.
+</ParamField>
+
+<ParamField body="branding" type="object">
+  Branding JSON object. Replaces the stored object wholesale.
+</ParamField>
+
+<ParamField body="organization_id" type="string">
+  Reassign to a different organization, or `null` to detach.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Toggle activation. Inactive applications cannot complete OAuth flows or accept new subscriptions.
+</ParamField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Body contained no recognized fields. |
+| 404 | `not_found` | Unknown application ID. |
+| 409 | `slug_taken` | Another application already uses the new slug. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/applications/app_mgtix" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "mgTix",
+    "branding": { "primary_color": "#0a8a3c" }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/applications/app_mgtix", {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "mgTix",
+    branding: { primary_color: "#0a8a3c" },
+  }),
+});
+const updated = await res.json();
+```
+
+</CodeGroup>

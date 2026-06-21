@@ -1,0 +1,85 @@
+---
+title: "List applications"
+description: "Page through every application spine row, optionally filtered by enabled capability."
+api: "GET /api/applications"
+---
+
+Returns a paged list of application spine rows. Pass `capability=oauth|rewards|subscriptions` to restrict results to applications that have the corresponding capability row.
+
+Requires an admin bearer token with the `applications:read` scope.
+
+## Query parameters
+
+<ParamField query="page" type="integer" default="1">
+  1-indexed page number.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Page size. Capped at 100.
+</ParamField>
+
+<ParamField query="capability" type="string">
+  Filter by enabled capability. One of `oauth`, `rewards`, or `subscriptions`.
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  Array of application spine rows.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of applications matching the filter.
+</ResponseField>
+
+<ResponseField name="page" type="integer">
+  Echo of the requested page.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  Echo of the requested page size.
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if another page is available.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl -X GET "https://auth.mgpass.net/api/applications?page=1&limit=20&capability=subscriptions" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications?page=1&limit=20&capability=subscriptions",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { data, total, has_more } = await res.json();
+```
+
+</CodeGroup>
+
+## Example response
+
+```json
+{
+  "data": [
+    {
+      "id": "app_3news",
+      "slug": "3news",
+      "name": "3News",
+      "description": "Ghana's leading news destination.",
+      "logo_url": "https://cdn.mgpass.net/apps/3news.png",
+      "support_email": "support@3news.com",
+      "is_active": 1,
+      "created_at": 1718900000
+    }
+  ],
+  "total": 12,
+  "page": 1,
+  "limit": 20,
+  "has_more": false
+}
+```

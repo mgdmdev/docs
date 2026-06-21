@@ -1,0 +1,52 @@
+---
+title: "Rotate rewards API key"
+description: "Issue a new rewards api_key. Returns the plaintext value once."
+api: "POST /api/applications/{id}/capabilities/rewards/rotate-key"
+---
+
+Generates a new 32-character `api_key`, SHA-256 hashes it server-side, and returns the plaintext value **once**. The previous key is invalidated immediately — any rewards ingest request using the old key fails with `401`.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Warning>
+The plaintext `api_key` is only returned here. Roll it into your secret manager and update partner deployments before the previous key's last in-flight request lands.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID.
+</ParamField>
+
+## Response
+
+<ResponseField name="application_id" type="string">
+  Echo of the application ID.
+</ResponseField>
+
+<ResponseField name="api_key" type="string">
+  The new plaintext API key. Shown once.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Rewards capability is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards/rotate-key" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news/capabilities/rewards/rotate-key",
+  { method: "POST", headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { api_key } = await res.json();
+```
+
+</CodeGroup>
