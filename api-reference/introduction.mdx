@@ -1,57 +1,126 @@
 ---
-title: "API Reference"
-description: "Complete reference for the mgPass Rewards API endpoints."
+title: "API reference"
+description: "Endpoints, auth methods, money conventions, and the shape of every error response."
+sidebarTitle: "Overview"
 ---
 
-## Base URLs
+## Base URL
 
 | Environment | URL |
 |-------------|-----|
 | Production | `https://auth.mgpass.net` |
 
+The hosted checkout page is served from `https://pay.mgpass.net` (same auth-worker, different route).
+
 ## Authentication
 
+mgPass uses three authentication methods. Each endpoint group below states which one it expects.
+
 <CardGroup cols={3}>
-  <Card title="Partner API Key" icon="key">
-    `X-API-Key` header for partner event publishing
+  <Card title="OAuth Bearer access_token" icon="user">
+    End-user identity. Issued by the OAuth flows. Carries scopes — gates `/api/account/*` and userinfo.
   </Card>
-  <Card title="User Token" icon="user">
-    `Authorization: Bearer <token>` for user-facing endpoints
+  <Card title="Admin Bearer token" icon="shield">
+    Operator identity. Bearer token with the `mgpass:admin` scope. Gates the entire management API.
   </Card>
-  <Card title="Admin Token" icon="shield">
-    Bearer token with `mgpass:admin` scope for management endpoints
+  <Card title="X-API-Key" icon="key">
+    Tenant / partner server identity. Static per-capability key in the `X-API-Key` header. Gates `/v1/*` and `/api/partner/events`.
   </Card>
 </CardGroup>
 
-## Endpoint Groups
+### Examples
 
-| Group | Base Path | Auth | Purpose |
+<CodeGroup>
+
+```bash User Bearer
+curl https://auth.mgpass.net/api/account/profile \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```bash Admin Bearer
+curl https://auth.mgpass.net/api/applications \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```bash X-API-Key
+curl https://auth.mgpass.net/v1/plans \
+  -H "X-API-Key: $TENANT_API_KEY"
+```
+
+</CodeGroup>
+
+## Endpoint groups
+
+| Group | Base path | Auth | Purpose |
 |-------|-----------|------|---------|
-| Partner Events | `/api/partner/` | API Key | Publish events, award points |
-| User Rewards | `/api/account/rewards/` | User Token | Balance, history, redemptions |
-| Cashback | `/api/account/cashback/` | User Token | Mobile money redemption |
-| Admin Rules | `/api/rewards/rules/` | Admin Token | Manage points rules |
-| Admin Partners | `/api/rewards/partners/` | Admin Token | Manage partner configs |
-| Admin Redemptions | `/api/rewards/redemptions/` | Admin Token | View/manage redemptions |
-| Admin Ledger | `/api/rewards/ledger/` | Admin Token | Search/export transaction log |
+| Authentication | `/oauth/`, `/.well-known/` | none / OAuth | Token exchange, OIDC discovery, JWKS, One Tap, FedCM |
+| Account (Self-Service) | `/api/account/` | User Bearer | Profile, sessions, identities |
+| User Management | `/api/users/` | Admin Bearer | CRUD users, sessions, identities, login history |
+| Applications | `/api/applications/` | Admin Bearer | Spine CRUD, OAuth/Rewards/Subscriptions capabilities, webhooks |
+| Subscriptions (Tenant API) | `/v1/` | X-API-Key | Plans, subscriptions, checkout sessions, promo codes |
+| Subscriptions (Admin) | `/api/subscriptions/` | Admin Bearer | Operator views, sponsored subs, invoices, payments, refunds, stats |
+| Subscriptions (Account) | `/api/account/subscriptions/` | User Bearer | List, change, cancel, preview upgrade, manage seats |
+| Notifications (Account) | `/api/account/notifications/` | User Bearer | Inbox list, read/unread, mark-all-read |
+| Notification Preferences | `/api/account/notification-preferences/` | User Bearer | Per-event-type, per-surface preferences |
+| Roles & Permissions | `/api/roles/` | Admin Bearer | CRUD roles, assign to users |
+| API Resources | `/api/resources/` | Admin Bearer | CRUD resources and scopes |
+| Organizations | `/api/organizations/` | Admin Bearer | CRUD orgs, add members |
+| Audit Logs | `/api/audit/` | Admin Bearer | Search the audit trail |
+| Partner Events | `/api/partner/events` | X-API-Key | Publish reward events |
+| User Rewards | `/api/account/rewards/` | User Bearer | Balance, history, redemptions |
+| Cashback | `/api/account/cashback/` | User Bearer | Mobile-money redemption |
+| Admin — Rules / Redemptions / Ledger / Benefits / Templates | `/api/rewards/` | Admin Bearer | Operator rewards management |
 
-## Response Format
+## Money and currency
 
-All successful responses return JSON. Paginated endpoints include:
+All money fields are integers in **minor units** — pesewas for `GHS`, cents for `USD`. Every money-bearing request, response, and webhook payload carries an explicit `currency` ("GHS" or "USD") alongside the `amount`.
+
+```json
+{
+  "amount": 5000,
+  "currency": "GHS"
+}
+```
+
+This is 50.00 GHS, not 5000 GHS.
+
+<Note>
+  `GHS` is the default for plans and the only currency Hubtel MoMo accepts. `USD` plans require a card payment provider (Paystack merchant-multi-currency-enabled). Annual plans are card-only regardless of currency.
+</Note>
+
+## Response format
+
+Successful responses return JSON. Paginated endpoints follow this shape:
 
 ```json
 {
   "results": [...],
   "total": 150,
-  "page": 1
+  "page": 1,
+  "page_size": 25
 }
 ```
 
-## Rate Limits
+## Errors
+
+Errors return the standard JSON error shape with an appropriate HTTP status:
+
+```json
+{
+  "error": "validation_failed",
+  "message": "currency must be GHS or USD",
+  "details": { "field": "currency" }
+}
+```
+
+See [Error handling](/guides/error-handling) for the full code table, retry strategy, and idempotency guidance.
+
+## Rate limits
 
 | Endpoint | Limit |
 |----------|-------|
 | Partner events | 30 req/min per IP |
+| Checkout creation | 60 req/min per Application |
 | General API | 100 req/min per IP |
 
-See [Error Handling](/guides/error-handling) for retry strategies.
+Webhook delivery uses an internal retry queue with exponential backoff — your endpoint does not need to be available at the moment of the event.

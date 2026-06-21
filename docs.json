@@ -21,33 +21,58 @@
             "group": "Getting Started",
             "pages": [
               "index",
-              "guides/overview"
+              "guides/overview",
+              "guides/quickstart"
             ]
           },
           {
-            "group": "Authentication",
+            "group": "Identity & Authentication",
             "pages": [
               "guides/oauth-flows",
               "guides/social-login",
               "guides/sms-otp",
               "guides/mfa",
-              "guides/sessions-tokens"
+              "guides/sessions-tokens",
+              "guides/token-refresh",
+              "guides/sso",
+              "guides/onetap-sdk"
             ]
           },
           {
-            "group": "User & Access Management",
+            "group": "Applications & Access Control",
             "pages": [
-              "guides/user-management",
               "guides/applications",
               "guides/rbac",
-              "guides/organizations"
+              "guides/organizations",
+              "guides/user-management"
+            ]
+          },
+          {
+            "group": "Subscriptions Engine",
+            "pages": [
+              "guides/subscriptions/overview",
+              "guides/subscriptions/quickstart",
+              "guides/subscriptions/plans",
+              "guides/subscriptions/checkout",
+              "guides/subscriptions/lifecycle",
+              "guides/subscriptions/changes",
+              "guides/subscriptions/seats",
+              "guides/subscriptions/sponsored",
+              "guides/subscriptions/currency",
+              "guides/subscriptions/webhooks"
+            ]
+          },
+          {
+            "group": "Notifications",
+            "pages": [
+              "guides/notifications-inbox",
+              "guides/notification-preferences"
             ]
           },
           {
             "group": "Rewards Integration",
             "pages": [
               "guides/introduction",
-              "guides/quickstart",
               "guides/authentication",
               "guides/partner-integration",
               "guides/awarding-points",
@@ -57,21 +82,18 @@
             ]
           },
           {
-            "group": "Advanced",
+            "group": "Webhooks",
             "pages": [
               "guides/webhooks",
-              "guides/webhooks-identity",
-              "guides/audit-logs",
-              "guides/migration",
-              "guides/error-handling"
+              "guides/webhooks-identity"
             ]
           },
           {
-            "group": "SSO & Sessions",
+            "group": "Advanced",
             "pages": [
-              "guides/sso",
-              "guides/onetap-sdk",
-              "guides/token-refresh"
+              "guides/audit-logs",
+              "guides/migration",
+              "guides/error-handling"
             ]
           }
         ]
@@ -103,6 +125,16 @@
             ]
           },
           {
+            "group": "Account (Self-Service)",
+            "pages": [
+              "api-reference/account/get-profile",
+              "api-reference/account/update-profile",
+              "api-reference/account/list-sessions",
+              "api-reference/account/revoke-session",
+              "api-reference/account/list-identities"
+            ]
+          },
+          {
             "group": "User Management",
             "pages": [
               "api-reference/user-management/list-users",
@@ -119,24 +151,108 @@
             ]
           },
           {
-            "group": "Account (Self-Service)",
+            "group": "Applications",
             "pages": [
-              "api-reference/account/get-profile",
-              "api-reference/account/update-profile",
-              "api-reference/account/list-sessions",
-              "api-reference/account/revoke-session",
-              "api-reference/account/list-identities"
+              "api-reference/applications/index",
+              "api-reference/applications/list-applications",
+              "api-reference/applications/get-application",
+              "api-reference/applications/create-application",
+              "api-reference/applications/update-application",
+              "api-reference/applications/delete-application",
+              "api-reference/applications/enable-oauth-capability",
+              "api-reference/applications/update-oauth-capability",
+              "api-reference/applications/rotate-oauth-secret",
+              "api-reference/applications/disable-oauth-capability",
+              "api-reference/applications/enable-rewards-capability",
+              "api-reference/applications/update-rewards-capability",
+              "api-reference/applications/rotate-rewards-key",
+              "api-reference/applications/disable-rewards-capability",
+              "api-reference/applications/enable-subscriptions-capability",
+              "api-reference/applications/update-subscriptions-capability",
+              "api-reference/applications/rotate-subscriptions-key",
+              "api-reference/applications/disable-subscriptions-capability",
+              "api-reference/applications/list-webhooks",
+              "api-reference/applications/get-webhook",
+              "api-reference/applications/create-webhook",
+              "api-reference/applications/update-webhook",
+              "api-reference/applications/rotate-webhook-secret",
+              "api-reference/applications/delete-webhook"
             ]
           },
           {
-            "group": "Applications",
+            "group": "Subscriptions (Tenant API)",
             "pages": [
-              "api-reference/applications/list-clients",
-              "api-reference/applications/create-client",
-              "api-reference/applications/get-client",
-              "api-reference/applications/update-client",
-              "api-reference/applications/delete-client",
-              "api-reference/applications/rotate-secret"
+              "api-reference/subscriptions-tenant/list-plans",
+              "api-reference/subscriptions-tenant/create-plan",
+              "api-reference/subscriptions-tenant/update-plan",
+              "api-reference/subscriptions-tenant/list-subscriptions",
+              "api-reference/subscriptions-tenant/get-subscription",
+              "api-reference/subscriptions-tenant/create-subscription",
+              "api-reference/subscriptions-tenant/change-plan",
+              "api-reference/subscriptions-tenant/cancel-subscription",
+              "api-reference/subscriptions-tenant/reactivate-subscription",
+              "api-reference/subscriptions-tenant/create-checkout-session",
+              "api-reference/subscriptions-tenant/get-checkout-session",
+              "api-reference/subscriptions-tenant/list-promo-codes",
+              "api-reference/subscriptions-tenant/create-promo-code",
+              "api-reference/subscriptions-tenant/apply-promo",
+              "api-reference/subscriptions-tenant/emit-notification"
+            ]
+          },
+          {
+            "group": "Subscriptions (Admin)",
+            "pages": [
+              "api-reference/subscriptions-admin/list-plans",
+              "api-reference/subscriptions-admin/get-plan",
+              "api-reference/subscriptions-admin/create-plan",
+              "api-reference/subscriptions-admin/update-plan",
+              "api-reference/subscriptions-admin/list-subscriptions",
+              "api-reference/subscriptions-admin/get-subscription",
+              "api-reference/subscriptions-admin/update-subscription",
+              "api-reference/subscriptions-admin/cancel-subscription",
+              "api-reference/subscriptions-admin/sponsor-subscription",
+              "api-reference/subscriptions-admin/list-invoices",
+              "api-reference/subscriptions-admin/get-invoice",
+              "api-reference/subscriptions-admin/list-payments",
+              "api-reference/subscriptions-admin/refund-payment",
+              "api-reference/subscriptions-admin/list-promo-codes",
+              "api-reference/subscriptions-admin/get-promo-code",
+              "api-reference/subscriptions-admin/create-promo-code",
+              "api-reference/subscriptions-admin/update-promo-code",
+              "api-reference/subscriptions-admin/delete-promo-code",
+              "api-reference/subscriptions-admin/get-stats"
+            ]
+          },
+          {
+            "group": "Subscriptions (Account)",
+            "pages": [
+              "api-reference/subscriptions-account/list-my-subscriptions",
+              "api-reference/subscriptions-account/get-my-subscription",
+              "api-reference/subscriptions-account/change-my-plan",
+              "api-reference/subscriptions-account/preview-upgrade",
+              "api-reference/subscriptions-account/cancel-my-subscription",
+              "api-reference/subscriptions-account/list-seats",
+              "api-reference/subscriptions-account/invite-seat",
+              "api-reference/subscriptions-account/accept-seat-invite",
+              "api-reference/subscriptions-account/remove-seat"
+            ]
+          },
+          {
+            "group": "Notifications (Account)",
+            "pages": [
+              "api-reference/notifications-account/list-notifications",
+              "api-reference/notifications-account/get-notification",
+              "api-reference/notifications-account/get-unread-count",
+              "api-reference/notifications-account/update-notification",
+              "api-reference/notifications-account/mark-all-read"
+            ]
+          },
+          {
+            "group": "Notification Preferences",
+            "pages": [
+              "api-reference/notification-preferences/list-default-events",
+              "api-reference/notification-preferences/get-preferences",
+              "api-reference/notification-preferences/set-preferences"
             ]
           },
           {
@@ -206,14 +322,6 @@
               "api-reference/admin-rules/update-rule",
               "api-reference/admin-rules/delete-rule",
               "api-reference/admin-rules/list-event-types"
-            ]
-          },
-          {
-            "group": "Admin - Partners",
-            "pages": [
-              "api-reference/admin-partners/list-partners",
-              "api-reference/admin-partners/create-partner",
-              "api-reference/admin-partners/rotate-key"
             ]
           },
           {

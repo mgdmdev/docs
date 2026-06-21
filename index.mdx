@@ -1,56 +1,64 @@
 ---
-title: "mgPass Identity Platform"
-description: "Developer documentation for mgPass — the identity, authentication, and rewards platform."
+title: "mgPass"
+description: "Identity, Rewards, and Subscriptions for African digital products."
 ---
 
 ## Welcome to mgPass
 
-mgPass is a complete identity platform. It provides OAuth 2.0 / OIDC authentication, user management, role-based access control, and a loyalty rewards engine for all your connected applications.
-
-<CardGroup cols={2}>
-  <Card title="Authentication" icon="lock" href="/guides/oauth-flows">
-    OAuth 2.0 and OIDC flows for web, mobile, SPA, and machine-to-machine applications
-  </Card>
-  <Card title="User Management" icon="users" href="/guides/user-management">
-    Create, update, and manage users with roles, social login, and MFA
-  </Card>
-  <Card title="Rewards" icon="star" href="/guides/quickstart">
-    Points engine with tier progression, catalog redemption, and mobile money cashback
-  </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/introduction">
-    Complete endpoint documentation with interactive playground
-  </Card>
-</CardGroup>
-
-## Platform Architecture
-
-mgPass is composed of three services:
-
-- **auth-worker** — The core API handling authentication, user management, RBAC, and rewards
-- **admin console** — Server-rendered admin dashboard for managing users, apps, roles, and rewards
-- **account portal** — User-facing self-service portal for profile, sessions, and rewards
-
-All services run at the edge with a relational database for persistence, key-value storage for sessions and caching, and object storage for uploaded assets.
-
-## Quick Links
+mgPass is the platform behind MG Digital's identity, loyalty, and recurring-revenue stack. One account, one application record, three engines: sign-in, points, and subscriptions — all on Cloudflare's edge, all behind a single management API.
 
 <CardGroup cols={3}>
-  <Card title="Platform Overview" icon="sitemap" href="/guides/overview">
-    Architecture and core concepts
+  <Card title="Identity & Auth" icon="lock" href="/guides/oauth-flows">
+    OAuth 2.0 / OIDC, social login, SMS OTP, MFA, SSO, and One Tap for web, mobile, SPA, and machine-to-machine apps.
   </Card>
-  <Card title="OAuth Flows" icon="key" href="/guides/oauth-flows">
-    Authorization Code, PKCE, Client Credentials
+  <Card title="Subscriptions Engine" icon="repeat" href="/guides/subscriptions/overview">
+    Plans, hosted and embedded checkout, Paystack card billing in GHS and USD, JWT entitlements, and lifecycle webhooks.
   </Card>
-  <Card title="Applications" icon="grid-2" href="/guides/applications">
-    Register and configure OAuth clients
-  </Card>
-  <Card title="RBAC" icon="shield" href="/guides/rbac">
-    Roles, scopes, and permissions
-  </Card>
-  <Card title="Social Login" icon="share-nodes" href="/guides/social-login">
-    Google, Apple, and Facebook connectors
-  </Card>
-  <Card title="Webhooks" icon="bell" href="/guides/webhooks-identity">
-    Identity and rewards event notifications
+  <Card title="Rewards" icon="star" href="/guides/introduction">
+    A points engine with tier progression, catalog redemption, and mobile-money cashback.
   </Card>
 </CardGroup>
+
+## Build with mgPass
+
+<CardGroup cols={3}>
+  <Card title="Rewards quickstart" icon="bolt" href="/guides/quickstart">
+    Publish your first event and award points in under five minutes.
+  </Card>
+  <Card title="Subscriptions quickstart" icon="rocket" href="/guides/subscriptions/quickstart">
+    Enable subscriptions, create a plan, and run a checkout in ten minutes.
+  </Card>
+  <Card title="Applications model" icon="grid-2" href="/guides/applications">
+    The unified `applications` spine and per-capability rows for OAuth, Rewards, and Subscriptions.
+  </Card>
+  <Card title="Hosted & embedded checkout" icon="cart-shopping" href="/guides/subscriptions/checkout">
+    Drop in `checkout.js` or redirect to `pay.mgpass.net` — your choice.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/guides/webhooks">
+    HMAC-signed delivery, automatic retries, and one config per Application.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Every endpoint, every parameter, with copy-paste curl and TypeScript examples.
+  </Card>
+</CardGroup>
+
+## Platform surfaces
+
+| Domain | Service | What it does |
+|--------|---------|--------------|
+| `auth.mgpass.net` | auth-worker | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhooks, SDK bundle |
+| `pay.mgpass.net` | auth-worker route | Hosted checkout (`/checkout/:sessionId`) |
+| `admin.mgpass.net` | admin console | Operator dashboard — manage Applications, plans, subscriptions, users, rewards |
+| `mgpass.net` | account portal | End-user self-service — profile, sessions, subscriptions, notifications, rewards |
+
+All four run on Cloudflare Workers backed by D1 (relational), KV (sessions and entitlement cache), R2 (assets), and Durable Objects (subscription state machine).
+
+## What's new in v3
+
+- **Unified Applications model.** Every integration is one `applications` row with capability rows (`application_oauth`, `application_rewards`, `application_subscriptions`) attached as you enable them. One `application_id` flows end-to-end. See [Applications](/guides/applications).
+- **Subscriptions Engine.** Plans, Paystack card billing, hosted + embedded checkout, promo codes, trials, seats, sponsored subs, multi-currency (GHS/USD), JWT entitlements, and a Durable Object state machine. See [Subscriptions overview](/guides/subscriptions/overview).
+- **In-app notifications.** A user-visible inbox with per-event-type, per-surface preferences. See [Notifications inbox](/guides/notifications-inbox).
+
+<Note>
+  Hubtel MoMo repeat payments are not yet supported for subscription renewals. Annual plans are card-only.
+</Note>
