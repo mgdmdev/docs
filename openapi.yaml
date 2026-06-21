@@ -1519,6 +1519,10 @@ paths:
       operationId: adminRefundSubscriptionPayment
       tags: [Subscriptions]
       summary: Issue a refund against a subscription payment
+      description: |
+        Calls Paystack's refund API for Paystack-funded payments; falls back to
+        a local-only refund row for Hubtel or when no original payment is found.
+        Cancels the subscription immediately on success.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
       requestBody:
@@ -1527,22 +1531,35 @@ paths:
           application/json:
             schema:
               type: object
-              required: [payment_id, amount, currency]
+              required: [amount]
               properties:
-                payment_id: { type: string }
-                amount: { type: integer, description: 'Refund amount in minor units.' }
-                currency: { type: string, enum: [GHS, USD] }
-                reason: { type: string }
+                amount: { type: integer, description: 'Refund amount in minor units (pesewas/cents).' }
+                reason: { type: string, description: 'Free-form reason; passed to Paystack as merchant_note.' }
+                payment_id: { type: string, description: 'Specific payment to refund. If omitted, the most recent succeeded payment is used.' }
       responses:
-        '201':
-          description: Refund created.
+        '200':
+          description: Refund issued.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  refund_id: { type: string }
-                  status: { type: string, enum: [pending, succeeded, failed] }
+                  success: { type: boolean }
+                  provider: { type: string, enum: [paystack, hubtel, none] }
+                  paystack_refund_id: { type: string, description: 'Paystack refund id, when provider=paystack.' }
+                  auto_refund: { type: boolean, description: 'true when the provider was called; false for hubtel/manual.' }
+        '502':
+          description: Paystack rejected the refund. Subscription is NOT cancelled; no local row written.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code: { type: string, example: paystack_refund_failed }
+                      message: { type: string }
 
   /api/subscriptions/{id}/payments:
     get:
@@ -3357,23 +3374,38 @@ components:
 
     CheckoutSession:
       type: object
+      description: |
+        Shape returned by `GET /v1/checkout/:sessionId`. Note that timestamps are
+        unix seconds (integers), not ISO strings, and `subscription_id` /
+        `completed_at` are populated atomically when the session completes
+        (migration 0042).
       properties:
-        id: { type: string }
+        session_id: { type: string, description: 'The session id, e.g. cos_3a9b…' }
         application_id: { type: string }
         plan_id: { type: string }
         user_id: { type: [string, "null"] }
-        email: { type: [string, "null"], format: email }
+        status: { type: string, enum: [pending, completed, expired] }
         mode: { $ref: '#/components/schemas/CheckoutMode' }
-        status: { type: string, enum: [pending, completed, expired, failed] }
-        amount: { type: integer }
-        currency: { type: string, enum: [GHS, USD] }
-        payment_provider: { type: string, enum: [paystack, hubtel] }
-        url: { type: string, format: uri, description: 'Hosted checkout URL — present when mode=hosted.' }
-        embed_url: { type: string, format: uri, description: 'iframe URL — present when mode=embedded. Origin-checked against allowed_widget_origins.' }
-        success_url: { type: [string, "null"], format: uri }
+        promo_code_id: { type: [string, "null"] }
+        payment_provider: { type: [string, "null"], enum: [paystack, hubtel, null] }
+        subscription_id: { type: [string, "null"], description: 'The resulting subscription id once status=completed; null while pending/expired.' }
+        expires_at: { type: integer, description: 'Unix seconds; sessions auto-expire 30 minutes after creation.' }
+        created_at: { type: integer, description: 'Unix seconds.' }
+        completed_at: { type: [integer, "null"], description: 'Unix seconds; null while pending/expired.' }
+        success_url: { type: string, format: uri }
         cancel_url: { type: [string, "null"], format: uri }
-        expires_at: { type: string, format: date-time }
-        created_at: { type: string, format: date-time }
+        metadata: { type: [object, "null"], description: 'Tenant-supplied metadata object from creation time.' }
+
+    CheckoutCreateResponse:
+      type: object
+      description: Shape returned by `POST /v1/checkout`.
+      required: [session_id, checkout_url, expires_at]
+      properties:
+        session_id: { type: string }
+        checkout_url: { type: string, format: uri, description: 'Always the hosted URL; for embedded the same id is passed to mgpass.checkout.open().' }
+        embed_session_id: { type: string, description: 'Returned only when mode=embedded; equal to session_id, surfaced separately for clarity.' }
+        mode: { $ref: '#/components/schemas/CheckoutMode' }
+        expires_at: { type: integer, description: 'Unix seconds.' }
 
     CheckoutCreate:
       type: object

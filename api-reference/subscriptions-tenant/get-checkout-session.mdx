@@ -1,0 +1,77 @@
+---
+title: "Get checkout session"
+description: "Fetch the state of a checkout session you created via POST /v1/checkout."
+api: "GET /v1/checkout/:sessionId"
+---
+
+Returns the full checkout session row, including the resulting `subscription_id` once the user completes payment. Use this to verify completion server-side (in case your webhook handler is delayed or you want to confirm before redirecting the user after a successful checkout).
+
+The session is auth-scoped: the call must use the X-API-Key of the Application that originally created the session. Sessions belonging to other Applications return `404`, not `403` — we don't leak existence across tenants.
+
+Requires the Subscriptions capability `X-API-Key` for the owning Application.
+
+## Path parameters
+
+<ParamField path="sessionId" type="string" required>
+  Checkout session id returned from `POST /v1/checkout`, e.g. `cos_3a9b…`.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="session_id" type="string">The id you queried.</ResponseField>
+<ResponseField name="application_id" type="string">Your Application id, e.g. `app_3news`.</ResponseField>
+<ResponseField name="plan_id" type="string">The plan the user is purchasing.</ResponseField>
+<ResponseField name="user_id" type="string">The mgPass user id, if the user was authenticated when the session was created. `null` for guest checkouts.</ResponseField>
+<ResponseField name="status" type="string">`pending` | `completed` | `expired`.</ResponseField>
+<ResponseField name="mode" type="string">`hosted` | `embedded` — set when the iframe first loads in embedded mode, otherwise stays at the request-time default.</ResponseField>
+<ResponseField name="promo_code_id" type="string">Promo code applied at creation time, or `null`.</ResponseField>
+<ResponseField name="payment_provider" type="string">`paystack` | `hubtel` | `null` (provider not yet selected).</ResponseField>
+<ResponseField name="subscription_id" type="string">
+  The resulting subscription id once `status === 'completed'`. `null` while pending or expired. Populated atomically when the Paystack callback completes the session.
+</ResponseField>
+<ResponseField name="expires_at" type="number">Unix-seconds expiry. Sessions auto-expire 30 minutes after creation.</ResponseField>
+<ResponseField name="created_at" type="number">Unix-seconds creation time.</ResponseField>
+<ResponseField name="completed_at" type="number">Unix-seconds completion time. `null` while pending or expired.</ResponseField>
+<ResponseField name="success_url" type="string">The redirect URL you supplied at creation.</ResponseField>
+<ResponseField name="cancel_url" type="string">The cancel-redirect URL you supplied, or `null`.</ResponseField>
+<ResponseField name="metadata" type="object">Tenant-supplied metadata object from creation time, or `null`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Session does not exist, or belongs to a different Application. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/checkout/cos_3a9b8c7d" \
+  -H "X-API-Key: $MGPASS_SUBSCRIPTIONS_KEY"
+```
+
+```typescript TypeScript
+const session = await fetch(
+  `https://auth.mgpass.net/v1/checkout/${sessionId}`,
+  { headers: { "X-API-Key": process.env.MGPASS_SUBSCRIPTIONS_KEY! } },
+).then((r) => r.json());
+
+if (session.status === "completed" && session.subscription_id) {
+  // Grant access — the subscription is live.
+  await grantAccess({ userId: session.user_id, subscriptionId: session.subscription_id });
+}
+```
+
+</CodeGroup>
+
+## Polling vs webhooks
+
+For the happy path, listen for the `subscription.created` webhook on your Application — it fires the moment the session completes and carries the same `subscription_id`. Use this endpoint when:
+
+- the webhook receiver hit a transient error and your retry loop wants to verify state,
+- the user has just been redirected back to your `success_url` and you want to confirm server-side before showing entitlements (don't trust the query string),
+- you're reconciling a backlog of pending sessions on a scheduled job.
+
+Don't poll every session aggressively — most should be settled by webhook within seconds.

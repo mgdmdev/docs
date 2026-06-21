@@ -1,12 +1,14 @@
 ---
 title: "Refund payment"
-description: "Record a refund against a subscription and cancel it immediately."
+description: "Issue a refund through the original payment provider and cancel the subscription."
 api: "POST /api/subscriptions/:id/refund"
 ---
 
-Records a negative-amount `subscription_payments` row (`payment_type=refund`, `status=refunded`) and cancels the subscription immediately. Writes a `subscriptions.refund_issued` audit row.
+For Paystack-funded payments, calls Paystack's `POST /refund` API with the original `transaction` reference, records a negative-amount `subscription_payments` row (`payment_type=refund`, `status=refunded`, `provider_reference` set to Paystack's refund id), cancels the subscription immediately, and writes a `subscriptions.refund_issued` audit row.
 
-The refund is recorded in mgPass — actually issuing money back to the customer's card happens at Paystack. Use this endpoint after you've issued the Paystack refund (or in parallel), so mgPass's books and the customer's entitlements line up.
+For Hubtel-funded payments — or when no original payment row is found — the endpoint falls back to recording the local refund row + cancelling the sub, with the audit metadata flagging `auto_refund: false` so it's clear a manual MoMo refund is still required.
+
+The Paystack refund itself is queued by Paystack and settles asynchronously; a successful 200 here means "we kicked it off successfully," not "the money has landed back in the customer's bank." Listen for Paystack's `refund.processed` webhook to confirm settlement.
 
 Requires an admin bearer token with the `subscriptions:write` scope.
 
@@ -17,11 +19,15 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 ## Body
 
 <ParamField body="amount" type="number" required>
-  Refund amount in minor units (pesewas/cents). Must be positive.
+  Refund amount in minor units (pesewas/cents). Must be positive. Paystack will refund this exact amount up to the original transaction total.
 </ParamField>
 
 <ParamField body="reason" type="string">
-  Free-form reason captured on the payment row's `failure_reason` column and in the audit log.
+  Free-form reason. Captured on the payment row's `failure_reason` column, passed to Paystack as `merchant_note`, and written to the audit log.
+</ParamField>
+
+<ParamField body="payment_id" type="string">
+  Specific subscription payment to refund. If omitted, the most recent succeeded payment on the subscription is selected.
 </ParamField>
 
 ## Response
@@ -29,6 +35,9 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 `200 OK`.
 
 <ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+<ResponseField name="provider" type="string">`paystack` | `hubtel` | `none`.</ResponseField>
+<ResponseField name="paystack_refund_id" type="string">Returned when `provider=paystack`. The refund id from Paystack — useful for correlating with their `refund.processed` webhook.</ResponseField>
+<ResponseField name="auto_refund" type="boolean">`true` when the provider was called (paystack); `false` when the refund was recorded locally only (hubtel or no original payment).</ResponseField>
 
 ## Errors
 
@@ -36,6 +45,8 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 |--------|------|------|
 | 400 | `invalid_request` | `amount` is missing or `<= 0`. |
 | 404 | `not_found` | Subscription doesn't exist. |
+| 404 | `payment_not_found` | `payment_id` provided but doesn't belong to this subscription. |
+| 502 | `paystack_refund_failed` | Paystack rejected the refund (e.g. transaction already refunded, insufficient balance). The subscription is NOT cancelled and no local refund row is written — retry with a different `payment_id` or escalate to Paystack support. The audit log records the failure. |
 
 <CodeGroup>
 
@@ -47,7 +58,7 @@ curl -X POST "https://auth.mgpass.net/api/subscriptions/sub_xyz/refund" \
 ```
 
 ```typescript TypeScript
-await fetch("https://auth.mgpass.net/api/subscriptions/sub_xyz/refund", {
+const res = await fetch("https://auth.mgpass.net/api/subscriptions/sub_xyz/refund", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${adminToken}`,
@@ -55,6 +66,7 @@ await fetch("https://auth.mgpass.net/api/subscriptions/sub_xyz/refund", {
   },
   body: JSON.stringify({ amount: 2500, reason: "Duplicate charge" }),
 });
+const { provider, paystack_refund_id, auto_refund } = await res.json();
 ```
 
 </CodeGroup>
