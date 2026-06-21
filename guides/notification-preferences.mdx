@@ -8,6 +8,12 @@ mgPass gives each user granular control over which event types they hear about a
 
 For the inbox UI and the always-in-app guarantee, read the [Notification inbox guide](/guides/notifications-inbox) first.
 
+<Note>
+**Preferences are enforced at the delivery worker, not just the UI.** The notification dispatcher consults `user_notification_preferences` before handing off to SES (email) or Hubtel (SMS). A user who opted out of marketing email will never receive a marketing email — regardless of how the notification was emitted, who emitted it, or what `surfaces` array the caller supplied. The opt-out is server-side enforcement, not a client courtesy.
+
+Transactional email remains always-on (regulatory requirement). Marketing defaults to OFF until the user opts in; other categories default ON.
+</Note>
+
 ## What the user controls
 
 For every event type in the [default events catalog](/api-reference/notification-preferences/list-default-events), the user has two toggles:

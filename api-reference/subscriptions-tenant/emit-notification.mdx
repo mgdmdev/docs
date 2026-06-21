@@ -7,16 +7,18 @@ api: "POST /v1/notifications"
 The Partner Notification API. Applications push arbitrary events into mgPass; mgPass owns dispatch (email, SMS, webhook, push), template resolution, and the in-app inbox.
 
 - **Templates.** Pass `template_id` to use one of your pre-defined templates, or omit and rely on the event-type-derived built-in (works for `subscription.created`, `subscription.renewed`, `subscription.cancelled`, `subscription.expired`, `subscription.payment_failed`, `subscription.trial_ending`). Unknown event types with no `template_id` are still inserted, but the worker logs a no-op.
-- **Idempotency.** Send the `Idempotency-Key` header. Replays return the original `notification_id` with `idempotent_replay: true`. Mapping is held in KV for 24 hours.
-- **Rate limit.** 100 requests per minute per application. Excess returns `429` with `Retry-After: 60`.
 
 Requires the `X-API-Key` header with a Subscriptions capability key.
 
 ## Headers
 
 <ParamField header="Idempotency-Key" type="string">
-  Optional client-generated key. Repeated requests with the same key + application return the first response.
+  Optional. Pass a UUIDv4 (or any 1–255 printable ASCII string) to make retries safe. Replays of the same key with the same body return the original `notification_id` and add an `Idempotent-Replayed: true` response header; the response body also sets `idempotent_replay: true` for backwards compatibility. Replays with a different body return **409 `idempotency_key_conflict`**. Keys live for 24 hours, scoped to the calling application id. See [API conventions → Idempotency-Key](/guides/api-conventions#idempotency-key).
 </ParamField>
+
+#### Rate limit
+
+Up to **100 requests per minute** per application id. Exceeding returns **429 `rate_limit_exceeded`** with a `Retry-After` header. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
 
 ## Body
 
@@ -72,6 +74,7 @@ Requires the `X-API-Key` header with a Subscriptions capability key.
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 404 | `user_not_found` | `user_id` doesn't exist. |
 | 404 | `not_found` | `template_id` doesn't exist. |
+| 409 | `idempotency_key_conflict` | Same `Idempotency-Key` resent with a different body. |
 | 429 | `rate_limit_exceeded` | 100/min/application cap hit. Retry after the `Retry-After` window. |
 
 <CodeGroup>

@@ -59,7 +59,7 @@ Content-Type: application/json
 }
 ```
 
-Sponsored subs are created with `status: "paused"` and `sponsored: true`. They count as entitled for [JWT claims](/guides/subscriptions/overview#jwt-entitlements) — your backend should treat `paused` the same as `active`.
+Sponsored subs are created with `sponsored: true`. Status is `trialing` when the plan has `trial_days > 0` (matching the paid path), otherwise `paused`. All three statuses — `trialing`, `paused`, and `active` — count as entitled for [JWT claims](/guides/subscriptions/overview#jwt-entitlements). Treat them identically in your backend.
 
 ### Example
 
@@ -110,6 +110,24 @@ curl -X PATCH https://auth.mgpass.net/api/applications/$APP_ID/subscriptions/$SU
 ```
 
 The extend endpoint advances `current_period_end` by the requested duration.
+
+## Bulk grants
+
+To grant many at once, hit the tenant-side bulk endpoint:
+
+```
+POST /v1/sponsored-subscriptions
+X-API-Key: <subscriptions capability key>
+Content-Type: application/json
+
+{ "plan_id": "pln_pro", "user_ids": ["usr_a", "usr_b", ...], "reason": "Q1 promo cohort" }
+```
+
+- Capped at **500 user_ids** per request (`400 bulk_too_large` above that).
+- Trial-bearing plans put each created sub into `trialing`, same as the single-shot path.
+- Duplicates are skipped per-user — the response separates `created`, `skipped`, and a flat `results` array so you can reconcile against your source list. See [Sponsor subscription → Bulk grants](/api-reference/subscriptions-admin/sponsor-subscription#bulk-grants).
+- Rate limit: 5 requests per minute per application id. See [API conventions](/guides/api-conventions#per-tenant-rate-limits).
+- Pass `Idempotency-Key` to make the whole bulk submit safe to retry.
 
 ## What sponsored subs skip
 

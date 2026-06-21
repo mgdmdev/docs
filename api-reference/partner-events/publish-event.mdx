@@ -1,4 +1,85 @@
 ---
-title: "Publish Event"
+title: "Publish event"
+description: "Stream a rewards event into mgPass for points awarding, rule evaluation, and webhook fan-out."
 api: "POST /api/partner/events"
 ---
+
+Records a partner event against the calling Application's rewards capability. The event evaluates active points rules, credits the user, fires `rewards.points_awarded` (and any tier-promotion follow-on) webhooks, and writes an audit row.
+
+Requires the `X-API-Key` header with a Rewards capability key.
+
+## Headers
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional. Pass a UUIDv4 (or any 1–255 printable ASCII string) to make retries safe. Replays of the same key with the same body return the original response unchanged and add an `Idempotent-Replayed: true` response header. Replays with a different body return **409 `idempotency_key_conflict`**. Keys live for 24 hours, scoped to the calling application id. See [API conventions → Idempotency-Key](/guides/api-conventions#idempotency-key).
+</ParamField>
+
+#### Rate limit
+
+Up to **1000 requests per minute** per application id. Exceeding returns **429 `rate_limit_exceeded`** with a `Retry-After` header. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  mgPass user ID receiving the points.
+</ParamField>
+
+<ParamField body="event_type" type="string" required>
+  Snake-case event type, e.g. `purchase`, `article.read`, `referral.completed`. Must appear in the application's `allowed_event_types` allowlist.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Arbitrary JSON used by rule evaluation (e.g. `{ "amount": 5000, "currency": "GHS" }`). Include a stable `reference_id` for application-level dedup.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="event_id" type="string">Recorded event id.</ResponseField>
+<ResponseField name="points_awarded" type="number">Points credited to the user.</ResponseField>
+<ResponseField name="tier_promoted" type="boolean">Set when the credit pushed the user into a higher tier.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `user_id` or `event_type`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 403 | `event_type_not_allowed` | `event_type` is not in the application's allowlist. |
+| 404 | `user_not_found` | `user_id` doesn't exist. |
+| 409 | `idempotency_key_conflict` | Same `Idempotency-Key` resent with a different body. |
+| 429 | `rate_limit_exceeded` | More than 1000 requests in the current minute. Retry after the `Retry-After` window. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/events" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Idempotency-Key: order-9821-purchase" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "event_type": "purchase",
+    "metadata": { "amount": 5000, "currency": "GHS", "reference_id": "ord_9821" }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/partner/events", {
+  method: "POST",
+  headers: {
+    "X-API-Key": rewardsApiKey,
+    "Idempotency-Key": "order-9821-purchase",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    user_id: "usr_abc123",
+    event_type: "purchase",
+    metadata: { amount: 5000, currency: "GHS", reference_id: "ord_9821" },
+  }),
+});
+const { points_awarded, tier_promoted } = await res.json();
+```
+
+</CodeGroup>

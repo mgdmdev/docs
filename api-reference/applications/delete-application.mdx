@@ -24,6 +24,20 @@ A hard delete is irreversible and removes every OAuth session, refresh token, su
   Set to `true` to hard-delete instead of soft-deactivating.
 </ParamField>
 
+## Body (hard delete only)
+
+<ParamField body="confirm" type="string" required>
+  When `?hard=true`, the request body must include `confirm` set to the literal string `DELETE <slug>` (exact match, case-sensitive, no quoting). Anything else returns **400 `confirm_mismatch`**. Soft deletes ignore this field.
+</ParamField>
+
+## Cascade order (hard delete)
+
+When `?hard=true&confirm=DELETE <slug>` is accepted, the worker runs this sequence before deleting the row:
+
+1. Cancels every active subscription for the application (`reason: admin:application_deletion`). Each cancellation fires its own `subscription.cancelled` webhook + notification.
+2. Fans out a final synchronous `application.deleting` webhook event to every registered endpoint **in parallel** (5-second timeout per endpoint, 5-second total bound via `Promise.allSettled`). This event is delivered regardless of the endpoint's `event_types` filter — see [Subscription webhooks → `application.deleting`](/guides/subscriptions/webhooks#application-deleting).
+3. Deletes the application row, which cascades through FK `ON DELETE CASCADE` to wipe capability rows, plans, subscriptions, payments, webhooks, deliveries, sessions, refresh tokens, and audit.
+
 ## Response
 
 <ResponseField name="success" type="boolean">
@@ -34,6 +48,13 @@ A hard delete is irreversible and removes every OAuth session, refresh token, su
   Echoed when `?hard=true` was used.
 </ResponseField>
 
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `confirm_mismatch` | `?hard=true` but the request body's `confirm` field is missing or doesn't exactly match `DELETE <slug>`. |
+| 404 | `not_found` | Unknown application id. |
+
 <CodeGroup>
 
 ```bash curl
@@ -42,15 +63,32 @@ curl -X DELETE "https://auth.mgpass.net/api/applications/app_3news" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # Hard delete — cascades through every dependent row.
+# Slug for app_3news is "3news"; confirm must be the exact string "DELETE 3news".
 curl -X DELETE "https://auth.mgpass.net/api/applications/app_3news?hard=true" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "confirm": "DELETE 3news" }'
 ```
 
 ```typescript TypeScript
+// Soft delete.
 await fetch("https://auth.mgpass.net/api/applications/app_3news", {
   method: "DELETE",
   headers: { Authorization: `Bearer ${adminToken}` },
 });
+
+// Hard delete.
+await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news?hard=true",
+  {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ confirm: "DELETE 3news" }),
+  }
+);
 ```
 
 </CodeGroup>

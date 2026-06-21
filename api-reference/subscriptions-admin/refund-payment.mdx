@@ -12,6 +12,16 @@ The Paystack refund itself is queued by Paystack and settles asynchronously; a s
 
 Requires an admin bearer token with the `subscriptions:write` scope.
 
+## Headers
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional. Pass a UUIDv4 (or any 1–255 printable ASCII string) to make retries safe. Replays of the same key with the same body return the original response unchanged and add an `Idempotent-Replayed: true` response header. Replays with a different body return **409 `idempotency_key_conflict`**. Keys live for 24 hours, scoped to the admin user id. See [API conventions → Idempotency-Key](/guides/api-conventions#idempotency-key).
+</ParamField>
+
+<Note>
+  Beyond the Idempotency-Key TTL, refunds are also deduplicated at the data layer: the refund row stamps `{original_provider_reference, original_payment_id}` into its `provider_response` JSON, and subsequent refund attempts against the same original transaction return **409 `refund_already_issued`** echoing the existing `refund_id` and `paystack_refund_id`. This protects against duplicate refunds even after the 24-hour idempotency window lapses.
+</Note>
+
 ## Path parameters
 
 <ParamField path="id" type="string" required>Subscription ID.</ParamField>
@@ -46,7 +56,18 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 | 400 | `invalid_request` | `amount` is missing or `<= 0`. |
 | 404 | `not_found` | Subscription doesn't exist. |
 | 404 | `payment_not_found` | `payment_id` provided but doesn't belong to this subscription. |
+| 409 | `idempotency_key_conflict` | Same `Idempotency-Key` resent with a different body. |
+| 409 | `refund_already_issued` | The same original transaction has already been refunded. Response echoes the existing `refund_id` and `paystack_refund_id`. Safe to treat as success. |
 | 502 | `paystack_refund_failed` | Paystack rejected the refund (e.g. transaction already refunded, insufficient balance). The subscription is NOT cancelled and no local refund row is written — retry with a different `payment_id` or escalate to Paystack support. The audit log records the failure. |
+
+```json 409 refund_already_issued response
+{
+  "error": "refund_already_issued",
+  "message": "This payment has already been refunded",
+  "refund_id": "pay_refund_abc",
+  "paystack_refund_id": "rfd_xyz"
+}
+```
 
 <CodeGroup>
 

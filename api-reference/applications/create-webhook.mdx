@@ -6,6 +6,10 @@ api: "POST /api/applications/{id}/webhooks"
 
 Registers a new webhook for an application and subscribes it to the chosen event types. The `webhook_secret` is the **raw** HMAC signing key — mgPass stores it as-is (not hashed) because the dispatcher must sign every outgoing payload with it. The raw value is returned **once** in this response under the `secret` field.
 
+<Note>
+**Test ping on creation.** Immediately after the row is inserted (and only when `is_active=true`), mgPass dispatches a signed `webhook.test` event to your endpoint with a 5-second timeout. The result is echoed back in the response as `test_delivery: { status, ok, latency_ms, error? }` and captured in the audit log. The webhook is created either way — a failing test does **not** roll back creation; it just surfaces the problem early. Set `is_active=false` if you want to skip the test ping and enable later.
+</Note>
+
 Requires an admin bearer token with the `applications:write` scope.
 
 <Warning>

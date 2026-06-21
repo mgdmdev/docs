@@ -10,6 +10,16 @@ For the typical flow where mgPass collects payment, use [Create checkout session
 
 Requires the `X-API-Key` header with a Subscriptions capability key.
 
+## Headers
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional. Pass a UUIDv4 (or any 1–255 printable ASCII string) to make retries safe. Replays of the same key with the same body return the original response unchanged and add an `Idempotent-Replayed: true` response header. Replays with a different body return **409 `idempotency_key_conflict`**. Keys live for 24 hours, scoped to the calling application id. See [API conventions → Idempotency-Key](/guides/api-conventions#idempotency-key).
+</ParamField>
+
+#### Rate limit
+
+Up to **60 requests per minute** per application id. Exceeding returns **429 `rate_limit_exceeded`** with a `Retry-After` header. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
+
 ## Body
 
 <ParamField body="user_id" type="string" required>
@@ -69,8 +79,11 @@ If the plan has `trial_days > 0`, the subscription is created with `status='tria
 | Status | Code | When |
 |--------|------|------|
 | 400 | `invalid_request` | Missing `user_id` or `plan_id`. |
+| 400 | `annual_requires_card` | `interval=annual` + `payment_provider=hubtel`. Annual plans are card-only until Hubtel MoMo Repeat Payments v1.2 ships. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 404 | `not_found` | Plan does not exist or belongs to a different application. |
+| 409 | `idempotency_key_conflict` | Same `Idempotency-Key` resent with a different body. |
+| 429 | `rate_limit_exceeded` | More than 60 requests in the current minute. Retry after the `Retry-After` window. |
 
 <CodeGroup>
 

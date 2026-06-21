@@ -230,6 +230,28 @@ Fires when `access_revoked_at` is reached on a cancelled sub, or when a [sponsor
 }
 ```
 
+### `application.deleting`
+
+Fires synchronously when an admin hard-deletes the Application that owns this webhook. The endpoint receives a final farewell event seconds before the FK CASCADE wipes its `webhooks` row (and every other dependent record).
+
+```json
+{
+  "event_type": "application.deleting",
+  "data": {
+    "application_id": "app_xxx",
+    "application_slug": "3news",
+    "deleted_at": "2026-06-21T14:32:01Z",
+    "deleted_by": "admin_user_id_or_email"
+  }
+}
+```
+
+<Warning>
+This event bypasses the per-webhook `event_types` allowlist — consumers always receive it, regardless of which subscriptions they configured. The dispatcher fans it out in parallel with a 5-second total timeout, then proceeds with the cascade.
+</Warning>
+
+Treat it as a cleanup signal: deactivate any user-facing OAuth login for this application, invalidate cached entitlements, archive related rows. After this event the application's webhook configuration is gone and no further deliveries will arrive — including no `subscription.cancelled` events for the subs the cascade wipes (those cancellations fire **before** this farewell, but on the same critical path).
+
 ### `subscription.trial_ending`
 
 Fires roughly 24 hours before a trial converts. Use it to nudge the user.
@@ -303,6 +325,7 @@ This also keeps the event count low — operators have one handler for any plan 
 | Sponsored grant | `subscription.created`, `subscription.activated` (status=paused, sponsored=true) |
 | Sponsored sub period ends | `subscription.expired` |
 | ~24h before trial converts | `subscription.trial_ending` |
+| Application hard-deleted by admin | `subscription.cancelled` (per sub, reason=`admin:application_deletion`), then `application.deleting` (once, parallel fan-out to every endpoint) |
 
 ## Verifying signatures
 

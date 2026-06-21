@@ -28,11 +28,40 @@ All fields optional.
 <ParamField body="paystack_plan_code" type="string">Paystack plan code.</ParamField>
 <ParamField body="active" type="boolean">Availability flag.</ParamField>
 
+## Query parameters
+
+<ParamField query="force" type="boolean" default="false">
+  Only consulted when the request sets `active=false`. When `true`, suppresses the `warning` payload below. Does **not** change the destructive action — the plan still deactivates either way; only the warning is silenced.
+</ParamField>
+
 ## Response
 
 `200 OK`.
 
 <ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+<ResponseField name="warning" type="object">
+  Only present when the request set `active=false` and the plan has existing dependents. Contains:
+
+  - `warning` (string) — always `"plan_has_active_subscriptions"`.
+  - `active_subscriptions` (number) — count of subscriptions currently on this plan in non-terminal state.
+  - `pending_checkouts` (number) — count of checkout sessions that reference this plan and haven't yet converted or expired.
+  - `advice` (string) — operator-facing guidance copy.
+</ResponseField>
+
+<Note>
+  Plan deactivation is **never blocked** — admins retain the lever even if there's outstanding activity. The warning exists so the admin can see what they're about to disrupt before it lands. Pass `?force=true` to deactivate without surfacing the warning (e.g. when scripting cleanup).
+</Note>
+
+```json Example response with warning
+{
+  "success": true,
+  "warning": "plan_has_active_subscriptions",
+  "active_subscriptions": 47,
+  "pending_checkouts": 3,
+  "advice": "Migrate these subscriptions to another plan before deactivating, or pass ?force=true to suppress this warning."
+}
+```
 
 ## Errors
 

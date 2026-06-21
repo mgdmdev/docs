@@ -26,6 +26,12 @@
             ]
           },
           {
+            "group": "Conventions",
+            "pages": [
+              "guides/api-conventions"
+            ]
+          },
+          {
             "group": "Identity & Authentication",
             "pages": [
               "guides/oauth-flows",

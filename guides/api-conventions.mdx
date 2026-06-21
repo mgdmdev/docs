@@ -1,0 +1,156 @@
+---
+title: "API conventions"
+description: "Cross-cutting contracts for the mgPass tenant API — idempotency, rate limits, pagination, error envelope, and webhook dedup."
+sidebarTitle: "API conventions"
+---
+
+The same handful of contracts apply across every tenant-facing endpoint. Read this page once; reference it from the per-endpoint pages.
+
+## Idempotency-Key
+
+Every write endpoint that creates or charges accepts an `Idempotency-Key` header. Pass it on retries to make the call safe to repeat — mgPass deduplicates against the previous request and returns the original response instead of acting twice.
+
+### Contract
+
+- **Header.** `Idempotency-Key: <key>`. 1–255 printable ASCII characters. UUIDv4 is the recommended shape; any opaque value of yours will do.
+- **Scope.** Keys are scoped to the actor — your application id for tenant API calls (`X-API-Key`), the user id for account-bearer calls, the admin user id for admin-bearer calls. Two different applications can use the same key without colliding.
+- **TTL.** 24 hours. After that the key is swept by a daily cron and the next request with the same key is treated as fresh.
+- **Replay match.** mgPass stores a SHA-256 of the original request body. A subsequent request with the same key **and the same body** returns the original response unchanged and adds an `Idempotent-Replayed: true` response header (Stripe convention).
+- **Body mismatch.** Same key, different body returns **409 `idempotency_key_conflict`** — your retry sent something different than the original. Either reuse the original body or pick a fresh key.
+- **Missing header.** No-op. The request runs normally with no dedup protection.
+
+### Endpoints that accept the header
+
+| Endpoint | Notes |
+|---|---|
+| `POST /v1/checkout` | Dedup the checkout session itself. |
+| `POST /v1/subscriptions` | Dedup the server-side subscription create. |
+| `POST /v1/notifications` | Replays return the cached `notification_id` with `idempotent_replay: true`. |
+| `POST /api/partner/events` | Dedup the partner event publish. |
+| `POST /api/account/cashback/redeem` | Account-scoped; prevents double-spend on retry. |
+| `POST /api/subscriptions/:id/refund` | Admin-scoped; defense-in-depth on top of refund-row uniqueness. |
+
+### Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/checkout" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Idempotency-Key: 7c9e6679-7425-40de-944b-e07fc1f90ae7" \
+  -H "Content-Type: application/json" \
+  -d '{ "plan_id": "plan_pro", "success_url": "https://3news.com/welcome" }'
+```
+
+```typescript TypeScript
+import { randomUUID } from "node:crypto";
+
+const idempotencyKey = randomUUID();
+
+async function createCheckout() {
+  const res = await fetch("https://auth.mgpass.net/v1/checkout", {
+    method: "POST",
+    headers: {
+      "X-API-Key": subsApiKey,
+      "Idempotency-Key": idempotencyKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      plan_id: "plan_pro",
+      success_url: "https://3news.com/welcome",
+    }),
+  });
+
+  if (res.headers.get("Idempotent-Replayed") === "true") {
+    // mgPass returned the original response; safe to treat as success.
+  }
+
+  return res.json();
+}
+```
+
+</CodeGroup>
+
+<Tip>
+Generate the key once at the top of your retry loop, not on each attempt. The whole point is that retries share the key.
+</Tip>
+
+## Per-tenant rate limits
+
+Write endpoints are rate-limited per `application_id` using a minute-bucket. Exceeding the limit returns **429 `rate_limit_exceeded`** with a `Retry-After` header set to the seconds remaining in the current bucket. Limits fail open if the underlying KV store is unavailable.
+
+| Endpoint | Limit |
+|---|---|
+| `POST /v1/checkout` | 60 / min |
+| `POST /v1/subscriptions` | 60 / min |
+| `POST /v1/plans`, `PATCH /v1/plans/:id` | 30 / min |
+| `POST /v1/subscriptions/:id/cancel` | 30 / min |
+| `POST /v1/subscriptions/:id/change-plan` | 30 / min |
+| `POST /v1/subscriptions/:id/reactivate` | 30 / min |
+| `POST /v1/subscriptions/:id/apply-promo` | 30 / min |
+| `POST /v1/promo-codes` | 30 / min |
+| `POST /v1/sponsored-subscriptions` | 5 / min |
+| `POST /v1/notifications` | 100 / min |
+| `POST /api/partner/events` | 1000 / min |
+
+Read-only endpoints are subject to the per-IP limit only — no per-tenant cap on lists or gets.
+
+```text Example 429 response
+HTTP/1.1 429 Too Many Requests
+Retry-After: 17
+Content-Type: application/json
+
+{ "error": "rate_limit_exceeded", "message": "Too many requests" }
+```
+
+## Pagination
+
+List endpoints use cursor-based pagination with two query parameters:
+
+- `limit` — page size (default 25, max 100).
+- `cursor` — opaque token returned in the previous page's `next_cursor`. Omit on the first page.
+
+Response envelope:
+
+```json
+{
+  "items": [ /* ... */ ],
+  "next_cursor": "eyJpZCI6InN1Yl94eXoiLCJ0cyI6MTcxOH0",
+  "has_more": true
+}
+```
+
+When `has_more` is `false` (or `next_cursor` is null), you're at the end. Cursors are stable across a single result set but should be treated as opaque — don't parse them.
+
+## Error envelope
+
+Every error response has the same shape:
+
+```json
+{
+  "error": "error_code",
+  "message": "Human-readable description"
+}
+```
+
+- `error` — stable snake_case code. Switch on this in your code.
+- `message` — human-readable detail. Safe to surface to operators; don't surface raw to end users (it may contain field names).
+
+Some errors include additional context fields alongside `error` and `message` — for example, the plan-deactivation warning returns `active_subscriptions` and `pending_checkouts` counts. Per-endpoint docs call these out explicitly.
+
+See [Error handling](/guides/error-handling) for the full status-code-to-action mapping.
+
+## Webhook event_id
+
+Every webhook payload mgPass dispatches carries a top-level `event_id` (prefix `whe_`) generated once per logical event and held identical across all retry attempts. **Dedupe by `event_id` on your receiver** — Cloudflare Workers retry on non-2xx responses and the delivery layer is at-least-once.
+
+```json
+{
+  "event_id":    "whe_xyz...",
+  "event_type":  "subscription.created",
+  "occurred_at": "2026-06-21T14:32:01.123Z",
+  "data":        { /* ... */ }
+}
+```
+
+See [Subscription webhooks → Idempotency](/guides/subscriptions/webhooks#idempotency) for the recommended dedup pattern and [Webhooks](/guides/webhooks) for HMAC verification.

@@ -42,7 +42,9 @@ Requires an admin bearer token with the `applications:write` scope.
 <ResponseField name="application_id" type="string">Echo of the application ID.</ResponseField>
 <ResponseField name="user_id" type="string">Echo of the user ID.</ResponseField>
 <ResponseField name="plan_id" type="string">Echo of the plan ID.</ResponseField>
-<ResponseField name="status" type="string">Always `active`.</ResponseField>
+<ResponseField name="status" type="string">
+  `trialing` when the plan has `trial_days > 0`; `active` otherwise. Trial-respect behavior matches the paid path — sponsored subs on trial-bearing plans start in trial and convert at `trial_end`.
+</ResponseField>
 <ResponseField name="sponsored" type="boolean">Always `true`.</ResponseField>
 <ResponseField name="current_period_start" type="number">Unix epoch seconds.</ResponseField>
 <ResponseField name="current_period_end" type="number">Unix epoch seconds — one full interval of the plan.</ResponseField>
@@ -92,3 +94,36 @@ const { subscription_id } = await res.json();
 </CodeGroup>
 
 See the [sponsored subscriptions guide](/guides/subscriptions/sponsored) for the conceptual flow.
+
+## Bulk grants
+
+To grant many sponsored subs in one call, use the tenant-side bulk endpoint:
+
+```
+POST /v1/sponsored-subscriptions
+X-API-Key: <subscriptions capability key>
+Content-Type: application/json
+
+{ "plan_id": "plan_pro", "user_ids": ["usr_a", "usr_b", "usr_c"], "reason": "..." }
+```
+
+- **Cap.** Maximum **500 user_ids** per request. Above that returns **400 `bulk_too_large`**.
+- **Trial respect.** Same as the single-shot endpoint — if the plan has `trial_days > 0`, every successful grant starts in `status='trialing'`.
+- **Partial success.** Duplicate sponsored subs are skipped per-user instead of failing the whole batch. The response carries three arrays:
+
+```json
+{
+  "created": ["sub_aaa", "sub_bbb"],
+  "skipped": [
+    { "user_id": "usr_c", "reason": "sponsored_subscription_exists" }
+  ],
+  "results": [
+    { "user_id": "usr_a", "status": "created", "subscription_id": "sub_aaa" },
+    { "user_id": "usr_b", "status": "created", "subscription_id": "sub_bbb" },
+    { "user_id": "usr_c", "status": "skipped", "reason": "sponsored_subscription_exists" }
+  ]
+}
+```
+
+- **Rate limit.** 5 requests per minute per application id. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
+- **Idempotency.** Pass `Idempotency-Key` to make the bulk submit safe to retry. See [API conventions → Idempotency-Key](/guides/api-conventions#idempotency-key).
