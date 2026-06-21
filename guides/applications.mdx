@@ -1,234 +1,179 @@
 ---
-title: "Applications (OAuth Clients)"
-description: "Register and configure OAuth clients for authentication with mgPass."
+title: "Applications"
+description: "The unified spine for every mgPass integration — OAuth, Rewards, and Subscriptions all hang off one Application."
 ---
 
-## What is an Application?
+## What is an Application in v3?
 
-An Application in mgPass represents any platform, website, or service that needs to authenticate users. When you register an application, mgPass issues it a **Client ID** and (for server-side apps) a **Client Secret** that it uses to initiate the OAuth 2.0 login flow.
+An **Application** is a single row in the `applications` table representing a customer-facing integration with mgPass. 3News, mgTix, adesa+ — each is one Application. The row carries the integration's identity: id, slug, display name, description, logo, support email, branding, and (optionally) the organization it belongs to.
 
-Every platform in your ecosystem is a registered application: your web apps, mobile apps, the admin console itself, and any third-party integrations.
+An Application on its own does nothing. What it does is determined by the **capabilities** attached to it. There are three capabilities today — OAuth, Rewards, and Subscriptions — and each is a separate 1:1 row that hangs off the Application spine. An Application can have one capability, two, all three, or none.
 
-## Application Types
+<Note>
+In earlier versions of mgPass, OAuth clients, rewards partners, and subscription tenants were three separate entities with three separate ID spaces (`client_id`, `partner_id`, `tenant_id`). In v3 they are all the same thing: an Application. There is one ID — `application_id` — that flows end-to-end through the database, API responses, admin views, and webhook payloads. See [Migration from legacy entity names](#migration-from-legacy-entity-names) at the bottom of this page if you're updating older integration code.
+</Note>
 
-Choosing the right type determines how the application authenticates and what security measures are enforced:
+## The three capabilities
 
-<AccordionGroup>
-  <Accordion title="Traditional Web" icon="server">
-    **For:** Server-rendered apps with a backend (Next.js, Django, Rails, Express, Laravel)
+A capability is a row attached to an Application by `application_id` (primary key + foreign key in one). **Presence of the row means the capability is enabled.** There is no boolean flag — enabling a capability inserts the row, disabling it deletes the row.
 
-    **How it works:** The app's backend exchanges an authorization code for tokens using the client secret. The secret is never exposed to the browser.
+<CardGroup cols={3}>
+  <Card title="OAuth" icon="key" href="/guides/oauth-flows">
+    Lets users sign in to your service using mgPass identity. Standard OAuth 2.1 / OIDC: authorization code + PKCE, refresh tokens, userinfo, logout. Carries `client_secret_hash` (bcrypt), `redirect_uris`, `post_logout_uris`, `allowed_scopes`, `cors_origins`, token TTLs, refresh token rotation, allowed auth methods, access control rules, and optional `custom_domain`.
+  </Card>
+  <Card title="Rewards" icon="gift" href="/guides/awarding-points">
+    Lets your service emit events that earn users points in the shared mgPass loyalty ledger. Carries `api_key_hash` (SHA-256), `allowed_event_types`, optional `custom_rules`, and `points_multiplier`. Events are POSTed to `/api/partner/events` with `X-API-Key`.
+  </Card>
+  <Card title="Subscriptions" icon="credit-card" href="/guides/subscriptions/overview">
+    Lets your service sell recurring plans through mgPass — checkout, billing, entitlements, dunning, all handled. Carries `api_key_hash` (SHA-256), `billing_email`, `entitlement_jwt_mode`, `notification_config`, and `allowed_widget_origins` for the embeddable widget.
+  </Card>
+</CardGroup>
 
-    **Security:**
-    - Has a client secret (stored on the server)
-    - Code exchange happens server-to-server
-    - Most secure option for web apps
+## Why one spine instead of per-capability tables
 
-    **Example:** The mgPass Admin Console itself is a Traditional Web application.
-  </Accordion>
+Folding OAuth clients, rewards partners, and subscription tenants into a single Application spine gives a few concrete properties:
 
-  <Accordion title="Single Page Application (SPA)" icon="browser">
-    **For:** Client-side JavaScript apps (React, Vue, Angular, Svelte)
+- **One ID end-to-end.** `application_id` is the same value in the database, the admin URL, the API response JSON, the webhook payload, and the OAuth `client_id` flow parameter. No translation layer, no joins to bridge "the OAuth client for this rewards partner."
+- **Combined integrations are free.** A partner that signs users in *and* sells subscriptions *and* awards points is one Application with three capability rows. Branding, support contact, organization assignment, and webhook config are shared automatically.
+- **Adding capabilities later is cheap.** A new capability is one new table keyed on `application_id` — no schema-wide migration, no backfill, no admin UI rewrite.
+- **Webhooks are unified.** An Application has N webhook endpoints, and each endpoint can subscribe to events from any of the capabilities the Application has enabled. You don't configure webhooks per capability; you configure them per Application and pick the event types.
+- **The OAuth `client_id` *is* the `application_id`.** When a browser hits `/authorize?client_id=app_abc123`, that's the Application spine row. No lookup table.
 
-    **How it works:** The app runs entirely in the browser. Since there's no server to securely store a secret, it uses **PKCE (Proof Key for Code Exchange)** instead.
+## Anatomy of an Application row
 
-    **Security:**
-    - No client secret (would be exposed in browser code)
-    - PKCE challenge/verifier prevents authorization code interception
-    - Requires CORS origins to be configured
+The spine carries identity fields only. Everything operational lives on capability rows.
 
-    **Example:** A React dashboard that authenticates against mgPass.
-  </Accordion>
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | `app_*` identifier. Used as `client_id` in OAuth flows and `application_id` everywhere else. |
+| `slug` | string | URL-safe short name (`3news`, `mgtix`). Unique. Used in admin URLs and as a stable handle. |
+| `name` | string | Display name shown on consent screens, checkout, emails. |
+| `description` | string \| null | Optional one-liner shown on the consent screen. |
+| `logo_url` | string \| null | Public URL to the Application's logo. Rendered on consent, checkout, and notification surfaces. |
+| `support_email` | string \| null | User-facing support address. Shown on billing emails and error pages when set. |
+| `branding` | object \| null | Per-Application color/theme overrides. JSON: `{ primary_color, accent_color, ... }`. |
+| `organization_id` | string \| null | Optional FK to `organizations`. Groups Applications under a parent partner/enterprise. |
+| `is_active` | boolean | Soft enable/disable for the whole Application. Disabling blocks OAuth, rewards events, and checkout sessions across all capabilities. |
+| `created_at` | timestamp | |
+| `updated_at` | timestamp | |
 
-  <Accordion title="Native / Mobile" icon="mobile">
-    **For:** iOS, Android, desktop, and CLI applications
+## Enabling a capability
 
-    **How it works:** Similar to SPA, uses PKCE since the app binary can be decompiled and secrets extracted. Uses custom URI schemes or deep links for callbacks (e.g., `myapp://callback`).
-
-    **Security:**
-    - No client secret
-    - PKCE required
-    - Custom redirect URI schemes allowed
-
-    **Example:** Your mobile app or a native desktop client.
-  </Accordion>
-
-  <Accordion title="Machine-to-Machine (M2M)" icon="robot">
-    **For:** Backend services that call APIs without a user present
-
-    **How it works:** The service authenticates directly with its client ID and secret using the **Client Credentials** grant. No user login is involved — the service gets its own access token with scopes defined by its M2M role.
-
-    **Security:**
-    - Has a client secret
-    - No user interaction
-    - Token scopes come from M2M roles, not user roles
-
-    **Example:** A rewards backend calling the mgPass Management API to look up user profiles. A ticketing service calling the rewards API to publish ticket purchase events.
-  </Accordion>
-</AccordionGroup>
-
-## Creating an Application via Admin Console
+You can enable a capability from the admin console or directly via the management API. Both flows return the secret/api key **once** — there is no way to retrieve it later, only rotate.
 
 <Steps>
-  <Step title="Navigate to Applications">
-    In the mgPass Admin Console, click **Applications** in the sidebar.
+  <Step title="Create the Application">
+    In the admin console, go to **Applications → New Application**. Fill in name, slug, optional logo/branding, optional organization. Save. At this point you have a spine row with zero capabilities — useful as a placeholder, but it can't do anything yet.
+
+    Equivalent API call: `POST /api/applications` — see [Create application](/api-reference/applications/create-application).
   </Step>
-  <Step title="Click Create Application">
-    Click the **Create Application** button. Fill in:
-    - **Name** — displayed to users on the consent screen (e.g., "My App", "Partner Portal")
-    - **Type** — select the appropriate type from the dropdown
-    - **Description** — optional, shown on the consent screen
+  <Step title="Open the Application detail page">
+    Click into the new Application. You'll see three capability cards — OAuth, Rewards, Subscriptions — each with an **Enable** button.
   </Step>
-  <Step title="Configure Redirect URIs">
-    Add the URLs where mgPass should redirect users after login:
-    - Production: `https://yourapp.com/callback`
-    - Staging: `https://staging.yourapp.com/callback`
-    - Local dev: `http://localhost:3000/callback`
+  <Step title="Enable the capability you need">
+    Click **Enable** on the capability card. Fill in the capability-specific fields:
+
+    - **OAuth**: `client_type` (web / spa / native / m2m), `redirect_uris`, `post_logout_uris`, `allowed_scopes`, `cors_origins`, optional `custom_domain`.
+    - **Rewards**: `allowed_event_types` (which event slugs this Application is permitted to publish), `points_multiplier`, optional `custom_rules`.
+    - **Subscriptions**: `billing_email`, `entitlement_jwt_mode` (`embedded` or `none`), `allowed_widget_origins` (origins permitted to embed the checkout widget).
+
+    Equivalent API calls:
+    - `POST /api/applications/:id/capabilities/oauth` — see [Enable OAuth capability](/api-reference/applications/enable-oauth-capability)
+    - `POST /api/applications/:id/capabilities/rewards` — see [Enable Rewards capability](/api-reference/applications/enable-rewards-capability)
+    - `POST /api/applications/:id/capabilities/subscriptions` — see [Enable Subscriptions capability](/api-reference/applications/enable-subscriptions-capability)
+  </Step>
+  <Step title="Copy the secret">
+    On enable, the response returns the secret material (OAuth `client_secret` or Rewards/Subscriptions `api_key`) in plaintext exactly once.
 
     <Warning>
-    Redirect URIs must match **exactly** — no wildcards. A mismatch will cause the OAuth flow to fail with `redirect_uri_mismatch`.
+    The secret is shown **only once** at enable time. mgPass stores only the hash — bcrypt for OAuth client secrets, SHA-256 for Rewards/Subscriptions api keys. If you lose the secret, you must rotate it; there is no recovery.
     </Warning>
-  </Step>
-  <Step title="Set Allowed Scopes">
-    Choose which user data this app can request:
-    - `openid` — required for OIDC
-    - `profile` — user's name and avatar
-    - `email` — user's email address
-    - Custom scopes from your API Resources (e.g., `stream:live`, `events:read`)
-  </Step>
-  <Step title="Save and Store the Secret">
-    After creation, you'll see the **Client ID** and **Client Secret** (for web/M2M types).
 
-    <Warning>
-    The client secret is shown **only once**. Copy and store it securely (e.g., in your deployment's environment variables). It cannot be retrieved later — only rotated.
-    </Warning>
+    Store it in your deployment's environment variables or secret manager immediately.
+  </Step>
+  <Step title="Add more capabilities later if needed">
+    Capabilities are independent. You can ship with OAuth only, then come back months later and enable Subscriptions on the same Application — branding, name, organization, and webhooks all carry across automatically.
   </Step>
 </Steps>
 
-## Creating an Application via API
+To disable a capability, delete its row: **Disable** in the admin UI, or `DELETE /api/applications/:id/capabilities/<oauth|rewards|subscriptions>`. The spine row stays intact. Re-enabling later generates a fresh secret.
 
-```bash
-curl -X POST https://auth.mgpass.net/api/clients \
-  -H "Authorization: Bearer ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My App Web",
-    "type": "web",
-    "redirect_uris": ["https://yourapp.com/callback"],
-    "post_logout_uris": ["https://yourapp.com"],
-    "allowed_scopes": ["openid", "profile", "email", "stream:live"],
-    "cors_origins": [],
-    "access_token_ttl": 3600,
-    "refresh_token_ttl": 2592000
-  }'
-```
+## Secrets and rotation
 
-**Response:**
+There are three kinds of secret material associated with an Application, stored three different ways for three different reasons.
 
-```json
-{
-  "id": "app_abc123",
-  "name": "My App Web",
-  "type": "web",
-  "secret": "cs_live_xxxxxxxxxxxxxxxx",
-  "redirect_uris": ["https://yourapp.com/callback"],
-  "allowed_scopes": ["openid", "profile", "email", "stream:live"]
-}
-```
+| Secret | Where it lives | Storage | How to rotate |
+|--------|---------------|---------|---------------|
+| OAuth `client_secret` | `application_oauth.client_secret_hash` | bcrypt | `POST /api/applications/:id/capabilities/oauth/rotate-secret` |
+| Rewards `api_key` | `application_rewards.api_key_hash` | SHA-256 | `POST /api/applications/:id/capabilities/rewards/rotate-key` |
+| Subscriptions `api_key` | `application_subscriptions.api_key_hash` | SHA-256 | `POST /api/applications/:id/capabilities/subscriptions/rotate-key` |
+| Webhook `webhook_secret` | `webhooks.webhook_secret` | **raw** (not hashed) | `POST /api/applications/:id/webhooks/:webhook_id/rotate-secret` |
 
-## Configuration Reference
+Why webhook secrets are stored raw: mgPass *signs* outbound webhook payloads with HMAC-SHA256, which means the server needs the original secret to compute the signature on every delivery. Hashing it would make signing impossible. OAuth client secrets and API keys, by contrast, are only *verified* on inbound calls (constant-time compare against the hash), so hashing is the correct choice there.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | string | required | Display name on consent screen |
-| `type` | string | required | `web`, `spa`, `native`, `m2m` |
-| `redirect_uris` | string[] | required | Allowed OAuth callback URLs (exact match) |
-| `post_logout_uris` | string[] | `[]` | Allowed post-logout redirect URLs |
-| `allowed_scopes` | string[] | `[]` | Scopes this app can request |
-| `cors_origins` | string[] | `[]` | CORS origins for SPA/browser requests |
-| `access_token_ttl` | integer | `3600` | Access token lifetime in seconds (1 hour) |
-| `refresh_token_ttl` | integer | `2592000` | Refresh token lifetime in seconds (30 days) |
-| `refresh_token_rotation` | boolean | `true` | Issue new refresh token on each refresh |
-| `branding` | object | `null` | Per-app consent screen branding |
-| `auth_methods` | string[] | all | Restrict allowed auth methods |
-| `access_control` | object | all users | Restrict to users with specific roles |
+<Warning>
+Rotation is immediate. The old secret stops working the moment the rotation endpoint returns. There is no grace period and no dual-secret window. Plan your deployment so the new secret is in place before you rotate — typically: write the new secret to your secret manager, redeploy your service, then call the rotation endpoint and discard the old one.
+</Warning>
 
-## Per-App Branding
+See the API reference for full request/response shapes:
 
-When a user logs in through your app, you can customize what they see on the consent screen:
+- [Rotate OAuth secret](/api-reference/applications/rotate-oauth-secret)
+- [Rotate Rewards API key](/api-reference/applications/rotate-rewards-key)
+- [Rotate Subscriptions API key](/api-reference/applications/rotate-subscriptions-key)
+- [Rotate Webhook secret](/api-reference/applications/rotate-webhook-secret)
 
-```json
-{
-  "branding": {
-    "logo_url": "https://cdn.yourapp.com/logo.png",
-    "primary_color": "#FF6B00",
-    "app_name": "My App"
-  }
-}
-```
+## Webhooks per Application
 
-The user sees your app's logo and name instead of the generic mgPass branding. This builds trust — users recognize the platform they came from.
+Webhooks attach to the Application, not to individual capabilities. One Application can register many webhook endpoints — different URLs for different teams, or one URL that filters server-side. Each webhook subscribes to a list of `event_types`, and those event types can come from any capability the Application has enabled:
 
-## Access Control
+- **Subscriptions** events: `subscription.created`, `subscription.activated`, `subscription.renewed`, `subscription.payment_failed`, `subscription.unpaid`, `subscription.cancelled`, `subscription.expired`, `subscription.trial_ending`, `subscription.plan_changed`.
+- **Application** lifecycle events: `application.created`, `application.updated`, `application.capability_enabled`, `application.capability_disabled` (useful for monitoring).
+- Additional event families ship with their respective capabilities — see the [Webhooks guide](/guides/webhooks) for the full catalog and HMAC verification recipe.
 
-Restrict who can log into an application:
+Every delivery is logged in the shared `webhook_deliveries` table — same log for all capabilities, queryable by `application_id` and `webhook_id`.
 
-```json
-{
-  "access_control": {
-    "type": "roles",
-    "roles": ["mgpass:admin"]
-  }
-}
-```
+Manage webhooks via:
 
-This is useful for internal tools — only users with the `mgpass:admin` role can authenticate. All other users are denied at the consent step.
+- [Create webhook](/api-reference/applications/create-webhook)
+- [List webhooks](/api-reference/applications/list-webhooks)
+- [Update webhook](/api-reference/applications/update-webhook)
+- [Delete webhook](/api-reference/applications/delete-webhook)
 
-## Secret Rotation
+## Custom domains and subdomains
 
-Rotate a client secret without downtime:
+The OAuth capability supports serving the authorize, token, userinfo, and logout endpoints from a domain you control — e.g. `auth.yourdomain.com` instead of `auth.mgpass.net`. This lets users see your brand in the URL bar during the login redirect.
 
-```bash
-curl -X POST https://auth.mgpass.net/api/clients/app_abc123/rotate-secret \
-  -H "Authorization: Bearer ADMIN_TOKEN"
-```
+Set `application_oauth.custom_domain` (and optionally `custom_subdomain` for a subdomain of `mgpass.net`) when enabling or updating the OAuth capability. mgPass terminates TLS for the custom domain via Cloudflare for SaaS; you point a CNAME at the value we give you and we handle certificates.
 
-1. A new secret is generated and returned
-2. Update your application's environment variables with the new secret
-3. The old secret is immediately invalidated
+Custom domains apply **only** to OAuth endpoints. Rewards and Subscriptions APIs always live at `auth.mgpass.net`, and hosted checkout always lives at `pay.mgpass.net`.
 
-<Tip>
-Rotate secrets at least every 90 days, or immediately if you suspect a leak.
-</Tip>
+## Organizations
 
-## Which Type Should I Use?
+An Application can belong to an **Organization** (`applications.organization_id`). Organizations group Applications under a single parent — a media group with three OAuth-enabled news sites, or an enterprise with separate Applications for staff vs. customer flows. Organization-scoped admins can manage all the Applications underneath without root admin rights.
 
-| Your app is... | Use | Why |
-|----------------|-----|-----|
-| A website with a backend | **Traditional Web** | Secret stays on server, most secure |
-| A React/Vue/Angular frontend | **SPA** | No backend to store secret, uses PKCE |
-| An iOS or Android app | **Native** | Can't trust embedded secrets, uses PKCE |
-| A backend service calling APIs | **M2M** | No user involved, uses client credentials |
-| A Next.js app with server components | **Traditional Web** | Has a server-side runtime |
-| A static site (Astro, Hugo) | **SPA** | No server-side runtime |
+See the [Organizations guide](/guides/organizations) for the full multi-tenant model.
 
-## SSO Behavior
+## Migration from legacy entity names
 
-All registered applications benefit from mgPass Single Sign-On automatically:
+If you're updating an integration that predates v3, you'll have seen one or more of these column or field names. They're all the same thing now:
 
-- **Existing session?** If the user has an active mgPass session (from any app), they are logged in instantly with no login screen. mgPass uses a `prompt=none` redirect to issue an authorization code silently.
-- **First-time authorization:** The first time a user accesses your app, they see a consent screen asking to approve the requested scopes. After approval, subsequent logins are instant.
-- **No configuration needed:** SSO is enabled by default for every application. You do not need to opt in or configure anything beyond the standard OAuth setup.
+| Legacy name | v3 name | Notes |
+|-------------|---------|-------|
+| `client_id` (OAuth) | `application_id` | The public OAuth `client_id` flow parameter still exists and is **equal to** `application_id`. No translation needed on either side. |
+| `tenant_id` (Subscriptions) | `application_id` | The Subscriptions tenant table is gone. Wherever you used to send `tenant_id`, send `application_id`. |
+| `partner_id` (Rewards) | `application_id` | Rewards partner records are gone. The `X-API-Key` you hold maps to one `application_id`. |
+| `oauth_clients` (table) | `applications` + `application_oauth` | The spine row holds identity/branding; the capability row holds OAuth config. |
+| `rewards_partners` (table) | `applications` + `application_rewards` | Same split. |
+| `subscription_tenants` (table) | `applications` + `application_subscriptions` | Same split. |
+| `/api/clients/*` (admin endpoints) | `/api/applications/*` | All management endpoints moved. The old paths return 404. |
 
-<Note>
-The consent screen is only shown once per user per application. After the user approves, they will never see it again for that app (unless you add new scopes).
-</Note>
+Webhook payloads emitted from v3 use `application_id` exclusively. If you wrote a verifier against an older payload that read `tenant_id` or `partner_id`, update the field name — the value will be the same `app_*` identifier.
 
-For a detailed guide on implementing SSO in your application, including cross-domain patterns and code examples, see the [SSO Guide](/guides/sso).
+## Next steps
 
-## Next Steps
-
-- [SSO Guide](/guides/sso) -- implement seamless single sign-on in your app
-- [OAuth Flows](/guides/oauth-flows) -- implement the login flow for your app type
-- [RBAC](/guides/rbac) -- control what users can do in your app
-- [Per-App Webhooks](/guides/webhooks-identity) -- get notified when users interact with your app
+- [OAuth Flows](/guides/oauth-flows) — implement the login flow for an Application with the OAuth capability enabled.
+- [Awarding Points](/guides/awarding-points) — publish events from an Application with the Rewards capability enabled.
+- [Subscriptions Overview](/guides/subscriptions/overview) — sell recurring plans from an Application with the Subscriptions capability enabled.
+- [Webhooks](/guides/webhooks) — subscribe to events from any of the capabilities and verify HMAC signatures.
+- [Organizations](/guides/organizations) — group Applications under a parent for delegated admin.
+- [Applications API reference](/api-reference/applications) — full request/response contracts for the spine + capability + webhook endpoints.
