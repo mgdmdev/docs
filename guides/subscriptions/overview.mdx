@@ -1,0 +1,154 @@
+---
+title: "Subscriptions overview"
+description: "Recurring billing, JWT entitlements, and lifecycle automation built on the unified Applications spine."
+sidebarTitle: "Overview"
+---
+
+## What the engine does
+
+The mgPass Subscriptions Engine turns any registered [Application](/guides/applications) into a recurring-revenue product. It handles plan management, hosted and embedded checkout, card billing through Paystack, dunning, multi-seat subscriptions, sponsored grants, and pushes every state change to your backend as a webhook and into your access tokens as a JWT claim.
+
+You configure plans and pricing once; the engine handles the recurring side end-to-end — first charge, scheduled renewals, retries, cancellations, and reactivations.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/guides/subscriptions/quickstart">
+    Stand up a working subscription in ten minutes.
+  </Card>
+  <Card title="Plans" icon="layer-group" href="/guides/subscriptions/plans">
+    Model your pricing — intervals, trials, currencies, features.
+  </Card>
+  <Card title="Checkout" icon="credit-card" href="/guides/subscriptions/checkout">
+    Hosted redirect or embeddable iframe widget.
+  </Card>
+  <Card title="Lifecycle" icon="rotate" href="/guides/subscriptions/lifecycle">
+    State machine, renewals, retries, dunning.
+  </Card>
+  <Card title="Plan changes" icon="arrows-rotate" href="/guides/subscriptions/changes">
+    Upgrades, downgrades, and proration math.
+  </Card>
+  <Card title="Multi-seat plans" icon="users" href="/guides/subscriptions/seats">
+    Family and team subscriptions.
+  </Card>
+  <Card title="Sponsored subs" icon="gift" href="/guides/subscriptions/sponsored">
+    Admin-granted, comped, and gifted access.
+  </Card>
+  <Card title="Multi-currency" icon="coins" href="/guides/subscriptions/currency">
+    Bill in GHS or USD end-to-end.
+  </Card>
+  <Card title="Webhooks" icon="bolt" href="/guides/subscriptions/webhooks">
+    Subscription event payload reference.
+  </Card>
+</CardGroup>
+
+## Lifecycle at a glance
+
+Every subscription moves through a fixed state machine:
+
+```
+                 ┌──────────┐
+   new sub ────▶ │ trialing │ ──── trial ends ────┐
+                 └──────────┘                     ▼
+                                          ┌────────────┐
+                 new sub (no trial) ────▶ │   active   │ ◀── reactivate ──┐
+                                          └────────────┘                  │
+                                                │                         │
+                                       payment fails                      │
+                                                ▼                         │
+                                          ┌────────────┐                  │
+                                          │  past_due  │ ── retries ──────┤
+                                          └────────────┘                  │
+                                                │                         │
+                                       retries exhausted                  │
+                                                ▼                         │
+                                          ┌────────────┐                  │
+                                          │   unpaid   │ ─────────────────┘
+                                          └────────────┘
+                                                │
+                                       grace period over
+                                                ▼
+                                       ┌─────────────────┐
+                                       │ cancelled /     │
+                                       │ expired         │
+                                       └─────────────────┘
+```
+
+A separate `paused` status exists for manually-suspended and sponsored-only flows. See [Lifecycle](/guides/subscriptions/lifecycle) for the full state diagram, transitions, and retry schedule.
+
+## The Application spine
+
+Every subscription belongs to an [Application](/guides/applications) via `application_id`. The Application is the long-lived spine; subscription billing is a **capability** attached to that spine via the `application_subscriptions` row.
+
+Before you can sell anything, an admin enables the Subscriptions capability on the Application (in the admin console or via API). That action:
+
+1. Inserts the capability row.
+2. Generates an `X-API-Key` your backend uses to call `/v1/*` endpoints.
+3. Lets you start creating plans and checkout sessions under that `application_id`.
+
+The same `application_id` flows through plans, checkout sessions, subscriptions, payments, invoices, webhooks, and JWT entitlement claims. If you ever see `tenant_id` or `subscription_tenant_id` in old code or notes, that's pre-v3 — read [Applications](/guides/applications) for the current model.
+
+## JWT entitlements
+
+When a user logs in to an Application, their `access_token` carries a `subscriptions` claim derived from their active (or trialing) subscriptions for that Application. Your backend can authorize feature access without making a round trip to mgPass.
+
+Two modes, configured per Application on `application_subscriptions.entitlement_jwt_mode`:
+
+<Tabs>
+  <Tab title="plan_status (default)">
+    Compact. Just the plan slug and status — enough for "do they have any paid plan."
+
+    ```json
+    {
+      "sub": "usr_abc123",
+      "subscriptions": [
+        { "plan": "pro_monthly", "status": "active" }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="full_features">
+    Includes the `features` array from the plan, so you can gate individual feature flags from the token alone.
+
+    ```json
+    {
+      "sub": "usr_abc123",
+      "subscriptions": [
+        {
+          "plan": "pro_monthly",
+          "status": "active",
+          "features": ["unlimited_articles", "no_ads", "early_access"]
+        }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+The claim refreshes on every token issue and on every `/oauth/token` refresh, so state changes (cancel, upgrade, payment failure) propagate within one token TTL. For instant invalidation, query the entitlement API directly — see the [API reference](/api-reference) for `GET /v1/entitlements/:user_id`.
+
+## Billing rails
+
+| Rail | Status | Notes |
+|---|---|---|
+| Paystack — card | Shipped | Recurring authorization via Paystack tokenization. Used for all monthly/annual card subscriptions. |
+| Paystack — bank | Shipped | One-off bank charges through Paystack checkout. |
+| Hubtel — mobile money (one-off) | Shipped | First charges only; recurring deferred. |
+| Hubtel — MoMo Repeat Payments | **Deferred** | Awaiting Hubtel v1.2 spec. Mobile money plans can't auto-renew yet — they fall back to manual reactivation. |
+
+The card-only rule has one hard-coded gate today: an `interval: "annual"` plan cannot be paid with `payment_provider: "hubtel"`. See [Currency & billing rails](/guides/subscriptions/currency) for the full matrix.
+
+## Where to go next
+
+<Steps>
+  <Step title="Stand up your first plan">
+    Follow the [quickstart](/guides/subscriptions/quickstart) to enable the Subscriptions capability, create a plan, and run a test checkout end-to-end.
+  </Step>
+  <Step title="Model your pricing">
+    Read [Plans](/guides/subscriptions/plans) for trial behavior, intervals, currencies, and what changes when you edit a plan with active subscribers.
+  </Step>
+  <Step title="Pick a checkout surface">
+    [Hosted checkout](/guides/subscriptions/checkout) is a redirect; the embed widget keeps users on your site.
+  </Step>
+  <Step title="Wire up webhooks">
+    Use the [subscription event reference](/guides/subscriptions/webhooks) to keep your own database in sync.
+  </Step>
+</Steps>

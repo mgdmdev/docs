@@ -1,0 +1,171 @@
+---
+title: "Subscriptions quickstart"
+description: "Enable subscriptions on an Application, create a plan, run a checkout, and verify the webhook in ten minutes."
+sidebarTitle: "Quickstart"
+---
+
+This walkthrough takes you from zero to a working subscription. You'll enable the Subscriptions capability on an [Application](/guides/applications), create a plan, run a hosted checkout, and confirm the `subscription.activated` webhook lands on your endpoint.
+
+<Note>
+  You need an Application already registered in mgPass. If you don't have one, see [Applications](/guides/applications) first.
+</Note>
+
+<Steps>
+  <Step title="Enable the Subscriptions capability">
+    In the [admin console](https://admin.mgpass.net), open your Application → **Capabilities** → **Subscriptions** → **Enable**.
+
+    Set a billing email (used as the `from` for invoices and dunning) and add at least one allowed widget origin if you plan to use the [embed widget](/guides/subscriptions/checkout). Save.
+
+    The console reveals an `X-API-Key` once. Copy it now — you can rotate it later but you can't view it again.
+
+    <Warning>
+      The API key is shown only once. Treat it like a password: store in your backend secret manager, never ship it to the browser.
+    </Warning>
+  </Step>
+
+  <Step title="Create a plan">
+    Plans live under the Application. Price is in minor units — pesewas for GHS, cents for USD.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://auth.mgpass.net/v1/plans \
+      -H "X-API-Key: $MGPASS_SUBS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Pro Monthly",
+        "slug": "pro_monthly",
+        "description": "Unlimited articles and no ads",
+        "interval": "monthly",
+        "price": 5000,
+        "currency": "GHS",
+        "trial_days": 7,
+        "features": ["unlimited_articles", "no_ads"],
+        "max_seats": 1
+      }'
+    ```
+
+    ```typescript TypeScript
+    const res = await fetch("https://auth.mgpass.net/v1/plans", {
+      method: "POST",
+      headers: {
+        "X-API-Key": process.env.MGPASS_SUBS_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Pro Monthly",
+        slug: "pro_monthly",
+        description: "Unlimited articles and no ads",
+        interval: "monthly",
+        price: 5000, // 50.00 GHS
+        currency: "GHS",
+        trial_days: 7,
+        features: ["unlimited_articles", "no_ads"],
+        max_seats: 1,
+      }),
+    });
+    const plan = await res.json();
+    console.log(plan.id); // pln_…
+    ```
+    </CodeGroup>
+
+    Hold on to the returned `plan.id` (or use the `slug` everywhere — it's unique per Application).
+  </Step>
+
+  <Step title="Create a checkout session">
+    When a user wants to subscribe, mint a session. For hosted checkout, mgPass returns a `checkout_url` you redirect to.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://auth.mgpass.net/v1/checkout \
+      -H "X-API-Key: $MGPASS_SUBS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "mode": "hosted",
+        "plan_id": "pln_xxx",
+        "user_id": "usr_abc123",
+        "success_url": "https://yourapp.com/billing/success",
+        "cancel_url":  "https://yourapp.com/billing/cancel"
+      }'
+    ```
+
+    ```typescript TypeScript
+    const res = await fetch("https://auth.mgpass.net/v1/checkout", {
+      method: "POST",
+      headers: {
+        "X-API-Key": process.env.MGPASS_SUBS_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        mode: "hosted",
+        plan_id: "pln_xxx",
+        user_id: "usr_abc123",
+        success_url: "https://yourapp.com/billing/success",
+        cancel_url:  "https://yourapp.com/billing/cancel",
+      }),
+    });
+    const { session_id, checkout_url } = await res.json();
+    // Redirect the user:
+    return Response.redirect(checkout_url, 302);
+    ```
+    </CodeGroup>
+
+    <Tip>
+      Prefer to keep users on your site? Use `mode: "embedded"` and mount the widget instead — see [Checkout flows](/guides/subscriptions/checkout).
+    </Tip>
+  </Step>
+
+  <Step title="Handle the success webhook">
+    The user completes payment on `pay.mgpass.net`. mgPass POSTs `subscription.activated` (or `subscription.created` followed by `subscription.activated` after trial conversion) to every webhook you've registered for this Application.
+
+    ```typescript
+    app.post("/webhooks/mgpass", async (req, res) => {
+      // Verify HMAC first — see /guides/webhooks
+      const event = req.body;
+
+      switch (event.event_type) {
+        case "subscription.activated":
+          await db.users.update({
+            id: event.data.user_id,
+            plan: event.data.plan_slug,
+            subscription_id: event.data.subscription_id,
+          });
+          break;
+        case "subscription.payment_failed":
+        case "subscription.unpaid":
+        case "subscription.cancelled":
+          await db.users.update({
+            id: event.data.user_id,
+            plan: "free",
+          });
+          break;
+      }
+
+      res.status(200).send("ok");
+    });
+    ```
+
+    Need the full payload shape for every event? See [Subscription webhooks](/guides/subscriptions/webhooks).
+  </Step>
+
+  <Step title="Verify the entitlement claim">
+    Once the subscription is active, the user's next access token includes a `subscriptions` claim. Issue a token (any OAuth flow — see [OAuth flows](/guides/oauth-flows)) and decode it:
+
+    ```json
+    {
+      "sub": "usr_abc123",
+      "subscriptions": [
+        { "plan": "pro_monthly", "status": "trialing" }
+      ]
+    }
+    ```
+
+    Your backend can gate features off this claim without calling mgPass on every request.
+  </Step>
+</Steps>
+
+## What's next
+
+- [Plans](/guides/subscriptions/plans) — intervals, trials, currencies, what changes when you edit a plan
+- [Checkout flows](/guides/subscriptions/checkout) — embed widget, promo codes, custom success URLs
+- [Lifecycle](/guides/subscriptions/lifecycle) — what happens when a card fails, how renewals are scheduled
+- [Subscription webhooks](/guides/subscriptions/webhooks) — full event payload reference

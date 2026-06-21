@@ -1,0 +1,174 @@
+---
+title: "Sponsored subscriptions"
+description: "Admin-granted, comped, and gifted access — no Paystack charge, no payment recorded, excluded from revenue."
+sidebarTitle: "Sponsored"
+---
+
+A sponsored subscription is one an admin grants directly to a user without running a charge. Same entitlements as a paid sub — different lifecycle, no money.
+
+Use it for:
+
+- Comping accounts (early adopters, beta users, refunds-in-kind).
+- Internal employee access.
+- Gifted subscriptions.
+- Trial extensions beyond what the plan allows.
+- Replacing a failed-payment account while the user works out their card.
+
+## Granting a sponsored sub
+
+Admin-only endpoint:
+
+```
+POST /api/applications/:application_id/subscriptions/sponsor
+Authorization: Bearer <admin_access_token>
+Content-Type: application/json
+```
+
+### Body
+
+<ParamField path="user_id" type="string" required>
+  The mgPass user to grant access to.
+</ParamField>
+
+<ParamField path="plan_id" type="string" required>
+  The plan to grant. Must belong to the same Application as the URL parameter.
+</ParamField>
+
+<ParamField path="duration_days" type="number">
+  How long to grant. Defaults to one billing interval of the plan. Set to `0` for an open-ended sponsored sub that never expires until manually cancelled.
+</ParamField>
+
+<ParamField path="reason" type="string">
+  Free-form note shown in the admin console and audit log. e.g. `Q1 promo winner`, `Refund replacement for sub_xxx`.
+</ParamField>
+
+### Response
+
+```json
+{
+  "subscription_id": "sub_xxx",
+  "user_id":         "usr_abc123",
+  "application_id":  "app_xxx",
+  "plan_id":         "pln_xxx",
+  "plan_slug":       "pro_monthly",
+  "status":          "paused",
+  "sponsored":       true,
+  "current_period_start": "2026-06-21T14:00:00Z",
+  "current_period_end":   "2026-07-21T14:00:00Z",
+  "reason":          "Q1 promo winner"
+}
+```
+
+Sponsored subs are created with `status: "paused"` and `sponsored: true`. They count as entitled for [JWT claims](/guides/subscriptions/overview#jwt-entitlements) — your backend should treat `paused` the same as `active`.
+
+### Example
+
+```typescript
+const res = await fetch(
+  `https://auth.mgpass.net/api/applications/${appId}/subscriptions/sponsor`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      user_id: "usr_abc123",
+      plan_id: "pln_xxx",
+      duration_days: 90,
+      reason: "Q1 promo winner",
+    }),
+  }
+);
+
+if (res.status === 409) {
+  const err = await res.json();
+  // err.code === "sponsored_subscription_exists"
+  // err.existing_subscription_id is set
+}
+```
+
+## Idempotency
+
+A partial unique index in the database prevents duplicate active sponsored subscriptions for the same `(user_id, application_id, plan_id)` tuple:
+
+```sql
+CREATE UNIQUE INDEX idx_sponsored_unique
+  ON subscriptions (user_id, application_id, plan_id)
+  WHERE sponsored = 1 AND status IN ('active', 'paused', 'trialing');
+```
+
+If you POST a sponsor grant for a user who already has an active sponsored sub on the same plan, the endpoint returns **409 `sponsored_subscription_exists`** with the existing `subscription_id`. This makes the endpoint safe to retry — your job runner won't accidentally create three sponsored subs by retrying a flaky request.
+
+If you actually want to extend an existing sponsored sub instead of creating a new one, use:
+
+```bash
+curl -X PATCH https://auth.mgpass.net/api/applications/$APP_ID/subscriptions/$SUB_ID/extend \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "duration_days": 30 }'
+```
+
+The extend endpoint advances `current_period_end` by the requested duration.
+
+## What sponsored subs skip
+
+| Concern | Behavior |
+|---|---|
+| Paystack | No call made. No `authorization_id`, no card, no charge. |
+| Payments table | No row inserted. |
+| Invoices | No invoice generated. |
+| Renewal queue | Not scheduled. The sub just expires at `current_period_end`. |
+| Dunning | None. No `payment_failed`, `past_due`, or `unpaid` ever fires. |
+| Revenue analytics | **Excluded.** MRR, ARPU, churn, refund volume — none of it counts sponsored subs. The admin dashboard surfaces sponsored counts as a separate metric. |
+
+## What sponsored subs do
+
+- Emit `subscription.created` + `subscription.activated` webhooks (so your backend onboarding flow runs normally). The payload includes `sponsored: true` so you can branch if you want to treat it differently.
+- Send the user a notification — by default, an email with the subject `"You've been gifted X"` (where X is the plan name), using a sponsored-specific template that omits payment language.
+- Show up in the user's account portal under Subscriptions with a "Sponsored" badge and the `reason` field visible.
+- Issue JWT entitlements identical to a paid sub.
+
+## Expiration
+
+When `current_period_end` is reached, the sub transitions directly to `expired` (no `unpaid` interlude — there's nothing to dun). A `subscription.expired` webhook fires. To keep the user on the plan, an admin grants another sponsored sub (which creates a new row) or extends the existing one via `/extend`.
+
+If you want a sponsored sub that never expires, set `duration_days: 0` on grant — `current_period_end` is set to a far-future sentinel and no expiration alarm is scheduled.
+
+## Cancellation
+
+Admin cancels:
+
+```bash
+curl -X POST https://auth.mgpass.net/api/applications/$APP_ID/subscriptions/$SUB_ID/cancel \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Immediate by default — sponsored subs aren't bound by a period the user paid for. `subscription.cancelled` fires.
+
+## Common patterns
+
+<AccordionGroup>
+  <Accordion title="Gift a 1-month trial">
+    ```json
+    { "user_id": "usr_x", "plan_id": "pln_pro", "duration_days": 30, "reason": "Welcome gift" }
+    ```
+  </Accordion>
+
+  <Accordion title="Comp an employee with permanent access">
+    ```json
+    { "user_id": "usr_y", "plan_id": "pln_pro", "duration_days": 0, "reason": "Staff comp" }
+    ```
+  </Accordion>
+
+  <Accordion title="Refund replacement">
+    Cancel the old paid sub, issue a refund through Paystack, then grant a sponsored sub for the equivalent remaining time.
+    ```json
+    { "user_id": "usr_z", "plan_id": "pln_pro", "duration_days": 18, "reason": "Refund replacement for sub_old" }
+    ```
+  </Accordion>
+
+  <Accordion title="Extend a current sub">
+    Use `/extend`, not `/sponsor`. Sponsor will return 409 if the sub already exists; extend just pushes the end date out.
+  </Accordion>
+</AccordionGroup>

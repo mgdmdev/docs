@@ -1,0 +1,161 @@
+---
+title: "Plan changes"
+description: "Upgrades, downgrades, and the proration math behind the upgrade-preview endpoint."
+sidebarTitle: "Plan changes"
+---
+
+A plan change moves an active subscription onto a different plan mid-period. The engine prorates unused time on the current plan as a credit, charges the new plan's price, and resets the period boundary to "now".
+
+## Preview before commit
+
+Always preview before committing the change. The preview endpoint returns the full breakdown so you can show the user exactly what they'll be charged.
+
+```
+GET /api/account/subscriptions/:id/upgrade-preview?new_plan_id=pln_yyy
+Authorization: Bearer <user_access_token>
+```
+
+### Response
+
+<ResponseField name="current_plan" type="object">
+  Plan the subscription is currently on, with `id`, `slug`, `name`, `price`, `currency`, `interval`.
+</ResponseField>
+
+<ResponseField name="new_plan" type="object">
+  Target plan, same shape.
+</ResponseField>
+
+<ResponseField name="credit_minor" type="number">
+  Unused-time credit from the current plan, in minor units. Calculated as `(seconds_left / period_seconds) * current_plan.price`, rounded down.
+</ResponseField>
+
+<ResponseField name="new_charge_minor" type="number">
+  Full price of the new plan for one fresh period, in minor units.
+</ResponseField>
+
+<ResponseField name="net_charge_minor" type="number">
+  `max(0, new_charge_minor - credit_minor)`. This is what the user's card will be charged on commit.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  `GHS` or `USD`. Both plans must share a currency — see the [cross-currency rule](#cross-currency-changes).
+</ResponseField>
+
+<ResponseField name="new_period_start" type="string">
+  ISO timestamp. Always "now" — upgrades reset the period.
+</ResponseField>
+
+<ResponseField name="new_period_end" type="string">
+  ISO timestamp at `new_period_start + new_plan.interval`.
+</ResponseField>
+
+<ResponseField name="breakdown" type="array">
+  Line items suitable for direct rendering, e.g.:
+
+  ```json
+  [
+    { "label": "Pro Monthly (unused 18 days)",  "amount_minor": -3000 },
+    { "label": "Premium Monthly (new period)",  "amount_minor":  8000 },
+    { "label": "Net charge",                    "amount_minor":  5000 }
+  ]
+  ```
+</ResponseField>
+
+### Example
+
+```typescript
+const res = await fetch(
+  `https://auth.mgpass.net/api/account/subscriptions/${id}/upgrade-preview?new_plan_id=pln_yyy`,
+  { headers: { Authorization: `Bearer ${accessToken}` } }
+);
+const preview = await res.json();
+
+// Render confirmation UI showing preview.breakdown,
+// then on confirm:
+await fetch(`https://auth.mgpass.net/api/account/subscriptions/${id}/change-plan`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ new_plan_id: "pln_yyy" }),
+});
+```
+
+## The proration math
+
+The credit formula is straightforward time-pro-rate:
+
+```
+seconds_left   = current_period_end - now
+period_seconds = current_period_end - current_period_start
+credit_minor   = floor((seconds_left / period_seconds) * current_plan.price)
+```
+
+Then:
+
+```
+net_charge_minor = max(0, new_plan.price - credit_minor)
+```
+
+A few worked examples on a 30-day monthly plan priced at 50.00 GHS (`5000`) upgrading to 80.00 GHS (`8000`):
+
+| Days into period | Credit | New charge | Net charge |
+|---|---|---|---|
+| 1 (29 days left) | 4833 | 8000 | 3167 |
+| 15 (15 days left) | 2500 | 8000 | 5500 |
+| 29 (1 day left) | 166 | 8000 | 7834 |
+
+## Period reset on upgrade
+
+Upgrades reset `current_period_start` to "now" and set `current_period_end` to `now + new_plan.interval`. The user's renewal cadence moves with them. This is intentional — billing on a per-plan basis is simpler than carrying forward a partial period at a new price.
+
+The Durable Object's alarm is rewritten to the new period end as part of the change.
+
+## When credit exceeds the new charge
+
+If `credit_minor > new_charge_minor` (e.g. downgrading mid-period), `net_charge_minor` is clamped to 0. **The leftover credit is forfeited** — no charge fires, but the user doesn't get a refund and the balance doesn't roll forward to the next renewal.
+
+<Warning>
+  This is a known limitation. There's no credit-bank or balance-carryforward in the engine today. Operators that need to refund the unused portion should issue a manual refund through Paystack against the most recent payment on the subscription.
+
+  A future iteration may add a credit-bank to carry forward — track the [PRD §14](https://docs.mgpass.net) for status.
+</Warning>
+
+If you want to avoid surprising users, surface this clearly in your UI when `preview.net_charge_minor === 0` and `preview.credit_minor > preview.new_charge_minor`.
+
+## Cross-currency changes
+
+Both plans must share a currency. The preview endpoint returns 400 `currency_mismatch` if you try to preview an upgrade from a `GHS` plan to a `USD` plan (or vice versa). To switch currencies, cancel the existing subscription and create a new one through checkout — the user picks the new plan and pays from scratch with no proration.
+
+## Same-plan changes
+
+Posting `change-plan` with the user's current `plan_id` is rejected with 400 `same_plan`. Use this as a sanity check; the UI should disable the "upgrade" button when the target equals the current plan.
+
+If you want to bump an existing subscriber to a new price on the same conceptual product, the cleanest path is to make a new plan (e.g. `pro_monthly_v2`) and run a plan change to it. See [Plans → Updating plans](/guides/subscriptions/plans#updating-plans) for why.
+
+## Webhook
+
+A successful plan change fires `subscription.plan_changed` with:
+
+```json
+{
+  "event_type": "subscription.plan_changed",
+  "data": {
+    "subscription_id":  "sub_xxx",
+    "user_id":          "usr_abc123",
+    "application_id":   "app_xxx",
+    "from_plan_id":     "pln_xxx",
+    "from_plan_slug":   "pro_monthly",
+    "to_plan_id":       "pln_yyy",
+    "to_plan_slug":     "premium_monthly",
+    "credit_minor":     2500,
+    "net_charge_minor": 5500,
+    "amount":           5500,
+    "currency":         "GHS",
+    "effective_at":     "2026-06-21T14:32:01Z"
+  }
+}
+```
+
+See [Subscription webhooks → Naming](/guides/subscriptions/webhooks) for why this event is `plan_changed` rather than `upgraded` or `downgraded`.

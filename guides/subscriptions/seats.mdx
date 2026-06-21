@@ -1,0 +1,151 @@
+---
+title: "Multi-seat plans"
+description: "Family and team subscriptions — invite tokens, owner vs member roles, and shared entitlements."
+sidebarTitle: "Multi-seat plans"
+---
+
+When a plan's `max_seats` is greater than 1, the subscription owner can invite additional users to share the subscription. Every accepted seat gets the same plan entitlements via their own JWT claim, billed once to the owner.
+
+This covers family plans, team plans, and household sharing.
+
+## Plan setup
+
+Set `max_seats` on the plan at creation (or update it later — existing subscriptions inherit the new ceiling):
+
+```json
+{
+  "name": "Family Monthly",
+  "slug": "family_monthly",
+  "interval": "monthly",
+  "price": 9000,
+  "currency": "GHS",
+  "max_seats": 5
+}
+```
+
+`max_seats: 1` is the default (solo plan). `max_seats: 0` is rejected as invalid.
+
+## Roles
+
+| Role | Capabilities |
+|---|---|
+| **Owner** | Pays. Invites and removes members. Cancels, changes plan, updates card. Can leave only by transferring ownership (not yet exposed; cancel + re-subscribe). |
+| **Member** | Receives entitlement. Can leave anytime (frees a seat). Cannot manage billing or other members. |
+
+The owner is always the user the subscription was created for (the `user_id` on `POST /v1/checkout`). Owners count as one of the seats — a `max_seats: 5` plan has the owner + up to 4 invitees.
+
+## Inviting a seat
+
+The owner generates an invite token via the account portal or API:
+
+```bash
+curl -X POST https://auth.mgpass.net/api/account/subscriptions/sub_xxx/seats/invites \
+  -H "Authorization: Bearer <owner_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "partner@example.com" }'
+```
+
+Response:
+
+```json
+{
+  "invite_id":    "inv_xxx",
+  "invite_token": "tok_xxx_xxxxxxxxxxxx",
+  "magic_link":   "https://mgpass.net/seats/accept?token=tok_xxx_xxxxxxxxxxxx",
+  "expires_at":   "2026-06-28T10:00:00Z"
+}
+```
+
+mgPass emails the invitee the magic link automatically when you provide an `email`. You can also generate a token without an email and deliver the magic link yourself.
+
+Invites:
+
+- Expire after 7 days.
+- Are single-use — accepted or expired tokens can't be re-presented.
+- Don't reserve a seat until accepted. You can have more pending invites than open seats; the engine rejects acceptance when the seat count is full.
+
+## Accepting a seat
+
+The invitee clicks the magic link, which lands them on `mgpass.net/seats/accept?token=…`:
+
+<Steps>
+  <Step title="Sign in">
+    If they aren't logged in to mgPass, they're prompted to. New users go through standard signup.
+  </Step>
+  <Step title="Confirm">
+    They see the plan name, the owner's name, and an Accept button.
+  </Step>
+  <Step title="Seat created">
+    On accept, mgPass writes a row to `subscription_seats` linking the user to the subscription as a `member`. Their next access token includes the `subscriptions` claim for the owner's plan.
+  </Step>
+</Steps>
+
+If the seat count is already full at accept time, the endpoint returns 409 `seat_limit_reached` and the token stays unused for the owner to revoke.
+
+## Removing seats
+
+Owners can remove any member; members can leave on their own.
+
+```bash
+# Owner removes a member
+curl -X DELETE https://auth.mgpass.net/api/account/subscriptions/sub_xxx/seats/seat_yyy \
+  -H "Authorization: Bearer <owner_access_token>"
+
+# Member leaves themselves
+curl -X DELETE https://auth.mgpass.net/api/account/subscriptions/sub_xxx/seats/me \
+  -H "Authorization: Bearer <member_access_token>"
+```
+
+On removal, the seat row is deleted and the member's next JWT no longer carries the plan claim. The seat slot opens immediately for a new invite.
+
+## Listing seats
+
+```bash
+curl https://auth.mgpass.net/api/account/subscriptions/sub_xxx/seats \
+  -H "Authorization: Bearer <owner_access_token>"
+```
+
+```json
+{
+  "owner": {
+    "user_id": "usr_owner",
+    "email":   "owner@example.com",
+    "role":    "owner"
+  },
+  "members": [
+    {
+      "seat_id": "seat_yyy",
+      "user_id": "usr_member1",
+      "email":   "partner@example.com",
+      "role":    "member",
+      "joined_at": "2026-05-12T09:14:33Z"
+    }
+  ],
+  "pending_invites": [
+    {
+      "invite_id": "inv_zzz",
+      "email":     "kid@example.com",
+      "expires_at": "2026-06-28T10:00:00Z"
+    }
+  ],
+  "max_seats": 5,
+  "seats_used": 2,
+  "seats_available": 3
+}
+```
+
+## Entitlement
+
+Every accepted seat — owner included — gets the plan's entitlement via their own JWT. The claim shape doesn't carry a "seat owner" flag; from your backend's perspective each user just has the plan.
+
+If you need to know whether a user is the owner or a member, query the seats endpoint or check the `subscription.owner_id` field via the management API. Most operators don't need to distinguish — the plan is the plan.
+
+## Downsizing max_seats
+
+If you reduce `max_seats` on a plan that has subscriptions already over the new cap, existing subscribers keep their seats but can't add new ones until they drop below the cap. New subscribers see the lower cap immediately.
+
+## Webhooks
+
+Multi-seat subscriptions emit the same `subscription.*` events as solo subscriptions — the owner is the `user_id` on every payload. Seat-specific events aren't sent by default; if you need to track joins/leaves, build off the account portal events or poll the seats endpoint.
+
+Future iterations may add `subscription.seat_added` and `subscription.seat_removed` events. Track the PRD for status.

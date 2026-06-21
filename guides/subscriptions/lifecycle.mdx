@@ -1,0 +1,143 @@
+---
+title: "Lifecycle"
+description: "The subscription state machine, renewal scheduling, retry behavior, and dunning notifications."
+sidebarTitle: "Lifecycle"
+---
+
+Every subscription moves through a fixed state machine. The engine schedules renewals, retries failed charges, and emits webhooks plus user notifications on every transition.
+
+## The state machine
+
+<Frame>
+```
+            ┌────────────────────────────────────────────┐
+            │                                            │
+            │                                            ▼
+   ┌──────────────┐   trial   ┌──────────┐   payment   ┌────────────┐
+   │   trialing   │ ────────▶ │  active  │ ─ fails ──▶ │  past_due  │
+   └──────────────┘   ends    └──────────┘             └────────────┘
+       │     ▲           paid │   ▲                          │
+       │     │                │   │  retry succeeds          │ retries
+       │     │                │   └──────────────────────────┘ exhausted
+       │     │                │                                ▼
+       │     │                │                          ┌──────────┐
+       │     │                │                          │  unpaid  │
+       │     │                │                          └──────────┘
+       │     │                │                                │
+   cancel   reactivate        │                          grace period
+   during   (within grace)    │                                │
+   trial    │                 │                                ▼
+       │    │                 │                          ┌───────────┐
+       ▼    │                 ▼                          │ cancelled │
+   ┌──────────┐          ┌───────────┐                   │   /       │
+   │cancelled │          │ cancelled │ ─────────────────▶│ expired   │
+   └──────────┘          └───────────┘                   └───────────┘
+
+   Sponsored subs and manually-paused subs use the `paused` status
+   (no charges; expires at period_end unless extended).
+```
+</Frame>
+
+### State definitions
+
+<AccordionGroup>
+  <Accordion title="trialing">
+    User has a stored card but hasn't been charged yet. Counts as entitled — JWT claim shows `status: "trialing"`. Ends on `trial_days` after creation, when the engine fires `subscription.activated` and runs the first charge.
+  </Accordion>
+
+  <Accordion title="active">
+    Paid and current. Renews automatically at `current_period_end`. This is the steady state.
+  </Accordion>
+
+  <Accordion title="past_due">
+    A renewal charge failed. The user is still entitled (grace period) while the engine retries. JWT claim still shows `status: "past_due"` — most operators treat this as "still allowed in" so card hiccups don't lock paying customers out.
+  </Accordion>
+
+  <Accordion title="unpaid">
+    All retries exhausted. Entitlement may be revoked here depending on your policy — the engine emits `subscription.unpaid` and most operators downgrade the user. The subscription can still be reactivated by the user updating their card.
+  </Accordion>
+
+  <Accordion title="cancelled">
+    User or admin cancelled. Entitlement is revoked at `current_period_end` by default (the user keeps access until the period they already paid for ends). Setting `cancel_at_period_end: false` revokes immediately and pro-rates nothing.
+  </Accordion>
+
+  <Accordion title="expired">
+    Terminal. Set after the grace period closes on an `unpaid` sub or when a `cancelled` sub passes its `cancel_at`. Read-only — to bring the user back, create a new subscription.
+  </Accordion>
+
+  <Accordion title="paused">
+    Used by [sponsored subscriptions](/guides/subscriptions/sponsored) (which never charge) and by admin-initiated manual pauses. Behaves like `active` for entitlement but skips renewal scheduling. Expires at `current_period_end` unless extended.
+  </Accordion>
+</AccordionGroup>
+
+## Renewals
+
+A Durable Object owns each subscription's schedule. On creation (or trial conversion), the DO sets an alarm for `current_period_end`. When the alarm fires, the renewal worker:
+
+1. Looks up the stored Paystack authorization for the user.
+2. Charges `current_price` in `current_currency`.
+3. On success: advances `current_period_start` and `current_period_end` by one interval, writes a `payments` row, sends a `subscription.renewed` webhook, and resets the alarm for the new period end.
+4. On failure: flips status to `past_due`, schedules the first retry, and fires `subscription.payment_failed`.
+
+Renewals run inside the queue with at-least-once delivery, so the worker is idempotent — retrying the same renewal won't double-charge.
+
+## Retry schedule
+
+When a charge fails (initial trial conversion or scheduled renewal), the engine retries with capped exponential backoff:
+
+| Attempt | Delay after previous |
+|---|---|
+| 1 (immediate) | — |
+| 2 | 24 hours |
+| 3 | 3 days |
+| 4 | 7 days |
+
+After attempt 4 fails, the subscription flips from `past_due` to `unpaid` and a `subscription.unpaid` webhook fires. The user enters a 7-day grace window during which they can update their card from the account portal; a successful update + retry returns the sub to `active`.
+
+If the grace window expires without a successful charge, the subscription transitions to `cancelled` (then `expired` at `current_period_end`) and `subscription.cancelled` fires.
+
+## Dunning notifications
+
+Every state transition triggers a notification through the notification engine — email by default, SMS for critical events, and an in-app entry. See [Notifications](/guides/webhooks-identity) and the user notification preferences endpoint for the full surface map. Default schedule:
+
+| Event | Channel(s) |
+|---|---|
+| `subscription.activated` | email + in-app |
+| `subscription.trial_ending` (24h before) | email + in-app |
+| `subscription.payment_failed` | email + SMS + in-app |
+| `subscription.unpaid` | email + SMS + in-app |
+| `subscription.renewed` | email (receipt) + in-app |
+| `subscription.plan_changed` | email + in-app |
+| `subscription.cancelled` | email + in-app |
+| `subscription.expired` | email + in-app |
+
+Users can mute individual event types per channel from the account portal at `mgpass.net/account/notifications`.
+
+## Sponsored and paused subs
+
+[Sponsored subscriptions](/guides/subscriptions/sponsored) (admin-granted, no payment) live entirely on the `paused` path:
+
+- Created with `status: "paused"` and `sponsored: 1`.
+- Counted as entitled — JWT claim shows `status: "paused"` and your backend should treat that as allowed.
+- Never run renewal charges. No retries, no dunning.
+- Expire at `current_period_end` unless an admin extends them with another sponsored grant.
+
+Sponsored subs are excluded from revenue analytics (`MRR`, `ARPU`, `churn`) — see the analytics dashboard in the admin console.
+
+## Reactivation
+
+Users land in `past_due` or `unpaid` can reactivate by updating their card from `mgpass.net/account/subscriptions/:id`. The engine reruns the failed charge immediately on card update; on success, status flips back to `active` and the period boundary advances normally. A `subscription.activated` webhook fires.
+
+A `cancelled` subscription cannot be reactivated directly — the user creates a new one (use the same `plan_id`). An `expired` sub is permanently read-only.
+
+## Cancellation semantics
+
+`POST /api/account/subscriptions/:id/cancel` defaults to "cancel at period end" — the user keeps access through the period they paid for, no refund. Pass `immediate: true` to revoke entitlement now (no refund either; for refunds use the admin endpoint).
+
+`subscription.cancelled` fires immediately in both cases; `subscription.expired` fires when the period boundary is reached.
+
+## What's next
+
+- [Subscription webhooks](/guides/subscriptions/webhooks) — payload reference for every `subscription.*` event
+- [Plan changes](/guides/subscriptions/changes) — how upgrades/downgrades interact with the period boundary
+- [Sponsored subscriptions](/guides/subscriptions/sponsored) — the `paused` path in full

@@ -1,0 +1,222 @@
+---
+title: "Checkout flows"
+description: "Hosted redirect at pay.mgpass.net or the embeddable iframe widget that keeps users on your site."
+sidebarTitle: "Checkout"
+---
+
+mgPass offers two ways to take a subscription payment. Both flows hit the same `POST /v1/checkout` endpoint; the `mode` field decides the surface.
+
+| Mode | UX | When to pick it |
+|---|---|---|
+| `hosted` | Redirect to `pay.mgpass.net/checkout/:sessionId` | Fast to integrate. No frontend work beyond a button. PCI scope offloaded entirely. |
+| `embedded` | Inline iframe served by `auth.mgpass.net` and mounted by `mgpass.checkout.open()` | Users stay on your domain. Better for high-conversion flows and SPAs. |
+
+## Hosted checkout
+
+<Steps>
+  <Step title="Create the session">
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://auth.mgpass.net/v1/checkout \
+      -H "X-API-Key: $MGPASS_SUBS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "mode": "hosted",
+        "plan_id": "pln_xxx",
+        "user_id": "usr_abc123",
+        "success_url": "https://yourapp.com/billing/success",
+        "cancel_url":  "https://yourapp.com/billing/cancel"
+      }'
+    ```
+
+    ```typescript TypeScript
+    const res = await fetch("https://auth.mgpass.net/v1/checkout", {
+      method: "POST",
+      headers: {
+        "X-API-Key": process.env.MGPASS_SUBS_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        mode: "hosted",
+        plan_id: "pln_xxx",
+        user_id: "usr_abc123",
+        success_url: "https://yourapp.com/billing/success",
+        cancel_url:  "https://yourapp.com/billing/cancel",
+      }),
+    });
+    const { session_id, checkout_url, expires_at } = await res.json();
+    ```
+    </CodeGroup>
+
+    The response carries:
+
+    <ResponseField name="session_id" type="string">Prefixed `cs_`. Reference for logs and webhooks.</ResponseField>
+    <ResponseField name="checkout_url" type="string">Full URL on `pay.mgpass.net`. Redirect the user here.</ResponseField>
+    <ResponseField name="expires_at" type="string">ISO timestamp. Sessions expire after 30 minutes; create a new one if the user comes back later.</ResponseField>
+  </Step>
+
+  <Step title="Redirect">
+    ```typescript
+    return Response.redirect(checkout_url, 302);
+    ```
+  </Step>
+
+  <Step title="User pays">
+    The user lands on `pay.mgpass.net` (mgPass-hosted, mobile-responsive), fills in card details, and submits.
+  </Step>
+
+  <Step title="Return to your site">
+    On success, mgPass redirects to your `success_url` with `?session_id=cs_xxx` appended. On cancel/timeout, it hits `cancel_url`.
+  </Step>
+
+  <Step title="Source of truth: the webhook">
+    Don't trust the redirect alone — it confirms the user reached the success page, not that the charge cleared. Use the `subscription.activated` webhook to flip features on. See [Subscription webhooks](/guides/subscriptions/webhooks).
+  </Step>
+</Steps>
+
+## Embedded checkout widget
+
+The embed widget renders an iframe on your page. The user never leaves your domain.
+
+### Prerequisites
+
+1. **Add at least one allowed origin.** In the admin console, open the Application → **Subscriptions capability** → **Allowed widget origins**. Add the exact origin(s) you'll mount the widget on, e.g. `https://yourapp.com`. The iframe checks `document.referrer` and the parent origin against this list and shows a 403 frame on mismatch.
+2. **Include the SDK.** Add the `<script>` tag from `auth.mgpass.net/sdk/checkout.js` to your page. Pin it with Subresource Integrity — see [SRI](#subresource-integrity-sri) below.
+
+<Steps>
+  <Step title="Include the SDK">
+    ```html
+    <script
+      src="https://auth.mgpass.net/sdk/checkout.js"
+      integrity="sha384-xxx…"
+      crossorigin="anonymous"
+      async
+    ></script>
+    ```
+  </Step>
+
+  <Step title="Create an embedded session">
+    Same endpoint, `mode: "embedded"`. No `success_url` or `cancel_url` needed — outcomes return via `postMessage`.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://auth.mgpass.net/v1/checkout \
+      -H "X-API-Key: $MGPASS_SUBS_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "mode": "embedded",
+        "plan_id": "pln_xxx",
+        "user_id": "usr_abc123"
+      }'
+    ```
+
+    ```typescript TypeScript
+    const res = await fetch("https://auth.mgpass.net/v1/checkout", {
+      method: "POST",
+      headers: {
+        "X-API-Key": process.env.MGPASS_SUBS_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        mode: "embedded",
+        plan_id: "pln_xxx",
+        user_id: "usr_abc123",
+      }),
+    });
+    const { session_id } = await res.json();
+    ```
+    </CodeGroup>
+
+    <Warning>
+      `mode: "embedded"` requires the Application's `allowed_widget_origins` to be non-empty. The endpoint returns 400 `widget_origins_not_configured` otherwise.
+    </Warning>
+  </Step>
+
+  <Step title="Open the widget">
+    ```html
+    <button id="upgrade">Upgrade to Pro</button>
+    <script>
+      document.getElementById("upgrade").addEventListener("click", () => {
+        mgpass.checkout.open({
+          sessionId: "cs_xxx",
+          onReady:   ()    => console.log("widget ready"),
+          onSuccess: (data) => {
+            // data: { subscription_id, session_id }
+            window.location.href = "/billing/success";
+          },
+          onError: (err) => {
+            // err: { code, message }
+            console.error(err);
+          },
+          onClose: () => {
+            console.log("user dismissed");
+          },
+        });
+      });
+    </script>
+    ```
+  </Step>
+</Steps>
+
+### postMessage event contract
+
+The iframe communicates with your page via `window.postMessage`. The SDK wraps these into the callbacks above, but if you want to handle them directly:
+
+| Event type | Data | Fires when |
+|---|---|---|
+| `mgpass:checkout:ready` | none | iframe loaded, ready for input |
+| `mgpass:checkout:success` | `{ subscription_id, session_id }` | payment cleared, subscription active or trialing |
+| `mgpass:checkout:error` | `{ code, message }` | payment failed, validation error, or session expired |
+| `mgpass:checkout:close` | none | user clicked the close button |
+
+Always validate `event.origin === "https://auth.mgpass.net"` before trusting the payload.
+
+### Subresource integrity (SRI)
+
+The SDK is served from a long-lived URL. Pinning the script's hash with `integrity=` ensures the browser refuses to execute a modified bundle, even if the CDN or DNS is compromised.
+
+mgPass publishes the current SRI hash at `https://auth.mgpass.net/sdk/checkout.js.sri` (JSON):
+
+```json
+{
+  "url": "https://auth.mgpass.net/sdk/checkout.js",
+  "integrity": "sha384-xxx...",
+  "version": "1.0.3"
+}
+```
+
+When you ship a new release of mgPass, this hash rotates. Keep your `<script integrity>` value in sync — pull the hash in your build pipeline or check this endpoint on deploy. `crossorigin="anonymous"` is required for SRI to apply.
+
+### Origin allowlist
+
+The iframe loads with `?mode=embedded` and inspects the framing origin on render. If the origin isn't in the Application's `allowed_widget_origins`, the iframe replaces itself with a 403 page that says "This site isn't authorized to embed mgPass checkout" and posts a `mgpass:checkout:error` with `code: "origin_not_allowed"`. The session is also marked dead so reusing the URL won't help.
+
+Manage origins via the admin console or the management API. Wildcards aren't supported — add each subdomain explicitly.
+
+## Promo codes
+
+Pre-apply a promo code by sending `promo_code_id` (or `promo_code` for the human-readable string) on session create. The user lands on a checkout that already shows the discount applied; they can still remove it on the page.
+
+<CodeGroup>
+```bash curl
+curl -X POST https://auth.mgpass.net/v1/checkout \
+  -H "X-API-Key: $MGPASS_SUBS_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "hosted",
+    "plan_id": "pln_xxx",
+    "user_id": "usr_abc123",
+    "promo_code": "LAUNCH50",
+    "success_url": "https://yourapp.com/billing/success",
+    "cancel_url":  "https://yourapp.com/billing/cancel"
+  }'
+```
+</CodeGroup>
+
+If the code is invalid, expired, or already redeemed by this user, the endpoint returns 400 `promo_code_invalid` and no session is created. Create the session without the code if you want to let the user try again with a different one.
+
+## What to do next
+
+- [Lifecycle](/guides/subscriptions/lifecycle) — what status the subscription enters after a successful checkout
+- [Subscription webhooks](/guides/subscriptions/webhooks) — payload for `subscription.activated` and friends
+- [Multi-currency](/guides/subscriptions/currency) — checkout in USD vs GHS

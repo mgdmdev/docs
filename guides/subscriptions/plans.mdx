@@ -1,0 +1,163 @@
+---
+title: "Plans"
+description: "Model your pricing — intervals, trials, currencies, features, and seat counts."
+sidebarTitle: "Plans"
+---
+
+A plan is the product. Every active subscription points at a plan, which determines the renewal cadence, the price, the trial length, and the features the user gets.
+
+Plans are scoped per Application — `pro_monthly` in App A is a different row from `pro_monthly` in App B. The `slug` is unique within an Application.
+
+## The plan model
+
+<ResponseField name="id" type="string">
+  Server-generated, prefixed `pln_`.
+</ResponseField>
+
+<ResponseField name="application_id" type="string">
+  The owning [Application](/guides/applications). Inferred from the API key on create.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Human-readable label shown on checkout, invoices, and the account portal. e.g. `Pro Monthly`.
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  URL-safe identifier, unique per Application. Used in JWT entitlement claims. e.g. `pro_monthly`. Lowercase, alphanumeric + underscore + hyphen.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Optional. One-liner shown under the name on checkout.
+</ResponseField>
+
+<ResponseField name="interval" type="string">
+  Renewal cadence. One of `weekly`, `monthly`, `annual`.
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Recurring charge in **minor units** — pesewas for GHS, cents for USD. `5000` GHS = 50.00 GHS.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  `GHS` or `USD`. See [Multi-currency](/guides/subscriptions/currency) for the Paystack prerequisite.
+</ResponseField>
+
+<ResponseField name="trial_days" type="number">
+  Days of free trial before the first charge. `0` disables the trial.
+</ResponseField>
+
+<ResponseField name="features" type="string[]">
+  Free-form array of feature keys you check in your backend. Surfaces in JWT claims when `entitlement_jwt_mode = full_features`.
+</ResponseField>
+
+<ResponseField name="max_seats" type="number">
+  `1` for solo plans, `>1` for [multi-seat plans](/guides/subscriptions/seats).
+</ResponseField>
+
+<ResponseField name="paystack_plan_code" type="string">
+  Optional. Sync to a Paystack plan code if you want renewals managed in Paystack's own dashboard. mgPass works fine without this.
+</ResponseField>
+
+<ResponseField name="active" type="boolean">
+  Inactive plans hide from new checkouts but existing subscribers keep renewing on them.
+</ResponseField>
+
+## Naming and slugs
+
+The `slug` is what shows up everywhere downstream — JWT claims, webhook payloads, analytics, audit logs. Treat it like a public identifier:
+
+- Use `_` or `-`, not spaces.
+- Pick something stable. Changing a slug after launch is messy because every existing JWT and webhook payload references the old value.
+- Don't encode price in the slug — `pro_monthly` survives a price change; `pro_50_monthly` doesn't.
+
+The `slug` must be unique within an Application. Two Applications can both have `pro_monthly` without conflict.
+
+## Currencies and the annual + Hubtel gate
+
+Plans price in `GHS` or `USD` and stay in that currency for their whole lifetime. The currency flows into every payment, invoice, email, SMS, and webhook payload — see [Multi-currency](/guides/subscriptions/currency).
+
+There's one hard-coded combo the engine rejects: `interval: "annual"` + `payment_provider: "hubtel"`. Annual plans require a card today because mobile money recurring is not yet automated. The rejection happens at `/v1/checkout` time with a 400.
+
+<Note>
+  This rule is in effect even though [Hubtel MoMo Repeat Payments](/guides/subscriptions/overview) is deferred — when it ships, the gate may relax.
+</Note>
+
+## Trials
+
+Set `trial_days > 0` to give new subscribers free access before billing.
+
+<Steps>
+  <Step title="Checkout">
+    The user fills in card details. Paystack tokenizes the card but does not charge.
+  </Step>
+  <Step title="Trial period">
+    Subscription is created with `status: "trialing"`. The user gets full feature access. Their JWT claim shows `status: "trialing"`.
+  </Step>
+  <Step title="Trial ends">
+    On day `trial_days`, the engine fires `subscription.activated` and the first charge runs against the stored card. If the charge succeeds, status flips to `active`. If it fails, status flips to `past_due` and dunning starts — see [Lifecycle](/guides/subscriptions/lifecycle).
+  </Step>
+  <Step title="Cancel during trial">
+    The user (or admin) can cancel during the trial window. Status flips to `cancelled` immediately and no charge ever runs.
+  </Step>
+</Steps>
+
+A `subscription.trial_ending` webhook fires roughly 24 hours before the trial converts so you can prompt the user.
+
+## Updating plans
+
+Plans aren't immutable, but changes don't propagate retroactively. The engine treats existing subscriptions as snapshots of the plan they were created against.
+
+<AccordionGroup>
+  <Accordion title="Price change">
+    Existing subscribers keep paying the old price until their next renewal. Their stored `current_price` on the subscription row doesn't change. New checkouts (and any plan-change [upgrades](/guides/subscriptions/changes)) use the new price immediately.
+
+    If you want to bump an existing subscriber's price, the cleanest path is to use the [plan-change flow](/guides/subscriptions/changes) — even moving them to a "same plan with new price" target.
+  </Accordion>
+
+  <Accordion title="Features change">
+    The `features` array is read live on every JWT issue, so adding a feature instantly unlocks it for everyone on that plan. Removing one revokes it on the next token refresh.
+  </Accordion>
+
+  <Accordion title="Trial change">
+    Affects new subscriptions only. Existing trialing subscribers keep their original trial window.
+  </Accordion>
+
+  <Accordion title="Slug change">
+    Strongly discouraged after launch. Old JWTs, webhook history, audit logs, and analytics all reference the old slug. If you must rename, treat it as deprecating one plan and migrating subscribers to a new one.
+  </Accordion>
+
+  <Accordion title="Setting active = false">
+    Hides the plan from new checkouts but does **not** cancel existing subscribers. They continue renewing on it until they cancel or you move them with a plan change.
+  </Accordion>
+</AccordionGroup>
+
+## Optional: Paystack plan sync
+
+If you set `paystack_plan_code`, mgPass references that plan when authorizing payments, which lets the plan show up in your Paystack dashboard analytics. mgPass still owns the renewal schedule — Paystack's own subscription engine is not used.
+
+You don't need this. Most operators leave `paystack_plan_code` null and let mgPass handle everything.
+
+## Listing and editing plans
+
+<CodeGroup>
+```bash List plans
+curl https://auth.mgpass.net/v1/plans \
+  -H "X-API-Key: $MGPASS_SUBS_KEY"
+```
+
+```bash Update a plan
+curl -X PATCH https://auth.mgpass.net/v1/plans/pln_xxx \
+  -H "X-API-Key: $MGPASS_SUBS_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "price": 7500, "features": ["unlimited_articles", "no_ads", "early_access"] }'
+```
+
+```bash Deactivate
+curl -X PATCH https://auth.mgpass.net/v1/plans/pln_xxx \
+  -H "X-API-Key: $MGPASS_SUBS_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "active": false }'
+```
+</CodeGroup>
+
+The admin console at `admin.mgpass.net` has a UI for the same operations and previews the impact on existing subscribers before you save.

@@ -1,0 +1,108 @@
+---
+title: "Currency & billing rails"
+description: "Per-plan GHS or USD pricing end-to-end through checkout, invoices, webhooks, and notifications."
+sidebarTitle: "Currency"
+---
+
+mgPass supports two currencies for subscription billing: **GHS** (Ghanaian Cedi) and **USD** (United States Dollar). The currency is set per plan and carries through every downstream artifact — checkout, payment, invoice, email, SMS, webhook payload, and analytics aggregate.
+
+## Per-plan currency
+
+Currency is locked to the plan on creation. You can't change a plan's currency after subscribers exist; instead, create a new plan in the target currency and migrate subscribers (cancel + re-subscribe — [plan changes](/guides/subscriptions/changes) reject cross-currency moves).
+
+```json
+{
+  "name": "Pro Monthly (USD)",
+  "slug": "pro_monthly_usd",
+  "interval": "monthly",
+  "price": 500,
+  "currency": "USD",
+  "trial_days": 7
+}
+```
+
+`500` in USD = `$5.00`. Money is in **minor units everywhere** — pesewas for GHS, cents for USD. The engine never silently converts; if you mix currencies in the same logical product, model them as separate plans.
+
+## Where currency surfaces
+
+Every artifact a subscription produces carries its currency:
+
+| Surface | Field |
+|---|---|
+| `POST /v1/checkout` response | `currency` |
+| Paystack charge | currency code sent on initialize |
+| `payments` row | `currency` |
+| Invoice (PDF + JSON) | `currency`, all line items in minor units of that currency |
+| Email receipt | localized amount string (`GH₵ 50.00` vs `$5.00`) |
+| SMS notification | same |
+| In-app notification | same |
+| Webhook payload (money-bearing events) | `amount` + `currency` |
+| Revenue analytics | aggregates per currency (MRR for GHS plans is separate from MRR for USD plans) |
+| Account portal | localized |
+
+Money-bearing webhook events (`subscription.activated`, `subscription.renewed`, `subscription.payment_failed`, `subscription.plan_changed`) **always** include both `amount` and `currency` — never one without the other. See [Subscription webhooks](/guides/subscriptions/webhooks).
+
+## Paystack prerequisite
+
+Paystack lets merchants charge in their enabled currencies only. For USD plans, your Paystack merchant account must have **multi-currency mode enabled** with USD turned on — this is a Paystack-side setting they grant on request to verified merchants.
+
+If your account doesn't have USD enabled and a user tries to check out on a USD plan, Paystack rejects the charge initialization with their own error and mgPass surfaces it as:
+
+```json
+{
+  "code": "payment_provider_currency_not_supported",
+  "message": "Your payment provider hasn't enabled USD. Contact support."
+}
+```
+
+Confirm currency support with Paystack before launching USD plans. The mgPass admin console shows a warning banner on the Subscriptions capability page if it detects no USD-enabled charges have ever succeeded.
+
+## The annual + Hubtel rejection
+
+There's one hard-coded rule that interacts with currency choice:
+
+<Warning>
+  **Annual plans cannot be paid with Hubtel mobile money.** The engine rejects `POST /v1/checkout` with 400 `annual_requires_card` when `plan.interval === "annual"` and `payment_provider === "hubtel"`.
+</Warning>
+
+Why: [Hubtel MoMo Repeat Payments](/guides/subscriptions/overview#billing-rails) is deferred, so the engine can't auto-renew a mobile-money charge. For monthly/weekly plans this just means renewal silently falls back to manual reactivation (which is annoying but recoverable); for annual plans the gap between charges is too long to be safe, so the combo is blocked outright.
+
+This rule is checked at session create time, not at plan create time — you can have an annual plan and a Hubtel-enabled checkout coexist; the user just can't pick Hubtel for that plan.
+
+When [Hubtel MoMo Repeat Payments](https://hubtel.com) v1.2 ships and is integrated, this gate may relax.
+
+## Currency in webhook payloads
+
+```json
+{
+  "event_type": "subscription.renewed",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_slug":       "pro_monthly_usd",
+    "amount":          500,
+    "currency":        "USD",
+    "period_start":    "2026-06-21T00:00:00Z",
+    "period_end":      "2026-07-21T00:00:00Z"
+  }
+}
+```
+
+Always read both `amount` and `currency`. Don't assume currency from the plan slug — for analytics you want the value the payment actually settled in.
+
+## Currency in JWT claims
+
+The `subscriptions` claim doesn't carry currency by default — it's plan + status (+ optional features). If you need currency in the token, derive it server-side from the plan slug, or query `/v1/entitlements/:user_id` which returns the full subscription record including `currency`.
+
+## Reporting across currencies
+
+The analytics dashboard segregates by currency — there's a GHS MRR and a USD MRR, separately. No FX conversion happens in mgPass; if you want a combined number, do the conversion in your reporting layer using a rate appropriate to your accounting period.
+
+Sponsored subscriptions are excluded from monetary aggregates in both currencies — see [Sponsored subscriptions](/guides/subscriptions/sponsored#what-sponsored-subs-skip).
+
+## What's next
+
+- [Plans](/guides/subscriptions/plans) — set `currency` on plan create
+- [Checkout flows](/guides/subscriptions/checkout) — currency is implicit from the plan
+- [Subscription webhooks](/guides/subscriptions/webhooks) — `amount` + `currency` on every money-bearing event

@@ -1,0 +1,313 @@
+---
+title: "Subscription webhooks"
+description: "Payload reference for every subscription.* event — triggers, fields, and idempotency advice."
+sidebarTitle: "Webhooks"
+---
+
+This page is the payload reference for subscription events. For HMAC verification, retry behavior, and the general webhook envelope (`X-Webhook-Signature`, headers, status code semantics), read the main [Webhooks guide](/guides/webhooks) first.
+
+Subscription events flow through the same unified webhooks table as every other capability. One Application can register multiple endpoints and pick which `event_type`s each subscribes to. See [Applications](/guides/applications) for endpoint setup.
+
+## Common envelope
+
+Every subscription event has the same outer shape:
+
+```json
+{
+  "event_id":   "evt_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "event_type": "subscription.<action>",
+  "occurred_at": "2026-06-21T14:32:01.123Z",
+  "data":       { ... }
+}
+```
+
+Inside `data`, every event carries at minimum:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `subscription_id` | string | Prefixed `sub_`. |
+| `user_id` | string | Subscription owner (not seat members). |
+| `application_id` | string | The owning [Application](/guides/applications). |
+| `plan_id` | string | Current plan at the time of the event. |
+| `plan_slug` | string | Stable identifier; safe to switch on. |
+| `status` | string | Subscription status after the event. |
+
+Money-bearing events add `amount` (minor units) and `currency` (`GHS` or `USD`). See [Multi-currency](/guides/subscriptions/currency).
+
+## Idempotency
+
+Deliveries can repeat — Cloudflare Workers retry on non-2xx responses, and our delivery layer is at-least-once. **Always dedupe on `event_id`** in your receiver. The `event_id` is unique per event; the same event re-delivered carries the same `event_id`.
+
+Recommended pattern:
+
+```typescript
+const seen = await db.webhookEvents.findUnique({ where: { event_id } });
+if (seen) return new Response("ok", { status: 200 });
+await db.webhookEvents.create({ data: { event_id, event_type } });
+// ... handle event ...
+return new Response("ok", { status: 200 });
+```
+
+Some operators dedupe on `(event_id, event_type)` for extra safety. Either is fine — `event_id` alone is unique.
+
+## Event reference
+
+### `subscription.created`
+
+Fires immediately after `POST /v1/checkout` completes payment (or after a [sponsored grant](/guides/subscriptions/sponsored)). The subscription row exists; for trialing plans it precedes `subscription.activated`.
+
+```json
+{
+  "event_type": "subscription.created",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "trialing",
+    "trial_days":      7,
+    "current_period_start": "2026-06-21T14:00:00Z",
+    "current_period_end":   "2026-06-28T14:00:00Z",
+    "sponsored":       false,
+    "amount":          0,
+    "currency":        "GHS"
+  }
+}
+```
+
+`amount: 0` for trial-start; the actual first charge fires later as `subscription.activated`. For non-trial plans, `subscription.created` and `subscription.activated` fire back-to-back.
+
+### `subscription.activated`
+
+Fires when a sub becomes paid-active. Three triggers:
+
+1. New non-trial subscription, first charge succeeded.
+2. Trialing subscription's trial converted (first charge after `trial_days`).
+3. `past_due` or `unpaid` subscription reactivated (card updated, retry succeeded).
+
+```json
+{
+  "event_type": "subscription.activated",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "active",
+    "amount":          5000,
+    "currency":        "GHS",
+    "current_period_start": "2026-06-28T14:00:00Z",
+    "current_period_end":   "2026-07-28T14:00:00Z",
+    "payment_id":      "pay_xxx",
+    "reason":          "trial_converted"
+  }
+}
+```
+
+`reason` is one of `new_subscription`, `trial_converted`, `reactivated`.
+
+### `subscription.renewed`
+
+Fires each successful renewal charge.
+
+```json
+{
+  "event_type": "subscription.renewed",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "active",
+    "amount":          5000,
+    "currency":        "GHS",
+    "current_period_start": "2026-07-28T14:00:00Z",
+    "current_period_end":   "2026-08-28T14:00:00Z",
+    "payment_id":      "pay_yyy",
+    "renewal_attempt": 1
+  }
+}
+```
+
+`renewal_attempt` is `1` for the first try, higher for retries that eventually succeeded.
+
+### `subscription.payment_failed`
+
+Fires on every failed charge attempt — including each retry. If you only want one alert per dunning cycle, dedupe on `subscription_id` within a 24h window or wait for `subscription.unpaid`.
+
+```json
+{
+  "event_type": "subscription.payment_failed",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "past_due",
+    "amount":          5000,
+    "currency":        "GHS",
+    "attempt":         2,
+    "next_retry_at":   "2026-07-31T14:00:00Z",
+    "failure_code":    "insufficient_funds",
+    "failure_message": "Insufficient funds on card"
+  }
+}
+```
+
+`failure_code` mirrors Paystack's gateway response code; map it to your own user-facing copy.
+
+### `subscription.unpaid`
+
+Fires once when all retries have been exhausted — the subscription moves from `past_due` to `unpaid`. After this, no more retries fire automatically; the user must update their card.
+
+```json
+{
+  "event_type": "subscription.unpaid",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "unpaid",
+    "amount":          5000,
+    "currency":        "GHS",
+    "grace_period_ends_at": "2026-08-07T14:00:00Z"
+  }
+}
+```
+
+Many operators downgrade the user at `unpaid` rather than waiting for `cancelled`. Pick what matches your access policy.
+
+### `subscription.cancelled`
+
+Fires when the subscription is cancelled. Three triggers:
+
+1. User cancels from the account portal.
+2. Admin cancels via API.
+3. Grace period on `unpaid` expires.
+
+```json
+{
+  "event_type": "subscription.cancelled",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "cancelled",
+    "cancelled_at":    "2026-06-21T14:32:01Z",
+    "cancel_at_period_end": true,
+    "access_revoked_at":    "2026-07-21T14:00:00Z",
+    "reason":          "user_request"
+  }
+}
+```
+
+`reason` is one of `user_request`, `admin_action`, `unpaid_grace_expired`, `sponsored_revoked`. Use `access_revoked_at` (not `cancelled_at`) to decide when to actually flip features off.
+
+### `subscription.expired`
+
+Fires when `access_revoked_at` is reached on a cancelled sub, or when a [sponsored](/guides/subscriptions/sponsored) sub reaches `current_period_end`. Subscription is now terminal — no further events.
+
+```json
+{
+  "event_type": "subscription.expired",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "expired",
+    "expired_at":      "2026-07-21T14:00:00Z"
+  }
+}
+```
+
+### `subscription.trial_ending`
+
+Fires roughly 24 hours before a trial converts. Use it to nudge the user.
+
+```json
+{
+  "event_type": "subscription.trial_ending",
+  "data": {
+    "subscription_id": "sub_xxx",
+    "user_id":         "usr_abc123",
+    "application_id":  "app_xxx",
+    "plan_id":         "pln_xxx",
+    "plan_slug":       "pro_monthly",
+    "status":          "trialing",
+    "trial_ends_at":   "2026-06-28T14:00:00Z",
+    "next_charge_amount":   5000,
+    "next_charge_currency": "GHS"
+  }
+}
+```
+
+### `subscription.plan_changed`
+
+Fires after a successful [plan change](/guides/subscriptions/changes) — upgrade, downgrade, or lateral move.
+
+```json
+{
+  "event_type": "subscription.plan_changed",
+  "data": {
+    "subscription_id":  "sub_xxx",
+    "user_id":          "usr_abc123",
+    "application_id":   "app_xxx",
+    "from_plan_id":     "pln_xxx",
+    "from_plan_slug":   "pro_monthly",
+    "to_plan_id":       "pln_yyy",
+    "to_plan_slug":     "premium_monthly",
+    "status":           "active",
+    "credit_minor":     2500,
+    "net_charge_minor": 5500,
+    "amount":           5500,
+    "currency":         "GHS",
+    "effective_at":     "2026-06-21T14:32:01Z",
+    "new_period_start": "2026-06-21T14:32:01Z",
+    "new_period_end":   "2026-07-21T14:32:01Z"
+  }
+}
+```
+
+#### Why `plan_changed` and not `upgraded` / `downgraded`?
+
+The engine doesn't classify moves as "up" or "down" — that's a product judgment, not a billing one. A user moving from a 50.00 GHS monthly plan to a 50.00 GHS annual plan with twice the features could be called either. The webhook stays neutral; your backend can compare `from_plan_slug` and `to_plan_slug` to derive the direction if you need to.
+
+This also keeps the event count low — operators have one handler for any plan move, not three.
+
+## Event-by-trigger summary
+
+| Trigger | Events fired |
+|---|---|
+| Hosted/embed checkout for paid plan, charge OK | `subscription.created`, `subscription.activated` |
+| Hosted/embed checkout for trial plan | `subscription.created` (status=trialing) |
+| Trial conversion success | `subscription.activated` (reason=trial_converted) |
+| Trial conversion fails | `subscription.payment_failed` |
+| Scheduled renewal succeeds | `subscription.renewed` |
+| Scheduled renewal fails (retry 1-4) | `subscription.payment_failed` |
+| Retries exhausted | `subscription.unpaid` |
+| User updates card, retry succeeds | `subscription.activated` (reason=reactivated) |
+| Grace period expires while unpaid | `subscription.cancelled` (reason=unpaid_grace_expired) |
+| User clicks Cancel | `subscription.cancelled` (reason=user_request) |
+| Cancelled sub reaches `access_revoked_at` | `subscription.expired` |
+| Plan change committed | `subscription.plan_changed` |
+| Sponsored grant | `subscription.created`, `subscription.activated` (status=paused, sponsored=true) |
+| Sponsored sub period ends | `subscription.expired` |
+| ~24h before trial converts | `subscription.trial_ending` |
+
+## Verifying signatures
+
+The full HMAC verification pattern is documented in the [general webhooks guide](/guides/webhooks#verifying-signatures). The same `webhook_secret` and `X-Webhook-Signature` header apply — subscription events don't use a separate signing scheme.
+
+## Testing
+
+Use the admin console's webhook tester to fire synthetic events with realistic payloads against your endpoint. The console also shows the full delivery log (response status, body snippet, retry timestamps) for every real event — invaluable when debugging.
