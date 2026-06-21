@@ -1,0 +1,107 @@
+---
+title: "Notification inbox"
+description: "The in-app history of every notification mgPass sends on behalf of a user — read/unread, archive, per-surface delivery."
+sidebarTitle: "Notification inbox"
+---
+
+The notification inbox is the canonical, in-app record of every notification mgPass emits for a user — email, SMS, in-app, and (soon) push. Even if the user opted out of email for a given event, the notification still lands in the inbox so they can find it later. The inbox is the source of truth; the surfaces are how it reaches the user in the moment.
+
+This guide covers the model. For the wire shapes see the [Notifications API reference](/api-reference/notifications-account/list-notifications), and for opt-in / opt-out behavior see the [Notification preferences guide](/guides/notification-preferences).
+
+## The model
+
+Every notification has four orthogonal facets:
+
+| Facet | Values | Meaning |
+|---|---|---|
+| **Category** | `transactional`, `activity`, `marketing`, `system` | What kind of message it is. Drives default delivery rules and the always-on rule for transactional email. |
+| **Priority** | `critical`, `high`, `normal`, `low` | Used by SMS routing (critical/high default-on for SMS) and inbox sort hints. |
+| **Status** | `pending`, `delivered`, `partial`, `failed` | Aggregate across all surfaces. `partial` means at least one surface delivered and at least one failed. |
+| **Read state** | unread, read, archived | Per-user UI state. Independent of `status` — a delivered email can still be unread. |
+
+`subject` and `preview_text` are cached on the notification row at insert time so the inbox list view renders fast without fanning out to the original event payload. The full payload is still available in `data` on the detail endpoint.
+
+## Categories
+
+<CardGroup cols={2}>
+  <Card title="Transactional" icon="receipt">
+    Billing, security, account-state. `subscription.created`, `subscription.payment_failed`, `subscription.trial_ending`, password resets. **Email is always-on** — see the [always-on rule](/guides/notification-preferences#always-on-transactional-email).
+  </Card>
+  <Card title="Activity" icon="bell">
+    Things that happened to the user's account. `rewards.points_earned`, `seat.invite_received`, `rewards.tier_upgraded`. Both email and SMS are toggleable.
+  </Card>
+  <Card title="Marketing" icon="megaphone">
+    Announcements, promos, newsletter. `marketing.announcement`, `marketing.promo`. Both surfaces toggleable, both default-on.
+  </Card>
+  <Card title="System" icon="gear">
+    Platform-level notices from mgPass itself (maintenance, policy updates). Not user-configurable.
+  </Card>
+</CardGroup>
+
+## Read, unread, and archive
+
+The inbox tracks per-user UI state independently of delivery state. A notification can be:
+
+- **Unread** — the default after insert. Counted by [Get unread count](/api-reference/notifications-account/get-unread-count) for the badge.
+- **Read** — the user opened it (or hit "mark all read"). The read timestamp is stamped.
+- **Archived** — the user dismissed it from the default view. Archived rows are hidden from [List my notifications](/api-reference/notifications-account/list-notifications) unless you pass `include_archived=1`.
+
+Use [Update notification](/api-reference/notifications-account/update-notification) to toggle these. [Mark all as read](/api-reference/notifications-account/mark-all-read) is the bulk path.
+
+## Filter pills in the account portal
+
+The account portal UI at `mgpass.net` renders the inbox with five filter pills across the top:
+
+| Pill | Query | What it shows |
+|---|---|---|
+| All | (none) | Every non-archived notification |
+| Unread | `unread_only=1` | Only unread, non-archived |
+| Subscription | `category=transactional` | Billing + account-state events |
+| Activity | `category=activity` | Rewards, seat invites |
+| Marketing | `category=marketing` | Announcements + promos |
+
+Tenants building their own inbox UI should mirror this shape — it maps 1:1 to the query parameters on [List my notifications](/api-reference/notifications-account/list-notifications).
+
+## Per-surface delivery
+
+A single notification can fan out to multiple surfaces (email + SMS, for example). The aggregate `status` on the notification row tells you the rollup; for per-surface detail use [Get notification](/api-reference/notifications-account/get-notification), which returns a `deliveries` sub-resource:
+
+```json
+{
+  "notification": { "id": "notif_xyz", "status": "partial", ... },
+  "deliveries": [
+    { "surface": "email", "status": "delivered", "delivered_at": 1718973721, "provider_reference": "ses-abc..." },
+    { "surface": "sms",   "status": "failed",    "error_message": "Invalid recipient", "attempt_count": 3 }
+  ]
+}
+```
+
+This lets the UI show "delivered to email at 14:02, SMS failed: invalid number" without forcing the user to dig through delivery logs.
+
+## Tenant-emitted notifications
+
+Tenants can emit their own notifications into the user's inbox via the tenant-facing [`POST /v1/notifications`](/api-reference/subscriptions-tenant) endpoint (X-API-Key auth, keyed on `application_id`). The notification lands in the user's inbox and fans out to whichever surfaces the user has opted into for that event type.
+
+<Note>
+**Use this for activity-style notifications** — "New article published," "Your video finished processing," "Friend joined a group." For subscription state transitions (created, renewed, payment failed) you don't need to emit anything — mgPass writes those notifications automatically as part of the subscription lifecycle, and you receive them as [subscription webhooks](/guides/subscriptions/webhooks) on your endpoint.
+</Note>
+
+## Walkthrough — building an inbox
+
+<Steps>
+  <Step title="Show the badge">
+    Poll [Get unread count](/api-reference/notifications-account/get-unread-count) on app focus and after every mutation. Cache for a few seconds on the client.
+  </Step>
+  <Step title="Render the list">
+    Call [List my notifications](/api-reference/notifications-account/list-notifications) with the user's active filter. Render `subject` and `preview_text` directly — they're cached for exactly this reason.
+  </Step>
+  <Step title="Expand a row">
+    Hit [Get notification](/api-reference/notifications-account/get-notification) for the full `data` payload and per-surface `deliveries`. Mark read in the same flow with [Update notification](/api-reference/notifications-account/update-notification) — `{ "read": true }`.
+  </Step>
+  <Step title="Offer bulk actions">
+    Wire "Mark all read" to [Mark all as read](/api-reference/notifications-account/mark-all-read), and "Archive" to PATCH with `{ "archived": true }`.
+  </Step>
+  <Step title="Honor preferences">
+    Link out to the preferences screen documented in the [Notification preferences guide](/guides/notification-preferences) so users can opt out of categories or surfaces.
+  </Step>
+</Steps>

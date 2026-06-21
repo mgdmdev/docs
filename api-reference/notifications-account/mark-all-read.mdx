@@ -1,0 +1,37 @@
+---
+title: "Mark all as read"
+description: "Mark every unread notification for the calling user as read in one call."
+api: "POST /api/account/notifications/mark-all-read"
+---
+
+Bulk-marks every unread notification belonging to the calling user as read. Useful for the "mark all read" button in the inbox header.
+
+Requires an OAuth Bearer access token. Auth-scoped to the caller — never touches another user's rows.
+
+The operation is idempotent: running it twice in a row returns `updated: 0` on the second call. Archived notifications are also updated if they were still unread.
+
+## Body
+
+None. The endpoint takes no parameters; the user is identified from the access token.
+
+## Response
+
+<ResponseField name="success" type="boolean">Always `true` on `200`.</ResponseField>
+<ResponseField name="updated" type="number">Number of notification rows transitioned from unread to read.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/notifications/mark-all-read" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/notifications/mark-all-read",
+  { method: "POST", headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { updated } = await res.json();
+```
+
+</CodeGroup>

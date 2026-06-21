@@ -1,0 +1,44 @@
+---
+title: "List default notification events"
+description: "Return the full catalog of event types the user can configure preferences for."
+api: "GET /api/account/notification-preferences/default-events"
+---
+
+Returns the canonical list of every event type mgPass exposes in the preferences UI, with its category and human-readable label. Use this to render the "Notification preferences" screen when you want to show event types the user has never touched — and to validate `event_type` values before submitting them via [Set notification preferences](/api-reference/notification-preferences/set-preferences).
+
+Requires an OAuth Bearer access token. The response itself is identical for every caller — the auth requirement just keeps it behind the account-portal session boundary.
+
+The catalog is grouped into three categories:
+- `transactional` — subscription billing, security, account-state events. Email is always-on (locked).
+- `activity` — rewards points / tier changes, seat invites. Both surfaces toggleable.
+- `marketing` — announcements, promos, newsletter. Both surfaces toggleable.
+
+System notifications (mgPass platform notices) are not in this list — users cannot opt out of them.
+
+## Response
+
+<ResponseField name="events" type="array">
+  Array of event type descriptors.
+  <Expandable title="event">
+    <ResponseField name="event_type" type="string">Stable identifier — same value you send to [Set preferences](/api-reference/notification-preferences/set-preferences).</ResponseField>
+    <ResponseField name="category" type="string">`transactional | activity | marketing`.</ResponseField>
+    <ResponseField name="label" type="string">Human-readable label for the toggle row.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/notification-preferences/default-events" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/notification-preferences/default-events",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { events } = await res.json();
+```
+
+</CodeGroup>

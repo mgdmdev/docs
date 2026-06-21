@@ -1,0 +1,84 @@
+---
+title: "Notification preferences"
+description: "Per-event-type, per-surface notification opt-in / opt-out — what users control, what they can't, and how tenants fit in."
+sidebarTitle: "Notification preferences"
+---
+
+mgPass gives each user granular control over which event types they hear about and on which surface — email, SMS, in-app inbox. Preferences are private to the user, owned by the account portal, and applied at the moment mgPass decides whether to dispatch a delivery.
+
+For the inbox UI and the always-in-app guarantee, read the [Notification inbox guide](/guides/notifications-inbox) first.
+
+## What the user controls
+
+For every event type in the [default events catalog](/api-reference/notification-preferences/list-default-events), the user has two toggles:
+
+- **Email enabled** — whether mgPass sends an email when this event fires.
+- **SMS enabled** — whether mgPass sends an SMS when this event fires.
+
+There is no inbox toggle. **Every notification always lands in the inbox**, regardless of preferences — that's how the inbox can be the canonical record. Preferences only gate the push to email and SMS.
+
+## Always-on transactional email
+
+Transactional events — billing, security, account-state — **email cannot be turned off**. These are:
+
+- `subscription.created`, `subscription.activated`, `subscription.renewed`
+- `subscription.payment_failed`, `subscription.unpaid`
+- `subscription.cancelled`, `subscription.expired`
+- `subscription.trial_ending`
+
+<Warning>
+Email opt-out is **discarded server-side** for these event types. Even if a misbehaving client sends `email_enabled: false`, [PUT /api/account/notification-preferences](/api-reference/notification-preferences/set-preferences) overwrites it back to `true` before insert, and the merge layer in [GET preferences](/api-reference/notification-preferences/get-preferences) re-forces it on read. The UI must render those toggles disabled — `email_locked: true` is the signal.
+</Warning>
+
+This is a legal and security requirement: billing receipts and account-security events have to reach a verified contact channel.
+
+## What happens when no preference is set
+
+When the user has never touched their preferences, defaults apply:
+
+| Category | Email | SMS |
+|---|---|---|
+| Transactional | On (locked) | On for critical / high priority only |
+| Activity | On | On |
+| Marketing | On | On |
+
+The [GET preferences](/api-reference/notification-preferences/get-preferences) endpoint always returns a full list — stored overrides merged onto these defaults — so first-time visitors to the preferences screen see every row populated.
+
+## SMS rate limit
+
+SMS delivery is capped at **5 messages per user per day**. This is mgPass-side, not user-controllable, and exists to keep Hubtel costs and recipient annoyance bounded. The cap is enforced inside the notification dispatcher: once five SMS deliveries have fired for a user in a rolling 24-hour window, additional SMS attempts are skipped (the inbox row and email still go through).
+
+Critical-priority events bypass the cap. If you're integrating against subscription state, expect `subscription.payment_failed` and `subscription.unpaid` to always SMS-deliver even if the user is at the cap.
+
+## What tenants can — and can't — do
+
+Tenants emit notifications via [`POST /v1/notifications`](/api-reference/subscriptions-tenant) using their X-API-Key. mgPass decides whether to deliver to each surface based on the user's preferences. Tenants:
+
+- **Can** emit notifications targeting any of their subscribers.
+- **Can** specify the desired `surfaces` (`email`, `sms`) on the emit — mgPass treats this as a maximum, then intersects with the user's preferences.
+- **Cannot** read the user's notification preferences. The preferences endpoints are user-bearer-token only; there is no admin or tenant equivalent.
+- **Cannot** override the user's opt-out. If the user disabled email for `marketing.promo`, your `marketing.promo` emit will land in the inbox but skip the email surface.
+
+This is the firewall: tenants emit, users decide.
+
+## Walkthrough — the preferences screen
+
+<Steps>
+  <Step title="Fetch the catalog">
+    Call [Get notification preferences](/api-reference/notification-preferences/get-preferences). The response is already merged with defaults, so you can render every row immediately. Use [List default events](/api-reference/notification-preferences/list-default-events) if you want the catalog without per-user state.
+  </Step>
+  <Step title="Render toggles">
+    Group rows by `category`. For each row render two checkboxes (email + SMS). If `email_locked: true`, render the email checkbox `disabled checked` with a small "always on" label.
+  </Step>
+  <Step title="Save changes">
+    On save, send a [PUT](/api-reference/notification-preferences/set-preferences) with only the rows that changed — the upsert is per-row, so partial updates are fine. Reflect the returned `updated` count in a toast.
+  </Step>
+  <Step title="Surface the SMS cap">
+    If your UI mentions SMS, add a small "Up to 5 SMS per day" note near the SMS column so users aren't surprised when a low-priority SMS doesn't arrive.
+  </Step>
+</Steps>
+
+## Related
+
+- [Notification inbox guide](/guides/notifications-inbox) — the canonical in-app record.
+- [Subscription webhooks](/guides/subscriptions/webhooks) — for tenants who need machine-readable subscription state changes (not subject to user notification preferences).

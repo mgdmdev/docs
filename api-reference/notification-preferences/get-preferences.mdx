@@ -1,0 +1,46 @@
+---
+title: "Get notification preferences"
+description: "Return the calling user's notification preferences, merged with mgPass defaults."
+api: "GET /api/account/notification-preferences"
+---
+
+Returns the user's per-event-type notification preferences with per-surface granularity. The response always covers every event type mgPass knows about — stored overrides are merged onto the defaults so the UI can render a complete preferences screen on first visit, before the user has ever saved anything.
+
+Requires an OAuth Bearer access token. Self-service only — preferences are private to the user. A tenant cannot read them via the management API.
+
+See the [Notification preferences guide](/guides/notification-preferences) for category model, always-on rules, and SMS rate-limit context.
+
+## Response
+
+<ResponseField name="preferences" type="array">
+  One row per event type mgPass can deliver. UI should render this list directly.
+  <Expandable title="preference">
+    <ResponseField name="event_type" type="string">Stable identifier, e.g. `subscription.renewed`, `rewards.points_earned`, `marketing.announcement`.</ResponseField>
+    <ResponseField name="category" type="string">`transactional | activity | marketing`.</ResponseField>
+    <ResponseField name="label" type="string">Human-readable label for the toggle row (already localized server-side).</ResponseField>
+    <ResponseField name="email_enabled" type="number">`1` if email is on for this event, `0` if off.</ResponseField>
+    <ResponseField name="sms_enabled" type="number">`1` if SMS is on for this event, `0` if off.</ResponseField>
+    <ResponseField name="email_locked" type="boolean">`true` for transactional events — the UI must render the email toggle as disabled and not allow opt-out. See the [always-on rule](/guides/notification-preferences#always-on-transactional-email).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+Transactional event emails (`subscription.created`, `subscription.payment_failed`, etc.) are **always on** for legal and security reasons. The merge layer forces `email_enabled = 1` and `email_locked = true` regardless of any stored override, and [Set notification preferences](/api-reference/notification-preferences/set-preferences) also discards client attempts to disable them.
+</Note>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/notification-preferences" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/notification-preferences",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { preferences } = await res.json();
+```
+
+</CodeGroup>

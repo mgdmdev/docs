@@ -1,0 +1,34 @@
+---
+title: "Get unread count"
+description: "Return the number of unread notifications for the calling user — for badge UI."
+api: "GET /api/account/notifications/unread-count"
+---
+
+Returns a single integer: how many unread notifications the calling user has. Designed for badge counters in the account portal nav (or a tenant-built inbox indicator), where the full list isn't needed.
+
+Requires an OAuth Bearer access token. Auth-scoped to the caller.
+
+This endpoint is intentionally lightweight — it issues a single `COUNT(*)` against the indexed `(user_id, read)` predicate and returns no row data. Poll it freely; cache for a few seconds on the client if you call it from many components on the same page.
+
+Archived notifications are excluded from the count even if still flagged unread.
+
+## Response
+
+<ResponseField name="count" type="number">Number of unread, non-archived notifications.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/notifications/unread-count" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/notifications/unread-count",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { count } = await res.json();
+```
+
+</CodeGroup>

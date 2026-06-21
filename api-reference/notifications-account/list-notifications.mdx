@@ -1,0 +1,65 @@
+---
+title: "List my notifications"
+description: "Paginated list of the calling user's in-app notification inbox."
+api: "GET /api/account/notifications"
+---
+
+Returns the signed-in user's notification history across every delivery surface (email, SMS, in-app, future push). Every notification mgPass emits on behalf of the user lands in this inbox, regardless of whether the user opted into the email or SMS surface — the inbox is the canonical record.
+
+Requires an OAuth Bearer access token. Self-service only — the user can only see notifications addressed to their own `user_id`.
+
+See the [Notification inbox guide](/guides/notifications-inbox) for the UX model (categories, priorities, read/unread, archive).
+
+## Query parameters
+
+<ParamField query="status" type="string">Filter by delivery status: `pending | delivered | partial | failed`.</ParamField>
+<ParamField query="category" type="string">Filter by category: `transactional | activity | marketing | system`.</ParamField>
+<ParamField query="unread_only" type="boolean">`1` or `true` returns only unread notifications.</ParamField>
+<ParamField query="include_archived" type="boolean">`1` or `true` includes archived notifications. By default they are hidden.</ParamField>
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of notification objects, newest first.
+  <Expandable title="notification">
+    <ResponseField name="id" type="string">Notification ID.</ResponseField>
+    <ResponseField name="user_id" type="string">Owner — always the calling user.</ResponseField>
+    <ResponseField name="application_id" type="string">Originating application, or `null` for system notifications from mgPass itself.</ResponseField>
+    <ResponseField name="event_type" type="string">e.g. `subscription.renewed`, `subscription.trial_ending`, `rewards.points_earned`.</ResponseField>
+    <ResponseField name="category" type="string">`transactional | activity | marketing | system`.</ResponseField>
+    <ResponseField name="priority" type="string">`critical | high | normal | low`.</ResponseField>
+    <ResponseField name="subject" type="string">Cached subject line — safe to render in a list view without a follow-up fetch.</ResponseField>
+    <ResponseField name="preview_text" type="string">Short preview snippet, cached at insert time for list rendering.</ResponseField>
+    <ResponseField name="data" type="object">Decoded JSON event payload — varies per `event_type`.</ResponseField>
+    <ResponseField name="surfaces" type="string[]">Decoded array of surfaces the notification was queued on, e.g. `["email","sms"]`.</ResponseField>
+    <ResponseField name="status" type="string">`pending | delivered | partial | failed`.</ResponseField>
+    <ResponseField name="read" type="number">`1` if the user has marked it read.</ResponseField>
+    <ResponseField name="read_at" type="number">Unix epoch seconds when marked read, or `null`.</ResponseField>
+    <ResponseField name="archived_at" type="number">Unix epoch seconds when archived, or `null`.</ResponseField>
+    <ResponseField name="delivered_at" type="number">Unix epoch seconds of first successful delivery, or `null`.</ResponseField>
+    <ResponseField name="created_at" type="number">Unix epoch seconds when emitted.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching notifications.</ResponseField>
+<ResponseField name="page" type="number">Echo of the requested page.</ResponseField>
+<ResponseField name="limit" type="number">Echo of the requested limit.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/notifications?category=transactional&unread_only=1" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/notifications?category=transactional&unread_only=1",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,54 @@
+---
+title: "Update notification"
+description: "Mark a notification read / unread, or archive it."
+api: "PATCH /api/account/notifications/:id"
+---
+
+Mutates the user-facing state of one notification in the inbox. Use this from the account portal (or a tenant-built inbox UI) to toggle read state and to archive notifications the user is done with.
+
+Requires an OAuth Bearer access token. The notification must belong to the calling user — otherwise a `404` is returned.
+
+Archival is one-way through this endpoint: setting `archived: true` stamps `archived_at`; there is no "unarchive" flag. Pass `include_archived=1` to [List my notifications](/api-reference/notifications-account/list-notifications) if you need to surface archived rows again.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Notification ID.</ParamField>
+
+## Body
+
+<ParamField body="read" type="boolean">Set to `true` to mark read (stamps `read_at`), `false` to mark unread (clears `read_at`).</ParamField>
+<ParamField body="archived" type="boolean">Set to `true` to archive (stamps `archived_at`). Only `true` is honored; archived notifications are hidden from the default inbox view.</ParamField>
+
+Both fields are optional. Pass either, both, or neither — an empty body is a no-op success.
+
+## Response
+
+<ResponseField name="success" type="boolean">Always `true` on `200`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Notification doesn't exist, or doesn't belong to the calling user. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/account/notifications/notif_xyz" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "read": true, "archived": true }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/account/notifications/notif_xyz", {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${userAccessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ read: true, archived: true }),
+});
+```
+
+</CodeGroup>

@@ -1,0 +1,63 @@
+---
+title: "Set notification preferences"
+description: "Bulk upsert per-event-type, per-surface preferences for the calling user."
+api: "PUT /api/account/notification-preferences"
+---
+
+Bulk upsert of the user's notification preferences. Send an array of `{ event_type, email_enabled, sms_enabled }` rows — each is upserted independently, so partial updates are fine (you do not have to resend every event type, only the ones you're changing).
+
+Requires an OAuth Bearer access token. Self-service only. A `user.notification_preferences_updated` row is written to the audit log on every call.
+
+The endpoint is forgiving: malformed rows are silently skipped, unknown `event_type` values are stored but never delivered against, and missing fields default to off (`0`). On success it returns `{ success: true, updated: <count> }` where `updated` counts only the rows that passed validation.
+
+## Body
+
+<ParamField body="preferences" type="array" required>
+  Array of preference rows to upsert.
+  <Expandable title="preference">
+    <ParamField body="event_type" type="string" required>Stable identifier, e.g. `marketing.promo`. Must be a string — rows without one are skipped.</ParamField>
+    <ParamField body="email_enabled" type="boolean">Truthy enables email delivery; falsy disables. Forced to `true` for transactional event types regardless of what you send — see the always-on rule.</ParamField>
+    <ParamField body="sms_enabled" type="boolean">Truthy enables SMS delivery; falsy disables. SMS is subject to a 5/day per-user rate limit (see the [preferences guide](/guides/notification-preferences#sms-rate-limit)).</ParamField>
+  </Expandable>
+</ParamField>
+
+<Warning>
+For transactional event types — `subscription.created`, `subscription.activated`, `subscription.renewed`, `subscription.payment_failed`, `subscription.unpaid`, `subscription.cancelled`, `subscription.expired`, `subscription.trial_ending` — the server **forces `email_enabled = 1`** even if you send `false`. The UI should render these toggles disabled; this is the defense-in-depth backstop.
+</Warning>
+
+## Response
+
+<ResponseField name="success" type="boolean">Always `true` on `200`.</ResponseField>
+<ResponseField name="updated" type="number">Count of rows that passed validation and were upserted.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl -X PUT "https://auth.mgpass.net/api/account/notification-preferences" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preferences": [
+      { "event_type": "marketing.promo", "email_enabled": false, "sms_enabled": false },
+      { "event_type": "rewards.points_earned", "email_enabled": true, "sms_enabled": false }
+    ]
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/account/notification-preferences", {
+  method: "PUT",
+  headers: {
+    Authorization: `Bearer ${userAccessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    preferences: [
+      { event_type: "marketing.promo", email_enabled: false, sms_enabled: false },
+      { event_type: "rewards.points_earned", email_enabled: true, sms_enabled: false },
+    ],
+  }),
+});
+```
+
+</CodeGroup>
