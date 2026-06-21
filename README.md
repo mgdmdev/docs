@@ -1,55 +1,61 @@
-# Mintlify Starter Kit
+# mgPass documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Source for [docs.mgpass.net](https://docs.mgpass.net) — the developer documentation for the **mgPass** platform.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+mgPass is a unified identity, rewards, and subscriptions stack built on Cloudflare. This site covers:
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+- **Identity** — OAuth 2.0 + OIDC, sessions, MFA, SMS OTP, social login, SSO, RBAC
+- **Rewards** — points ledger, tiers, benefits, cashback, catalog redemption
+- **Subscriptions** — plans, hosted and embed checkout, billing, entitlements, promo codes, trials, seats, notifications, multi-currency (GHS/USD), webhooks
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+The docs are built with [Mintlify](https://mintlify.com) and deploy automatically on every push to `main`.
+
+## What's in this repo
+
+| Path | What lives here |
+| --- | --- |
+| `docs.json` | Navigation, theme, top-level Mintlify config |
+| `guides/` | Conceptual + how-to pages |
+| `api-reference/` | Endpoint reference, grouped by capability |
+| `openapi.yaml` | OpenAPI spec used to power some reference pages |
+| `images/`, `logo/` | Site assets |
+| `AGENTS.md` | Project rules — terminology, style, content boundaries. **Read this before editing.** |
+| `CONTRIBUTING.md` | Contributor quickstart |
+
+## Local development
+
+Install the Mintlify CLI once:
+
+```bash
+npm i -g mint
+```
+
+From the repo root (where `docs.json` lives):
+
+```bash
+mint dev              # preview at http://localhost:3000
+mint broken-links     # link checker — must pass before merging
+mint validate-openapi # only if you touched openapi.yaml
+```
+
+If the dev server gets weird, `mint update` to pull the latest CLI.
 
 ## AI-assisted writing
 
-Set up your AI coding tool to work with Mintlify:
+If you use Claude Code, Cursor, Windsurf, or another agentic IDE, install the Mintlify skill so the tool understands components and writing standards:
 
 ```bash
 npx skills add https://mintlify.com/docs
 ```
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+Then read [`AGENTS.md`](./AGENTS.md) — it captures the mgPass-specific rules an AI tool won't know from generic Mintlify training (v3 Application terminology, capability model, currency conventions, content boundaries).
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+## Contributing
 
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
-```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
-mint dev
-```
-
-View your local preview at `http://localhost:3000`.
-
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the contributor flow, then [`AGENTS.md`](./AGENTS.md) for the substantive style and terminology rules.
 
 ## Need help?
 
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+- Mintlify CLI issues — `mint update`, then re-run
+- 404 on a page locally — confirm you're running from the directory that contains `docs.json`
+- Platform / API questions — file an issue on the platform repo, not this one
