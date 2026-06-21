@@ -1,0 +1,64 @@
+---
+title: "Change plan"
+description: "Move a subscription to a different plan on the same application."
+api: "POST /v1/subscriptions/:id/change-plan"
+---
+
+Switches the subscription to `new_plan_id`. Both plans must belong to the same application. The charge is **prorated** against unused time on the current plan: `charge_amount = max(0, new_plan.price − credit_for_unused_time)`. If a Paystack authorization is on file and `charge_amount > 0`, the card is charged immediately.
+
+For a read-only quote of the credit + charge before committing, use [Preview upgrade](/api-reference/subscriptions-account/preview-upgrade) on the account-scoped API.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Subscription ID, e.g. `sub_xyz`.
+</ParamField>
+
+## Body
+
+<ParamField body="new_plan_id" type="string" required>
+  Target plan ID. Must belong to the same application.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="chargeAmount" type="number">Amount actually charged in minor units (may be `0`).</ResponseField>
+<ResponseField name="newPlan" type="string">New plan ID.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `new_plan_id`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Subscription not found, or new plan belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/subscriptions/sub_xyz/change-plan" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "new_plan_id": "plan_pro_annual" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/v1/subscriptions/sub_xyz/change-plan",
+  {
+    method: "POST",
+    headers: {
+      "X-API-Key": subsApiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ new_plan_id: "plan_pro_annual" }),
+  }
+);
+const { chargeAmount, newPlan } = await res.json();
+```
+
+</CodeGroup>

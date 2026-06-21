@@ -1,0 +1,58 @@
+---
+title: "Cancel subscription"
+description: "Cancel a subscription at period end or immediately."
+api: "POST /v1/subscriptions/:id/cancel"
+---
+
+Schedules a cancellation. By default the subscription stays `active` until `current_period_end`, then transitions to `cancelled`. Pass `immediate: true` to terminate access right now.
+
+A `subscription.cancelled` webhook fires when the cancellation actually takes effect (right away for immediate cancellations; at period end otherwise). See the [lifecycle guide](/guides/subscriptions/lifecycle) for the full state diagram.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Subscription ID, e.g. `sub_xyz`.
+</ParamField>
+
+## Body
+
+<ParamField body="immediate" type="boolean" default="false">
+  When `true`, cancels immediately. When `false`, sets `cancel_at_period_end = 1` and lets the subscription run out its current period.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Subscription doesn't exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/subscriptions/sub_xyz/cancel" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "immediate": false }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/v1/subscriptions/sub_xyz/cancel", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ immediate: false }),
+});
+```
+
+</CodeGroup>

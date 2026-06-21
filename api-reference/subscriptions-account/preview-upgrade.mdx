@@ -1,0 +1,75 @@
+---
+title: "Preview upgrade"
+description: "Read-only proration quote before changing plan."
+api: "GET /api/account/subscriptions/:id/upgrade-preview"
+---
+
+Phase 3 endpoint. Returns the credit + charge breakdown that a [`POST /api/account/subscriptions/:id/change-plan`](/api-reference/subscriptions-account/change-my-plan) call would produce, without committing anything. The shape is consumed by the change-plan confirmation form in the account portal so the user sees what they'll be charged before pressing Confirm.
+
+The new plan must belong to the same application as the current subscription.
+
+Requires an OAuth Bearer access token. The subscription must belong to the calling user.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Current subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Query parameters
+
+<ParamField query="new_plan_id" type="string" required>
+  Target plan ID. Must belong to the same application as the current subscription.
+</ParamField>
+
+## Response
+
+<ResponseField name="credit" type="number">
+  Prorated credit for unused time on the current plan, in minor units.
+</ResponseField>
+
+<ResponseField name="charge_amount" type="number">
+  `max(0, new_plan.price − credit)` in minor units.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  `GHS` or `USD`. Taken from the new plan.
+</ResponseField>
+
+<ResponseField name="period_start" type="number">
+  Unix epoch seconds — the start of the new billing period if the user commits.
+</ResponseField>
+
+<ResponseField name="period_end" type="number">
+  Unix epoch seconds — the end of the new billing period.
+</ResponseField>
+
+<ResponseField name="breakdown" type="array">
+  Line-item display rows.
+  <Expandable title="line">
+    <ResponseField name="label" type="string">Display label, e.g. `3News Pro (monthly)`, `Unused time on 3News Basic`.</ResponseField>
+    <ResponseField name="amount" type="number">Positive for charges, negative for credits, in minor units.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `new_plan_id`, or new plan belongs to a different application. |
+| 404 | `not_found` | Subscription doesn't exist / not owned by the user, or new plan doesn't exist. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/upgrade-preview?new_plan_id=plan_pro_annual" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/account/subscriptions/sub_xyz/upgrade-preview?new_plan_id=plan_pro_annual`,
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const preview = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,42 @@
+---
+title: "Get subscription"
+description: "Fetch a single subscription owned by the calling application."
+api: "GET /v1/subscriptions/:id"
+---
+
+Returns the full subscription row. The subscription must belong to the application keyed by `X-API-Key` — otherwise a `404` is returned.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Subscription ID, e.g. `sub_xyz`.
+</ParamField>
+
+## Response
+
+See [List subscriptions](/api-reference/subscriptions-tenant/list-subscriptions) for the row shape — this endpoint returns the same object at the top level (not wrapped in `results`).
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Subscription doesn't exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/subscriptions/sub_xyz" \
+  -H "X-API-Key: $SUBS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/subscriptions/sub_xyz", {
+  headers: { "X-API-Key": subsApiKey },
+});
+const subscription = await res.json();
+```
+
+</CodeGroup>

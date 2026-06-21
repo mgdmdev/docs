@@ -1,0 +1,94 @@
+---
+title: "Sponsor subscription"
+description: "Admin-grants a sponsored subscription to a user without charging anything."
+api: "POST /api/applications/:id/subscriptions/sponsor"
+---
+
+Creates an `active` subscription that's flagged `sponsored = 1` with no `payment_provider` and no authorization. Fires the same `subscription.created` webhook + notification fan-out as a paid path, refreshes the user's entitlement cache, and writes an `application.subscription.sponsored` audit row attributing the grant to the calling admin.
+
+This endpoint lives on the application spine (not under `/api/subscriptions/...`) because the sponsor relationship is per-application.
+
+Requires an admin bearer token with the `applications:write` scope.
+
+<Note>
+**Idempotency guard.** Migration 0041 added a partial unique index on `(user_id, application_id, plan_id)` for sponsored, non-terminal subscriptions. A double-submitted sponsor form (or retried bulk grant) trips that index and returns `409 sponsored_subscription_exists` instead of creating a duplicate.
+</Note>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Application ID, e.g. `app_3news`.
+</ParamField>
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  Recipient user ID.
+</ParamField>
+
+<ParamField body="plan_id" type="string" required>
+  Plan ID. Must belong to the application in the path.
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Free-form reason captured in `metadata.sponsor_reason` and in the audit log.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="subscription_id" type="string">New subscription ID, e.g. `sub_xyz`.</ResponseField>
+<ResponseField name="application_id" type="string">Echo of the application ID.</ResponseField>
+<ResponseField name="user_id" type="string">Echo of the user ID.</ResponseField>
+<ResponseField name="plan_id" type="string">Echo of the plan ID.</ResponseField>
+<ResponseField name="status" type="string">Always `active`.</ResponseField>
+<ResponseField name="sponsored" type="boolean">Always `true`.</ResponseField>
+<ResponseField name="current_period_start" type="number">Unix epoch seconds.</ResponseField>
+<ResponseField name="current_period_end" type="number">Unix epoch seconds — one full interval of the plan.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `user_id` or `plan_id`, or body wasn't valid JSON. |
+| 400 | `invalid_state` | Application has no subscriptions capability enabled. |
+| 404 | `not_found` | Application or plan doesn't exist; or plan belongs to a different application. |
+| 404 | `user_not_found` | `user_id` doesn't exist. |
+| 409 | `sponsored_subscription_exists` | The user already has an active sponsored subscription on this plan within this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/app_3news/subscriptions/sponsor" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "plan_id": "plan_pro",
+    "reason": "Press complimentary access"
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/applications/app_3news/subscriptions/sponsor",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      user_id: "usr_abc123",
+      plan_id: "plan_pro",
+      reason: "Press complimentary access",
+    }),
+  }
+);
+const { subscription_id } = await res.json();
+```
+
+</CodeGroup>
+
+See the [sponsored subscriptions guide](/guides/subscriptions/sponsored) for the conceptual flow.

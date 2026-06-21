@@ -1,0 +1,102 @@
+---
+title: "Create promo code"
+description: "Create a promo code scoped to the calling application."
+api: "POST /v1/promo-codes"
+---
+
+Provisions a redeemable promo code. The code is scoped to the application keyed by `X-API-Key`. Restrict it to specific plans with `plan_ids`, and cap usage with `max_redemptions` and/or `per_user_limit`.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Body
+
+<ParamField body="code" type="string" required>
+  The literal code users type (e.g. `LAUNCH50`). Case-sensitive at storage; validation is case-insensitive.
+</ParamField>
+
+<ParamField body="discount_type" type="string" required>
+  `percent` or `fixed_amount`.
+</ParamField>
+
+<ParamField body="discount_value" type="number" required>
+  For `percent`, the percentage (e.g. `50` = 50% off). For `fixed_amount`, minor units (e.g. `500` = GHS 5.00 off).
+</ParamField>
+
+<ParamField body="duration" type="string">
+  `once` (one billing period), `repeating` (N months — use `duration_months`), or `forever` (every renewal).
+</ParamField>
+
+<ParamField body="duration_months" type="number">
+  Number of months for `duration=repeating`.
+</ParamField>
+
+<ParamField body="max_redemptions" type="number">
+  Global cap across all users. Omit for unlimited.
+</ParamField>
+
+<ParamField body="per_user_limit" type="number">
+  Maximum redemptions per individual user.
+</ParamField>
+
+<ParamField body="plan_ids" type="string[]">
+  Restrict the code to specific plans. Sent as an array — stored JSON-encoded. Omit to allow on every plan in the application.
+</ParamField>
+
+<ParamField body="expires_at" type="number">
+  Unix epoch seconds. After this, validation fails.
+</ParamField>
+
+<ParamField body="active" type="boolean" default="true">
+  Set `false` to provision the row without making the code redeemable yet.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `code`, `discount_type`, or `discount_value`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/promo-codes" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "LAUNCH50",
+    "discount_type": "percent",
+    "discount_value": 50,
+    "duration": "once",
+    "max_redemptions": 1000,
+    "per_user_limit": 1,
+    "plan_ids": ["plan_pro"]
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/v1/promo-codes", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    code: "LAUNCH50",
+    discount_type: "percent",
+    discount_value: 50,
+    duration: "once",
+    max_redemptions: 1000,
+    per_user_limit: 1,
+    plan_ids: ["plan_pro"],
+  }),
+});
+```
+
+</CodeGroup>

@@ -1,0 +1,45 @@
+---
+title: "List plans"
+description: "Cross-application list of subscription plans for the admin console."
+api: "GET /api/subscriptions/plans"
+---
+
+Returns subscription plans across every application. Pass `application_id` to scope to a single application — useful for the per-application plan editor in the admin UI.
+
+Requires an admin bearer token with the `subscriptions:read` scope.
+
+## Query parameters
+
+<ParamField query="application_id" type="string">
+  Filter to a single application. Without it, returns all plans across all applications.
+</ParamField>
+
+<ParamField query="page" type="number" default="1">1-indexed page (cross-application mode only).</ParamField>
+<ParamField query="limit" type="number" default="50">Page size, max `200` (cross-application mode only).</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of plan rows. Same shape as the tenant `/v1/plans` endpoint.
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Only present in cross-application mode (no `application_id` query). Total matching rows.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions/plans?application_id=app_3news" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/subscriptions/plans?application_id=app_3news",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { results } = await res.json();
+```
+
+</CodeGroup>

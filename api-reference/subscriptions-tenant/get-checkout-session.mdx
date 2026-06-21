@@ -1,0 +1,53 @@
+---
+title: "Get checkout session"
+description: "Fetch a checkout session to poll its state from the tenant side."
+api: "GET /v1/checkout/:sessionId"
+---
+
+Returns the current state of a checkout session — useful for polling completion from a server-side webhook listener that wants to confirm the session resolved before fulfilling. Mostly you don't need this: the embed SDK's `success` postMessage event and the `subscription.created` webhook are the canonical hooks.
+
+The session must belong to the application keyed via `X-API-Key`.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="sessionId" type="string" required>
+  Checkout session ID, e.g. `cos_xyz`.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">Session ID.</ResponseField>
+<ResponseField name="application_id" type="string">Owning application.</ResponseField>
+<ResponseField name="plan_id" type="string">Plan being purchased.</ResponseField>
+<ResponseField name="user_id" type="string">Linked user, if any.</ResponseField>
+<ResponseField name="status" type="string">`pending | completed | expired | cancelled`.</ResponseField>
+<ResponseField name="subscription_id" type="string">Resulting subscription ID, set once the session completes.</ResponseField>
+<ResponseField name="mode" type="string">`hosted` or `embedded`.</ResponseField>
+<ResponseField name="checkout_url" type="string">Hosted URL.</ResponseField>
+<ResponseField name="expires_at" type="number">Unix epoch seconds.</ResponseField>
+<ResponseField name="created_at" type="number">Unix epoch seconds.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Session doesn't exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/checkout/cos_xyz" \
+  -H "X-API-Key: $SUBS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/checkout/cos_xyz", {
+  headers: { "X-API-Key": subsApiKey },
+});
+const session = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,55 @@
+---
+title: "List promo codes"
+description: "Paginated list of promo codes on the calling application."
+api: "GET /v1/promo-codes"
+---
+
+Returns promo codes owned by the application keyed via `X-API-Key`. Paginated.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Query parameters
+
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of promo code rows.
+  <Expandable title="promo_code">
+    <ResponseField name="id" type="string">Promo code ID.</ResponseField>
+    <ResponseField name="code" type="string">User-facing code.</ResponseField>
+    <ResponseField name="discount_type" type="string">`percent` or `fixed_amount`.</ResponseField>
+    <ResponseField name="discount_value" type="number">Percentage or minor-unit amount.</ResponseField>
+    <ResponseField name="duration" type="string">`once | repeating | forever`.</ResponseField>
+    <ResponseField name="duration_months" type="number">For `repeating`.</ResponseField>
+    <ResponseField name="max_redemptions" type="number">Global cap.</ResponseField>
+    <ResponseField name="redeemed_count" type="number">Running redemption count.</ResponseField>
+    <ResponseField name="per_user_limit" type="number">Per-user cap.</ResponseField>
+    <ResponseField name="application_id" type="string">Owning application.</ResponseField>
+    <ResponseField name="plan_ids" type="string">JSON-encoded plan ID array, or null.</ResponseField>
+    <ResponseField name="expires_at" type="number">Unix epoch seconds.</ResponseField>
+    <ResponseField name="active" type="number">`1` or `0`.</ResponseField>
+    <ResponseField name="created_at" type="number">Unix epoch seconds.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching rows.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/promo-codes?page=1&limit=20" \
+  -H "X-API-Key: $SUBS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/v1/promo-codes?page=1&limit=20",
+  { headers: { "X-API-Key": subsApiKey } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

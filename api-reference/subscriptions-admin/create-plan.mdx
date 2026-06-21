@@ -1,0 +1,76 @@
+---
+title: "Create plan"
+description: "Create a subscription plan on behalf of an application from the admin console."
+api: "POST /api/subscriptions/plans"
+---
+
+Admin-side mirror of [`POST /v1/plans`](/api-reference/subscriptions-tenant/create-plan). The admin must pass `application_id` since the call isn't scoped by an API key. Writes a `subscriptions.plan_created` audit row.
+
+Requires an admin bearer token with the `subscriptions:write` scope.
+
+## Body
+
+<ParamField body="application_id" type="string" required>
+  Target application ID.
+</ParamField>
+
+<ParamField body="name" type="string" required>Display name.</ParamField>
+<ParamField body="slug" type="string" required>URL-safe identifier, unique per application.</ParamField>
+<ParamField body="description" type="string">Description.</ParamField>
+<ParamField body="interval" type="string" required>`weekly | monthly | quarterly | annual`.</ParamField>
+<ParamField body="price" type="number" required>Minor units (pesewas/cents).</ParamField>
+<ParamField body="currency" type="string" default="GHS">`GHS` or `USD`.</ParamField>
+<ParamField body="trial_days" type="number" default="0">Trial length.</ParamField>
+<ParamField body="features" type="string[]">Feature bullets.</ParamField>
+<ParamField body="max_seats" type="number" default="1">Seat capacity.</ParamField>
+<ParamField body="paystack_plan_code" type="string">Paystack plan code if mirrored.</ParamField>
+<ParamField body="active" type="boolean" default="true">Availability flag.</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing one of `application_id`, `name`, `slug`, `interval`, `price`. |
+| 404 | `not_found` | `application_id` doesn't exist. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/subscriptions/plans" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "application_id": "app_3news",
+    "name": "3News Pro",
+    "slug": "pro-monthly",
+    "interval": "monthly",
+    "price": 2500,
+    "currency": "GHS"
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/subscriptions/plans", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    application_id: "app_3news",
+    name: "3News Pro",
+    slug: "pro-monthly",
+    interval: "monthly",
+    price: 2500,
+    currency: "GHS",
+  }),
+});
+```
+
+</CodeGroup>

@@ -1,0 +1,105 @@
+---
+title: "Create subscription"
+description: "Provision a subscription server-side for a user, bypassing hosted checkout."
+api: "POST /v1/subscriptions"
+---
+
+Creates a `subscriptions` row directly. Use this when you've collected payment authorization out-of-band (e.g. your own custom checkout that calls Paystack) and want to record the resulting subscription in mgPass.
+
+For the typical flow where mgPass collects payment, use [Create checkout session](/api-reference/subscriptions-tenant/create-checkout-session) instead.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  mgPass user ID, e.g. `usr_abc123`.
+</ParamField>
+
+<ParamField body="plan_id" type="string" required>
+  Plan ID owned by this application.
+</ParamField>
+
+<ParamField body="payment_provider" type="string">
+  `paystack` or `hubtel`. Omit for sponsored subscriptions.
+</ParamField>
+
+<ParamField body="paystack_subscription_code" type="string">
+  Paystack subscription code if you provisioned the recurring authorization yourself.
+</ParamField>
+
+<ParamField body="paystack_authorization" type="string">
+  Paystack authorization code for card-on-file rebills.
+</ParamField>
+
+<ParamField body="paystack_email_token" type="string">
+  Paystack email token tied to the authorization.
+</ParamField>
+
+<ParamField body="hubtel_recurring_ref" type="string">
+  Hubtel recurring reference (reserved — Hubtel MoMo repeats are deferred).
+</ParamField>
+
+<ParamField body="promo_code_id" type="string">
+  Promo code row ID to attach to the subscription.
+</ParamField>
+
+<ParamField body="sponsored" type="boolean" default="false">
+  Mark as sponsored. Sponsored subscriptions are excluded from MRR/ARPU/churn.
+</ParamField>
+
+<ParamField body="sponsored_by" type="string">
+  Free-form attribution (e.g. `partner:acme`).
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Arbitrary JSON stored verbatim.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+If the plan has `trial_days > 0`, the subscription is created with `status='trialing'` and `trial_end` set; otherwise it starts as `status='active'` with one full interval of `current_period_end`. The user's entitlement cache is refreshed before the response returns.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `user_id` or `plan_id`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Plan does not exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/subscriptions" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "plan_id": "plan_pro",
+    "payment_provider": "paystack",
+    "paystack_authorization": "AUTH_xxx"
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/v1/subscriptions", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    user_id: "usr_abc123",
+    plan_id: "plan_pro",
+    payment_provider: "paystack",
+    paystack_authorization: "AUTH_xxx",
+  }),
+});
+```
+
+</CodeGroup>

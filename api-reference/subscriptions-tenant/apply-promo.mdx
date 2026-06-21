@@ -1,0 +1,65 @@
+---
+title: "Apply promo code"
+description: "Redeem a promo code against an existing subscription."
+api: "POST /v1/subscriptions/:id/apply-promo"
+---
+
+Validates the promo code against the subscription's plan, computes the discount, and redeems it. Redemption is atomic — limits race-checked between validate and redeem; if the code's `max_redemptions` or `per_user_limit` was hit in the window, the response is `409 invalid_promo`.
+
+For `discount_type=percent`, the discount is computed as `floor(plan.price * discount_value / 100)`. For `discount_type=fixed_amount`, the `discount_value` is taken as-is (in minor units).
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Subscription ID, e.g. `sub_xyz`.
+</ParamField>
+
+## Body
+
+<ParamField body="code" type="string" required>
+  Promo code as the user typed it.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+<ResponseField name="discount_applied" type="number">Discount in minor units.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_promo` | Code is invalid, expired, or not allowed on this plan. The `message` field carries the reason. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Subscription doesn't exist. |
+| 409 | `invalid_promo` | Limit raced (max redemptions or per-user limit hit between validate and redeem). |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/subscriptions/sub_xyz/apply-promo" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "code": "LAUNCH50" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/v1/subscriptions/sub_xyz/apply-promo",
+  {
+    method: "POST",
+    headers: {
+      "X-API-Key": subsApiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code: "LAUNCH50" }),
+  }
+);
+const { discount_applied } = await res.json();
+```
+
+</CodeGroup>

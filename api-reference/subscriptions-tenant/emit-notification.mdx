@@ -1,0 +1,122 @@
+---
+title: "Emit notification"
+description: "Push a transactional, activity, marketing, or system notification through mgPass."
+api: "POST /v1/notifications"
+---
+
+The Partner Notification API. Applications push arbitrary events into mgPass; mgPass owns dispatch (email, SMS, webhook, push), template resolution, and the in-app inbox.
+
+- **Templates.** Pass `template_id` to use one of your pre-defined templates, or omit and rely on the event-type-derived built-in (works for `subscription.created`, `subscription.renewed`, `subscription.cancelled`, `subscription.expired`, `subscription.payment_failed`, `subscription.trial_ending`). Unknown event types with no `template_id` are still inserted, but the worker logs a no-op.
+- **Idempotency.** Send the `Idempotency-Key` header. Replays return the original `notification_id` with `idempotent_replay: true`. Mapping is held in KV for 24 hours.
+- **Rate limit.** 100 requests per minute per application. Excess returns `429` with `Retry-After: 60`.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Headers
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional client-generated key. Repeated requests with the same key + application return the first response.
+</ParamField>
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  Recipient user ID. Must exist in mgPass.
+</ParamField>
+
+<ParamField body="event_type" type="string" required>
+  Snake-case event type, e.g. `account.password_reset`, `order.shipped`, `subscription.trial_ending`.
+</ParamField>
+
+<ParamField body="category" type="string" required>
+  `transactional | activity | marketing | system`. Drives default surfaces when the user hasn't set preferences.
+</ParamField>
+
+<ParamField body="priority" type="string" required>
+  `critical | high | normal | low`.
+</ParamField>
+
+<ParamField body="surfaces" type="string[]" required>
+  Subset of `email | sms | webhook | push`. Honored against the user's notification preferences.
+</ParamField>
+
+<ParamField body="data" type="object" required>
+  Template variables. Reserved keys: `subject` (overrides derived subject), `preview_text` (overrides derived 200-char preview).
+</ParamField>
+
+<ParamField body="template_id" type="string">
+  Pre-registered template ID. Omit to let the worker resolve a built-in by `event_type`.
+</ParamField>
+
+## Response
+
+`202 Accepted`. The notification is persisted and queued.
+
+<ResponseField name="notification_id" type="string">
+  Notification row ID.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Always `queued` on a fresh insert.
+</ResponseField>
+
+<ResponseField name="idempotent_replay" type="boolean">
+  Only present on idempotent replays — `true` means the response is the cached one.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing required field, or `category`/`priority`/`surfaces` value is invalid. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `user_not_found` | `user_id` doesn't exist. |
+| 404 | `not_found` | `template_id` doesn't exist. |
+| 429 | `rate_limit_exceeded` | 100/min/application cap hit. Retry after the `Retry-After` window. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/notifications" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Idempotency-Key: order-9821-shipped" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "event_type": "order.shipped",
+    "category": "transactional",
+    "priority": "normal",
+    "surfaces": ["email", "sms"],
+    "data": {
+      "subject": "Your order is on its way",
+      "order_id": "ord_9821",
+      "tracking_url": "https://3news.com/orders/9821"
+    }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/notifications", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Idempotency-Key": "order-9821-shipped",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    user_id: "usr_abc123",
+    event_type: "order.shipped",
+    category: "transactional",
+    priority: "normal",
+    surfaces: ["email", "sms"],
+    data: {
+      subject: "Your order is on its way",
+      order_id: "ord_9821",
+      tracking_url: "https://3news.com/orders/9821",
+    },
+  }),
+});
+const { notification_id } = await res.json();
+```
+
+</CodeGroup>

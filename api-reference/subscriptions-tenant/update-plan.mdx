@@ -1,0 +1,74 @@
+---
+title: "Update plan"
+description: "Patch a subscription plan owned by the calling application."
+api: "PATCH /v1/plans/:id"
+---
+
+Partially updates a plan. Only the fields you send are touched. The plan must belong to the application keyed by `X-API-Key` — cross-application updates return `404`.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+<Warning>
+Changing `price`, `interval`, or `currency` on a plan with active subscribers does **not** retroactively change their billing. Existing subscriptions continue to bill at the price recorded when they subscribed; the new price applies on the next plan change or renewal.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Plan ID, e.g. `plan_pro`.
+</ParamField>
+
+## Body
+
+All fields are optional. See [Create plan](/api-reference/subscriptions-tenant/create-plan) for the full schema.
+
+<ParamField body="name" type="string">Display name.</ParamField>
+<ParamField body="slug" type="string">Stable identifier.</ParamField>
+<ParamField body="description" type="string">Description.</ParamField>
+<ParamField body="interval" type="string">`weekly | monthly | quarterly | annual`.</ParamField>
+<ParamField body="price" type="number">Minor units.</ParamField>
+<ParamField body="currency" type="string">`GHS` or `USD`.</ParamField>
+<ParamField body="trial_days" type="number">Trial length in days.</ParamField>
+<ParamField body="features" type="string[]">Feature bullet list. Sent as an array — stored JSON-encoded.</ParamField>
+<ParamField body="max_seats" type="number">Seat capacity.</ParamField>
+<ParamField body="paystack_plan_code" type="string">Paystack plan code.</ParamField>
+<ParamField body="active" type="boolean">Toggle availability.</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Body had no recognized fields. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Plan ID is unknown, or it belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/v1/plans/plan_pro" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "price": 2900, "features": ["Ad-free", "Premium newsletters", "Audio"] }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/v1/plans/plan_pro", {
+  method: "PATCH",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    price: 2900,
+    features: ["Ad-free", "Premium newsletters", "Audio"],
+  }),
+});
+```
+
+</CodeGroup>

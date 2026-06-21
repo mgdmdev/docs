@@ -1,0 +1,65 @@
+---
+title: "Update subscription"
+description: "Patch the lifecycle fields on a subscription from the admin console."
+api: "PATCH /api/subscriptions/:id"
+---
+
+Admin-level patch on a subscription row. Useful for ops corrections — extending a trial, manually marking a sub `unpaid`, clearing a retry counter, etc. If you change `status`, the user's entitlement cache is refreshed before the response returns. Writes a `subscriptions.subscription_updated` audit row.
+
+Requires an admin bearer token with the `subscriptions:write` scope.
+
+<Warning>
+This bypasses the state machine. For normal lifecycle transitions (cancel, refund, change plan), use the dedicated endpoints — they fan out webhooks, notifications, and audit metadata correctly.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Body
+
+All fields optional.
+
+<ParamField body="status" type="string">`active | trialing | past_due | cancelled | expired | unpaid`.</ParamField>
+<ParamField body="current_period_start" type="number">Unix epoch seconds.</ParamField>
+<ParamField body="current_period_end" type="number">Unix epoch seconds.</ParamField>
+<ParamField body="trial_end" type="number">Unix epoch seconds.</ParamField>
+<ParamField body="cancel_at_period_end" type="number">`0` or `1`.</ParamField>
+<ParamField body="retry_count" type="number">Number of dunning retries attempted.</ParamField>
+<ParamField body="next_retry_at" type="number">Unix epoch seconds.</ParamField>
+<ParamField body="metadata" type="string">JSON-encoded metadata (sent as a string).</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Body had no recognized fields. |
+| 404 | `not_found` | Subscription doesn't exist. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/subscriptions/sub_xyz" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "trial_end": 1751760000 }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/subscriptions/sub_xyz", {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ trial_end: 1751760000 }),
+});
+```
+
+</CodeGroup>

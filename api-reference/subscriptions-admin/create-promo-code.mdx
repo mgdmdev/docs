@@ -1,0 +1,71 @@
+---
+title: "Create promo code"
+description: "Create a promo code from the admin console."
+api: "POST /api/subscriptions/promo-codes"
+---
+
+Admin-side mirror of [`POST /v1/promo-codes`](/api-reference/subscriptions-tenant/create-promo-code). `application_id` is optional — omit it to create a platform-wide code redeemable across every application. Writes a `subscriptions.promo_created` audit row.
+
+Requires an admin bearer token with the `subscriptions:write` scope.
+
+## Body
+
+<ParamField body="code" type="string" required>User-facing code.</ParamField>
+<ParamField body="discount_type" type="string" required>`percent` or `fixed_amount`.</ParamField>
+<ParamField body="discount_value" type="number" required>Percentage, or minor units.</ParamField>
+<ParamField body="duration" type="string">`once | repeating | forever`.</ParamField>
+<ParamField body="duration_months" type="number">For `duration=repeating`.</ParamField>
+<ParamField body="max_redemptions" type="number">Global cap.</ParamField>
+<ParamField body="per_user_limit" type="number">Per-user cap.</ParamField>
+<ParamField body="application_id" type="string">Restrict to one application. Omit for platform-wide.</ParamField>
+<ParamField body="plan_ids" type="string[]">Restrict to specific plans.</ParamField>
+<ParamField body="expires_at" type="number">Unix epoch seconds.</ParamField>
+<ParamField body="active" type="boolean" default="true">Availability.</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `code`, `discount_type`, or `discount_value`. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/subscriptions/promo-codes" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "LAUNCH50",
+    "discount_type": "percent",
+    "discount_value": 50,
+    "duration": "once",
+    "max_redemptions": 1000,
+    "application_id": "app_3news"
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/subscriptions/promo-codes", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    code: "LAUNCH50",
+    discount_type: "percent",
+    discount_value: 50,
+    duration: "once",
+    max_redemptions: 1000,
+    application_id: "app_3news",
+  }),
+});
+```
+
+</CodeGroup>

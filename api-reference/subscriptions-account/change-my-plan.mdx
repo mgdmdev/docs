@@ -1,0 +1,64 @@
+---
+title: "Change my plan"
+description: "Switch to a different plan on the same application, with prorated charge."
+api: "POST /api/account/subscriptions/:id/change-plan"
+---
+
+Moves the subscription to `new_plan_id`. Prorates against unused time on the current plan and charges the card on file for the difference (if any). Both plans must belong to the same application. Writes a `user.subscription_plan_changed` audit row.
+
+To preview the credit + charge first, call [`GET /api/account/subscriptions/:id/upgrade-preview`](/api-reference/subscriptions-account/preview-upgrade).
+
+Requires an OAuth Bearer access token. The subscription must belong to the calling user and be `active` or `trialing`.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Body
+
+<ParamField body="new_plan_id" type="string" required>
+  Target plan ID. Must belong to the same application as the current subscription, and must be different from the current plan.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+<ResponseField name="charge_amount" type="number">Amount actually charged in minor units (may be `0`).</ResponseField>
+<ResponseField name="new_plan" type="string">New plan ID.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `new_plan_id`; new plan belongs to a different application; new plan is the same as the current plan. |
+| 400 | `invalid_state` | Subscription is not `active` or `trialing`. |
+| 400 | `change_failed` | Underlying provider charge or state-machine call failed. The `message` field carries the reason. |
+| 404 | `not_found` | Subscription / plan doesn't exist or doesn't belong to the user. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/change-plan" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "new_plan_id": "plan_pro_annual" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/change-plan",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${userAccessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ new_plan_id: "plan_pro_annual" }),
+  }
+);
+const { charge_amount, new_plan } = await res.json();
+```
+
+</CodeGroup>

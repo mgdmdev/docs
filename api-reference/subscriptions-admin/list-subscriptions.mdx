@@ -1,0 +1,42 @@
+---
+title: "List subscriptions"
+description: "Cross-application list of subscriptions for the admin console."
+api: "GET /api/subscriptions"
+---
+
+Returns subscriptions across every application. Filter by user, application, or status.
+
+Requires an admin bearer token with the `subscriptions:read` scope.
+
+## Query parameters
+
+<ParamField query="user_id" type="string">Filter to a single user.</ParamField>
+<ParamField query="application_id" type="string">Filter to a single application.</ParamField>
+<ParamField query="status" type="string">`active | trialing | past_due | cancelled | expired | unpaid`.</ParamField>
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of subscription rows. Same shape as the tenant-side [list subscriptions](/api-reference/subscriptions-tenant/list-subscriptions) endpoint.
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching rows.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions?application_id=app_3news&status=past_due" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/subscriptions?application_id=app_3news&status=past_due",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

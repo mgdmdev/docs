@@ -1,0 +1,48 @@
+---
+title: "Remove seat"
+description: "Primary subscriber removes a non-owner seat from a multi-seat subscription."
+api: "DELETE /api/account/subscriptions/:id/seats/:seatId"
+---
+
+Removes a seat from the subscription. Owner seats can't be removed — cancel the subscription instead. Writes a `user.seat_removed` audit row.
+
+Requires an OAuth Bearer access token. Only the primary subscriber can call this.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID.</ParamField>
+<ParamField path="seatId" type="string" required>Seat ID to remove.</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `cannot_remove_owner` | Tried to remove a seat with `role=owner`. |
+| 400 | `not_removed` | DB reported zero rows changed (race / already removed). |
+| 403 | `forbidden` | Caller is not the primary subscriber. |
+| 404 | `not_found` | Subscription or seat doesn't exist; or seat belongs to a different subscription. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats/seat_abc" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats/seat_abc",
+  {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${userAccessToken}` },
+  }
+);
+```
+
+</CodeGroup>

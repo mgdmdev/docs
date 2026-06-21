@@ -1,0 +1,122 @@
+---
+title: "Create checkout session"
+description: "Create a hosted or embedded checkout session for a plan."
+api: "POST /v1/checkout"
+---
+
+Creates a 30-minute checkout session and returns a URL (hosted) and/or an embed session id (embedded). The session is scoped to the application keyed by `X-API-Key` and the plan you pass — cross-application plan IDs are rejected.
+
+Choose the `mode`:
+
+- **`hosted`** (default) — mgPass renders the full checkout page at `pay.mgpass.net/checkout/<session_id>`. Redirect the user there.
+- **`embedded`** — mgPass renders the checkout in an iframe inside your own page via the JS SDK at `https://auth.mgpass.net/sdk/checkout.js`. Requires the application to have at least one origin whitelisted in `allowed_widget_origins` on the Subscriptions capability.
+
+See the [checkout guide](/guides/subscriptions/checkout) for the end-to-end embed flow, postMessage events, and the SRI manifest at `/sdk/checkout.js.sri`.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Body
+
+<ParamField body="plan_id" type="string" required>
+  Plan ID owned by this application.
+</ParamField>
+
+<ParamField body="user_id" type="string">
+  Pre-link the session to a known user. Omit for sign-up-then-buy flows where mgPass collects the email at checkout.
+</ParamField>
+
+<ParamField body="promo_code_id" type="string">
+  Apply a promo code at session creation. The discount is rendered on the checkout page.
+</ParamField>
+
+<ParamField body="success_url" type="string" required>
+  Where to send the user after a successful charge.
+</ParamField>
+
+<ParamField body="cancel_url" type="string">
+  Where to send the user if they back out.
+</ParamField>
+
+<ParamField body="payment_provider" type="string">
+  Force `paystack` or `hubtel`. Annual plans + `hubtel` are rejected (see Errors).
+</ParamField>
+
+<ParamField body="mode" type="string" default="hosted">
+  `hosted` or `embedded`. Embedded sessions require `allowed_widget_origins` to be configured on the subscriptions capability.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Arbitrary JSON stored on the session row and propagated to the resulting subscription.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="session_id" type="string">Session ID, e.g. `cos_xyz`.</ResponseField>
+<ResponseField name="checkout_url" type="string">Full `pay.mgpass.net/checkout/<id>` URL.</ResponseField>
+<ResponseField name="expires_at" type="number">Unix epoch seconds when the session goes stale (30 min after creation).</ResponseField>
+<ResponseField name="mode" type="string">Echo of the chosen mode.</ResponseField>
+<ResponseField name="embed_session_id" type="string">
+  Only present when `mode=embedded`. Same value as `session_id` — surfaced under a distinct name so tenant code can pass the exact value the SDK expects.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `plan_id` or `success_url`, or `mode` is not `hosted`/`embedded`. |
+| 400 | `annual_requires_card` | `interval=annual` + `payment_provider=hubtel`. Annual plans are card-only until Hubtel MoMo Repeat Payments v1.2 ships. |
+| 400 | `no_widget_origins` | `mode=embedded` but the subscriptions capability has no `allowed_widget_origins` configured. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Plan doesn't exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl (hosted)
+curl -X POST "https://auth.mgpass.net/v1/checkout" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan_id": "plan_pro",
+    "success_url": "https://3news.com/welcome",
+    "cancel_url": "https://3news.com/pricing",
+    "mode": "hosted"
+  }'
+```
+
+```bash curl (embedded)
+curl -X POST "https://auth.mgpass.net/v1/checkout" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan_id": "plan_pro",
+    "user_id": "usr_abc123",
+    "success_url": "https://3news.com/welcome",
+    "mode": "embedded"
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/checkout", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    plan_id: "plan_pro",
+    user_id: "usr_abc123",
+    success_url: "https://3news.com/welcome",
+    mode: "embedded",
+  }),
+});
+const { embed_session_id } = await res.json();
+mgpass.checkout.open(embed_session_id);
+```
+
+</CodeGroup>
+
+<Note>
+**Hubtel MoMo Repeat Payments are deferred.** Card billing via Paystack is fully supported. Hubtel is reserved for the next iteration — `interval=annual` + `payment_provider=hubtel` is rejected at the gate.
+</Note>

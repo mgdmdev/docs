@@ -1,0 +1,58 @@
+---
+title: "Get my subscription"
+description: "Full detail view of one of the calling user's subscriptions."
+api: "GET /api/account/subscriptions/:id"
+---
+
+Returns the subscription with its plan, owning application, payment history, and a list of **sibling plans on the same application** the user can switch to (for the change-plan UI).
+
+Requires an OAuth Bearer access token. The subscription must belong to the calling user — otherwise a `404` is returned.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Response
+
+<ResponseField name="subscription" type="object">
+  The subscription row plus parsed `metadata`.
+</ResponseField>
+
+<ResponseField name="plan" type="object">
+  Plan details (id, name, slug, description, interval, price, currency, features, trial_days, max_seats).
+</ResponseField>
+
+<ResponseField name="application" type="object">
+  Owning application (id, name, slug, support_email).
+</ResponseField>
+
+<ResponseField name="payments" type="array">
+  Payment history for this subscription. Same shape as the admin [`/api/subscriptions/:id/payments`](/api-reference/subscriptions-admin/list-payments) endpoint.
+</ResponseField>
+
+<ResponseField name="available_plans" type="array">
+  Sibling plans on the same application (excluding the current plan), filtered to `active = 1`. Each row has `id`, `name`, `slug`, `description`, `interval`, `price`, `currency`, `features`, `max_seats`.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `not_found` | Subscription doesn't exist, or doesn't belong to the calling user. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/subscriptions/sub_xyz" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const detail = await res.json();
+```
+
+</CodeGroup>

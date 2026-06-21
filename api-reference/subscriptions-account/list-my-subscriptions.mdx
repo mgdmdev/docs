@@ -1,0 +1,69 @@
+---
+title: "List my subscriptions"
+description: "Paginated list of the calling user's subscriptions, enriched with plan + application metadata."
+api: "GET /api/account/subscriptions"
+---
+
+Returns the signed-in user's subscriptions. Each row is enriched with a `plan` object (name, price, currency, features) and an `application` object (id, name, slug) so the account portal can render a self-contained list without a follow-up fetch.
+
+Requires an OAuth Bearer access token. Self-service only — the user can only see their own subscriptions.
+
+## Query parameters
+
+<ParamField query="status" type="string">`active | trialing | past_due | cancelled | expired | unpaid`.</ParamField>
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of enriched subscription objects.
+  <Expandable title="subscription">
+    <ResponseField name="id" type="string">Subscription ID.</ResponseField>
+    <ResponseField name="status" type="string">Lifecycle state.</ResponseField>
+    <ResponseField name="current_period_end" type="number">Unix epoch seconds.</ResponseField>
+    <ResponseField name="trial_end" type="number">Unix epoch seconds if applicable.</ResponseField>
+    <ResponseField name="cancel_at_period_end" type="number">`1` when cancellation is queued.</ResponseField>
+    <ResponseField name="sponsored" type="number">`1` for sponsored grants.</ResponseField>
+    <ResponseField name="plan" type="object">
+      <Expandable title="plan">
+        <ResponseField name="id" type="string">Plan ID.</ResponseField>
+        <ResponseField name="name" type="string">Plan display name.</ResponseField>
+        <ResponseField name="slug" type="string">Plan slug.</ResponseField>
+        <ResponseField name="description" type="string">Plan description.</ResponseField>
+        <ResponseField name="interval" type="string">`weekly | monthly | quarterly | annual`.</ResponseField>
+        <ResponseField name="price" type="number">Minor units.</ResponseField>
+        <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+        <ResponseField name="features" type="string[]">Decoded feature array.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="application" type="object">
+      <Expandable title="application">
+        <ResponseField name="id" type="string">Application ID.</ResponseField>
+        <ResponseField name="name" type="string">Application name.</ResponseField>
+        <ResponseField name="slug" type="string">Application slug.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching subscriptions.</ResponseField>
+<ResponseField name="page" type="number">Echo of the requested page.</ResponseField>
+<ResponseField name="limit" type="number">Echo of the requested limit.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/subscriptions?status=active" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions?status=active",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,62 @@
+---
+title: "List seats"
+description: "Seats on a family/multi-seat subscription the calling user belongs to."
+api: "GET /api/account/subscriptions/:id/seats"
+---
+
+Returns the seats on a multi-seat subscription. Both the primary subscriber and active seat members can call this; non-members get `403`. The primary user sees the full view; non-primary members get a redacted view (invite emails and token hashes for **other** seats are stripped).
+
+Ensures the owner seat row exists before returning, back-filling pre-Phase-2 subscriptions.
+
+Requires an OAuth Bearer access token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Response
+
+<ResponseField name="subscription_id" type="string">Echo of the subscription ID.</ResponseField>
+<ResponseField name="primary_user_id" type="string">The user who pays for the plan.</ResponseField>
+<ResponseField name="is_primary" type="boolean">`true` if the calling user is the primary subscriber.</ResponseField>
+<ResponseField name="max_seats" type="number">Plan capacity.</ResponseField>
+<ResponseField name="seats" type="array">
+  Seat rows.
+  <Expandable title="seat">
+    <ResponseField name="id" type="string">Seat ID.</ResponseField>
+    <ResponseField name="subscription_id" type="string">Subscription this seat belongs to.</ResponseField>
+    <ResponseField name="user_id" type="string">Linked user ID, or null if the invite hasn't been accepted.</ResponseField>
+    <ResponseField name="role" type="string">`owner` or `member`.</ResponseField>
+    <ResponseField name="status" type="string">`pending | active | removed`.</ResponseField>
+    <ResponseField name="invite_email" type="string">Invited email — null for non-primary callers when the seat isn't their own.</ResponseField>
+    <ResponseField name="invite_token_hash" type="string">Hashed accept token — null for non-primary callers.</ResponseField>
+    <ResponseField name="invited_at" type="number">Unix epoch seconds.</ResponseField>
+    <ResponseField name="accepted_at" type="number">Unix epoch seconds when the user accepted.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 403 | `forbidden` | Calling user is neither the primary subscriber nor an active seat member. |
+| 404 | `not_found` | Subscription doesn't exist. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats",
+  { headers: { Authorization: `Bearer ${userAccessToken}` } }
+);
+const { seats, max_seats, is_primary } = await res.json();
+```
+
+</CodeGroup>
+
+See the [seats guide](/guides/subscriptions/seats) for the full invite + accept flow.

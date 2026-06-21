@@ -1,0 +1,114 @@
+---
+title: "Get subscription stats"
+description: "Aggregated subscriptions metrics for the admin dashboard."
+api: "GET /api/subscriptions/stats"
+---
+
+Returns the cross-application subscription metrics shown on the admin Revenue dashboard. Includes Phase 3 revenue analytics (`daily_revenue`, `top_plans`, `churn_rate_30d`, `arpu_30d`, `refund_volume_30d`) alongside the original counts.
+
+**Sponsored subscriptions are excluded from every monetary aggregate** — MRR, daily revenue, top plans, churn, ARPU. They still appear in `total_subscriptions` and the per-application active counts so ops can see them, but they don't move the money lines.
+
+Requires an admin bearer token with the `subscriptions:read` scope.
+
+## Response
+
+<ResponseField name="total_subscriptions" type="number">
+  Count of every `subscriptions` row, all statuses, including sponsored.
+</ResponseField>
+
+<ResponseField name="active_by_application" type="array">
+  Per-application active count (`status IN ('active','trialing')`), including sponsored.
+  <Expandable title="row">
+    <ResponseField name="application_id" type="string">Application ID.</ResponseField>
+    <ResponseField name="count" type="number">Active + trialing subs.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="mrr_by_application" type="array">
+  Per-application MRR by currency. Excludes sponsored.
+  <Expandable title="row">
+    <ResponseField name="application_id" type="string">Application ID.</ResponseField>
+    <ResponseField name="mrr" type="number">Sum of plan prices in minor units.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="churned_by_application" type="array">
+  Per-application cancellations in the last 30 days (excludes sponsored).
+</ResponseField>
+
+<ResponseField name="trial_conversions_by_application" type="array">
+  Subscriptions that began as a trial and reached `status=active`.
+</ResponseField>
+
+<ResponseField name="recent_payments" type="array">
+  Last 10 payments across all applications, all statuses, for the ops feed.
+</ResponseField>
+
+<ResponseField name="recent_failed_payments" type="array">
+  Last 10 `failed` payments — surfaces dunning candidates.
+</ResponseField>
+
+<ResponseField name="daily_revenue" type="array">
+  Phase 3. Per-day, per-currency revenue over the last 30 days. Succeeded non-sponsored payments only.
+  <Expandable title="row">
+    <ResponseField name="day" type="string">ISO date, e.g. `2026-06-21`.</ResponseField>
+    <ResponseField name="amount" type="number">Sum of payments that day in minor units.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="top_plans" type="array">
+  Phase 3. Top 10 plans by MRR contribution (`active_sub_count × price`). Excludes sponsored.
+  <Expandable title="row">
+    <ResponseField name="plan_id" type="string">Plan ID.</ResponseField>
+    <ResponseField name="plan_name" type="string">Plan display name.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+    <ResponseField name="application_id" type="string">Owning application.</ResponseField>
+    <ResponseField name="application_name" type="string">Owning application name.</ResponseField>
+    <ResponseField name="subscriber_count" type="number">Active + trialing subs on this plan.</ResponseField>
+    <ResponseField name="mrr_contribution" type="number">`subscriber_count × price` in minor units.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="churn_rate_30d" type="object">
+  Phase 3. 30-day churn rate = `cancelled_count / (active_count + cancelled_count)`. Excludes sponsored.
+  <Expandable title="object">
+    <ResponseField name="rate" type="number">Float between `0` and `1`.</ResponseField>
+    <ResponseField name="cancelled_count" type="number">Non-sponsored cancellations in the last 30 days.</ResponseField>
+    <ResponseField name="total_active_at_start" type="number">Denominator (`active + cancelled`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="arpu_30d" type="array">
+  Phase 3. Average revenue per user over the last 30 days, per currency. Excludes sponsored.
+  <Expandable title="row">
+    <ResponseField name="value" type="number">Revenue / distinct active users, in minor units.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="refund_volume_30d" type="array">
+  Phase 3. Refund volume over the last 30 days, per currency.
+  <Expandable title="row">
+    <ResponseField name="amount" type="number">Absolute refund amount in minor units.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+    <ResponseField name="count" type="number">Number of refund payments.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions/stats" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/subscriptions/stats", {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const stats = await res.json();
+```
+
+</CodeGroup>

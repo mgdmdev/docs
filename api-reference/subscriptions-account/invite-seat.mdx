@@ -1,0 +1,68 @@
+---
+title: "Invite seat"
+description: "Primary subscriber invites someone to a family/multi-seat subscription."
+api: "POST /api/account/subscriptions/:id/seats/invite"
+---
+
+Creates a `pending` seat invite with a one-time accept token. Emails the invitee with an accept URL. Honors `plan.max_seats` — invites that would exceed capacity are rejected. Existing pending invites for the same email are surfaced (deduped) rather than creating a duplicate.
+
+If a user with that email already exists in mgPass, the seat is pre-bound to their `user_id` so the accept flow only works for the right account.
+
+Requires an OAuth Bearer access token. Only the primary subscriber can call this.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Body
+
+<ParamField body="email" type="string" required>
+  Invitee email. Normalized to lower-case.
+</ParamField>
+
+## Response
+
+`201 Created` for a fresh invite, or `200 OK` (no `Created`) when a pending invite for the same email already exists.
+
+<ResponseField name="seat_id" type="string">Seat row ID.</ResponseField>
+<ResponseField name="invite_email" type="string">Echo of the normalized email.</ResponseField>
+<ResponseField name="message" type="string">Only present on the dedupe path: `An invite is already pending for this email.`</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_email` | Email is empty or fails basic format validation. |
+| 400 | `invalid_state` | Subscription is not `active` or `trialing`. |
+| 400 | `not_family_plan` | Plan has `max_seats <= 1`. |
+| 400 | `self_invite` | The primary subscriber tried to invite their own email. |
+| 400 | `seats_full` | Active seat count is already at `plan.max_seats`. |
+| 403 | `forbidden` | Caller is not the primary subscriber. |
+| 404 | `not_found` | Subscription doesn't exist. |
+| 404 | `plan_not_found` | Plan record is missing (data integrity issue). |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats/invite" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "friend@example.com" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/seats/invite",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${userAccessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email: "friend@example.com" }),
+  }
+);
+const { seat_id } = await res.json();
+```
+
+</CodeGroup>

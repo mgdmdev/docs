@@ -1,0 +1,40 @@
+---
+title: "List promo codes"
+description: "Cross-application list of promo codes for the admin console."
+api: "GET /api/subscriptions/promo-codes"
+---
+
+Returns promo codes across every application. Filter by application.
+
+Requires an admin bearer token with the `subscriptions:read` scope.
+
+## Query parameters
+
+<ParamField query="application_id" type="string">Filter to a single application.</ParamField>
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of promo code rows. Same shape as the tenant-side [list promo codes](/api-reference/subscriptions-tenant/list-promo-codes) endpoint.
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching rows.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions/promo-codes?application_id=app_3news" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/subscriptions/promo-codes?application_id=app_3news",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

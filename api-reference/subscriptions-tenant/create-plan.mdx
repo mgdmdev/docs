@@ -1,0 +1,112 @@
+---
+title: "Create plan"
+description: "Create a subscription plan on the calling application."
+api: "POST /v1/plans"
+---
+
+Creates a new `subscription_plans` row scoped to the application that owns the API key. Prices are in **minor units** (pesewas for GHS, cents for USD).
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Body
+
+<ParamField body="name" type="string" required>
+  Human-readable plan name (e.g. `3News Pro Monthly`).
+</ParamField>
+
+<ParamField body="slug" type="string" required>
+  Stable, URL-safe identifier. Unique per application.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Short description shown on hosted checkout.
+</ParamField>
+
+<ParamField body="interval" type="string" required>
+  Billing cadence: `weekly`, `monthly`, `quarterly`, or `annual`.
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  Price in minor units. `2500` = GHS 25.00 or USD 25.00 depending on currency.
+</ParamField>
+
+<ParamField body="currency" type="string" default="GHS">
+  ISO 4217. `GHS` or `USD`.
+</ParamField>
+
+<ParamField body="trial_days" type="number" default="0">
+  Free-trial length in days. `0` disables the trial.
+</ParamField>
+
+<ParamField body="features" type="string[]">
+  Bullet list shown on hosted checkout and surfaced in entitlement JWTs when `entitlement_jwt_mode=full_features`.
+</ParamField>
+
+<ParamField body="max_seats" type="number" default="1">
+  Family/multi-seat capacity. `1` means single-seat.
+</ParamField>
+
+<ParamField body="paystack_plan_code" type="string">
+  Existing Paystack plan code if you already provisioned the plan in Paystack. Otherwise leave blank — Paystack one-off charges are used at checkout time.
+</ParamField>
+
+<ParamField body="active" type="boolean" default="true">
+  Set `false` to create a draft plan that is hidden from checkout but still queryable.
+</ParamField>
+
+## Response
+
+`201 Created`.
+
+<ResponseField name="success" type="boolean">
+  Always `true` on success.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `name`, `slug`, `interval`, or `price`. |
+| 401 | `unauthorized` | Missing or unknown `X-API-Key`. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/plans" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "3News Pro",
+    "slug": "pro-monthly",
+    "interval": "monthly",
+    "price": 2500,
+    "currency": "GHS",
+    "trial_days": 7,
+    "features": ["Ad-free reading", "Premium newsletters"],
+    "max_seats": 1
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/plans", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "3News Pro",
+    slug: "pro-monthly",
+    interval: "monthly",
+    price: 2500,
+    currency: "GHS",
+    trial_days: 7,
+    features: ["Ad-free reading", "Premium newsletters"],
+    max_seats: 1,
+  }),
+});
+```
+
+</CodeGroup>
+
+See the [plans guide](/guides/subscriptions/plans) for cadence + currency rules.

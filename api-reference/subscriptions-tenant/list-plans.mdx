@@ -1,0 +1,52 @@
+---
+title: "List plans"
+description: "List subscription plans for the calling application."
+api: "GET /v1/plans"
+---
+
+Returns every plan owned by the application. Use `?active=true` to filter out drafts and retired plans.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Query parameters
+
+<ParamField query="active" type="boolean">
+  When `true`, returns only plans where `active = 1`.
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of plan rows.
+  <Expandable title="plan">
+    <ResponseField name="id" type="string">Plan ID, e.g. `plan_pro`.</ResponseField>
+    <ResponseField name="application_id" type="string">Owning application ID.</ResponseField>
+    <ResponseField name="name" type="string">Display name.</ResponseField>
+    <ResponseField name="slug" type="string">URL-safe identifier.</ResponseField>
+    <ResponseField name="interval" type="string">`weekly | monthly | quarterly | annual`.</ResponseField>
+    <ResponseField name="price" type="number">Minor units (pesewas/cents).</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+    <ResponseField name="trial_days" type="number">Trial length.</ResponseField>
+    <ResponseField name="features" type="string">JSON-encoded array of feature strings.</ResponseField>
+    <ResponseField name="max_seats" type="number">Seat count for family plans.</ResponseField>
+    <ResponseField name="paystack_plan_code" type="string">Paystack plan code if mirrored.</ResponseField>
+    <ResponseField name="active" type="number">`1` or `0`.</ResponseField>
+    <ResponseField name="created_at" type="number">Unix epoch seconds.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/plans?active=true" \
+  -H "X-API-Key: $SUBS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/plans?active=true", {
+  headers: { "X-API-Key": subsApiKey },
+});
+const { results } = await res.json();
+```
+
+</CodeGroup>

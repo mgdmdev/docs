@@ -1,0 +1,62 @@
+---
+title: "Cancel my subscription"
+description: "User-initiated cancel of one of their own subscriptions."
+api: "POST /api/account/subscriptions/:id/cancel"
+---
+
+Cancels a subscription owned by the calling user. Defaults to cancel-at-period-end. Pass `immediate: true` to terminate access right now. Writes a `user.subscription_cancelled` audit row.
+
+Requires an OAuth Bearer access token. The subscription must belong to the calling user.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>Subscription ID, e.g. `sub_xyz`.</ParamField>
+
+## Body
+
+<ParamField body="immediate" type="boolean" default="false">
+  When `true`, cancels immediately. When `false`, sets `cancel_at_period_end = 1`.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+<ResponseField name="immediate" type="boolean">Echo of the requested mode.</ResponseField>
+<ResponseField name="access_until" type="number">
+  Unix epoch seconds. For `immediate=true`, the current time. Otherwise the current period end.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_state` | Subscription is already cancelled or expired. |
+| 404 | `not_found` | Subscription doesn't exist or doesn't belong to the calling user. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/cancel" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "immediate": false }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/account/subscriptions/sub_xyz/cancel",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${userAccessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ immediate: false }),
+  }
+);
+const { access_until } = await res.json();
+```
+
+</CodeGroup>

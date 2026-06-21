@@ -1,0 +1,57 @@
+---
+title: "Reactivate subscription"
+description: "Restart a cancelled or past-due subscription with a fresh payment method."
+api: "POST /v1/subscriptions/:id/reactivate"
+---
+
+Re-attaches a payment method to the subscription and resumes billing. Use this when a user clears a past-due state by adding a new card, or when they want to undo a cancellation that hasn't taken effect yet.
+
+Requires the `X-API-Key` header with a Subscriptions capability key.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  Subscription ID, e.g. `sub_xyz`.
+</ParamField>
+
+## Body
+
+<ParamField body="payment_method_id" type="string" required>
+  Payment method identifier (Paystack authorization code).
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true`.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `payment_method_id`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | Subscription doesn't exist or belongs to a different application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/subscriptions/sub_xyz/reactivate" \
+  -H "X-API-Key: $SUBS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "payment_method_id": "AUTH_xxx" }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/v1/subscriptions/sub_xyz/reactivate", {
+  method: "POST",
+  headers: {
+    "X-API-Key": subsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ payment_method_id: "AUTH_xxx" }),
+});
+```
+
+</CodeGroup>

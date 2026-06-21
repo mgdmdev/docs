@@ -1,0 +1,54 @@
+---
+title: "List invoices"
+description: "Cross-application list of subscription invoices."
+api: "GET /api/subscriptions/invoices"
+---
+
+Returns invoices across every application. Filter by subscription, user, or application.
+
+Requires an admin bearer token with the `subscriptions:read` scope.
+
+## Query parameters
+
+<ParamField query="subscription_id" type="string">Filter to a single subscription.</ParamField>
+<ParamField query="user_id" type="string">Filter to a single user.</ParamField>
+<ParamField query="application_id" type="string">Filter to a single application.</ParamField>
+<ParamField query="page" type="number" default="1">1-indexed page.</ParamField>
+<ParamField query="limit" type="number" default="20">Page size, max `100`.</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Array of invoice rows.
+  <Expandable title="invoice">
+    <ResponseField name="id" type="string">Invoice ID, e.g. `inv_xyz`.</ResponseField>
+    <ResponseField name="subscription_id" type="string">Owning subscription.</ResponseField>
+    <ResponseField name="user_id" type="string">Billed user.</ResponseField>
+    <ResponseField name="application_id" type="string">Owning application.</ResponseField>
+    <ResponseField name="amount" type="number">Invoice total in minor units.</ResponseField>
+    <ResponseField name="currency" type="string">`GHS` or `USD`.</ResponseField>
+    <ResponseField name="status" type="string">`open | paid | void | uncollectible`.</ResponseField>
+    <ResponseField name="period_start" type="number">Unix epoch seconds.</ResponseField>
+    <ResponseField name="period_end" type="number">Unix epoch seconds.</ResponseField>
+    <ResponseField name="created_at" type="number">Unix epoch seconds.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">Total matching rows.</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions/invoices?application_id=app_3news" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/subscriptions/invoices?application_id=app_3news",
+  { headers: { Authorization: `Bearer ${adminToken}` } }
+);
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

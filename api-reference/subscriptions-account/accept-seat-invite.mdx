@@ -1,0 +1,64 @@
+---
+title: "Accept seat invite"
+description: "Authenticated user redeems a seat invite token to join a multi-seat subscription."
+api: "POST /api/account/seats/accept"
+---
+
+Links the calling user to a pending seat by exchanging the invite token. The endpoint validates that:
+
+- the token is still valid (not expired, not already accepted),
+- the calling user is not the primary subscriber (`self_invite`),
+- if the seat was pre-bound to a user_id at invite time, that user_id matches the caller (`wrong_user`),
+- the caller doesn't already hold an active seat on the same subscription (`already_member`).
+
+On success the seat row flips to `status='active'`, the calling user is linked, and the subscription's entitlement cache is refreshed.
+
+Requires an OAuth Bearer access token.
+
+## Body
+
+<ParamField body="token" type="string" required>
+  Raw invite token from the accept URL (the URL parameter, not the hash stored in DB).
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Always `true` on success.</ResponseField>
+<ResponseField name="seat_id" type="string">The seat the user now holds.</ResponseField>
+<ResponseField name="subscription_id" type="string">The subscription the seat belongs to.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | Missing `token`. |
+| 400 | `self_invite` | Caller is the primary subscriber. |
+| 400 | `already_member` | Caller already holds an active seat on this subscription. |
+| 403 | `wrong_user` | Seat was pre-bound to a different user_id. |
+| 404 | `invalid_token` | Token is invalid, expired, or already accepted. |
+| 404 | `subscription_not_found` | Subscription record is missing. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/seats/accept" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "token": "rawTokenFromInviteEmail" }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/seats/accept", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${userAccessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ token: rawTokenFromInviteEmail }),
+});
+const { seat_id, subscription_id } = await res.json();
+```
+
+</CodeGroup>
