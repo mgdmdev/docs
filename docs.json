@@ -3,14 +3,14 @@
   "theme": "maple",
   "name": "mgPass",
   "colors": {
-    "primary": "#8B1A1A",
-    "light": "#B22222",
-    "dark": "#6B0F0F"
+    "primary": "#C00000",
+    "light": "#FC0000",
+    "dark": "#990000"
   },
-  "favicon": "/favicon.png",
+  "favicon": "/favicon.svg",
   "logo": {
-    "light": "/logo/light.png",
-    "dark": "/logo/dark.png"
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
   },
   "navigation": {
     "tabs": [
