@@ -56,6 +56,31 @@ https://auth.mgpass.net/authorize?
 
 Exchange the authorization code for tokens at `/api/token`. See the [mgPass OAuth documentation](https://auth.mgpass.net/.well-known/openid-configuration) for full details.
 
+### Scopes
+
+Request scopes as a space-delimited list in the `scope` parameter (URL-encoded as `+`).
+
+| Scope | Grants |
+|---|---|
+| `openid` | Required for OIDC. Returns an ID token. |
+| `profile` | Name + avatar in the ID token / userinfo. |
+| `email` | Email + verification status. |
+| `phone` | Phone number + verification status. |
+| `offline_access` | **A refresh token.** Omit this and you only get a short-lived access token — no way to refresh it. This is the single most common integration mistake; if your server-side app "logs the user out after an hour," you forgot `offline_access`. |
+
+<Warning>
+**Privileged scopes are role-gated.** `mgpass:admin` and the `developer:*`
+scopes are granted **only** if the authenticated user actually holds the
+matching role (`mgpass:admin` / `mgpass:developer`). Requesting a privileged
+scope your account doesn't have isn't an error — it is **silently dropped** from
+the issued token. So a token minted for a regular user can never carry
+`mgpass:admin`, even if the client is allowed to request it. Check the `scope`
+field of the token response to see what was actually granted.
+</Warning>
+
+You only ever need to *request* a scope that's in your OAuth client's allowed
+list; the role gate above is the second, user-level check.
+
 ---
 
 ## Admin Bearer Token

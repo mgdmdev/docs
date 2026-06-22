@@ -81,8 +81,32 @@ To keep the self-serve surface safe, a few actions are rate-limited per develope
 Exceeding a cap returns `429` with a `Retry-After` header. If you have a legitimate need for higher limits, contact MG Digital.
 
 <Note>
-These caps govern self-serve console actions only. Runtime traffic (token issuance, checkout, rewards events) is governed separately by your application's plan — see the per-capability guides.
+These caps govern self-serve console actions only. Runtime traffic (token issuance, checkout, rewards events) is governed separately by your application's **plan quota** — see below.
 </Note>
+
+## Free-tier runtime quotas
+
+Applications you create in the console start on the **free** plan, which meters
+runtime traffic per calendar month (resets at the start of each UTC month):
+
+| Metric | Free-tier limit / month | Over-quota behavior |
+|---|---|---|
+| Applications | 3 | Creating a 4th returns `403 app_limit_reached`. |
+| `authorize` (token issuance) | 1,000 | **Soft** — your end users are **never** blocked from signing in. The console shows "over quota" and we record it, but logins keep working. |
+| `checkout` sessions | 100 | **Hard** — `429 quota_exceeded` once over (this is your own server-to-server call, safe to retry next month or upgrade). |
+| `rewards` events | 100 | **Hard** — `429 quota_exceeded` once over. |
+
+The **authorize** metric is deliberately soft so a quota overrun can never lock
+*your* users out of logging in — it only flags the overage to you. `checkout`
+and `rewards` are your own API calls, so they hard-stop at the limit.
+
+Your current usage is shown on each Application's page in the console (the usage
+meters update as traffic flows). The pre-existing platform Applications
+(`3news`, `mgTix`, admin, console, …) are **not** metered — only apps created
+through the self-serve console carry the free-tier plan.
+
+When you need higher limits, paid tiers raise every quota; reach out to MG
+Digital to upgrade.
 
 ## Next steps
 
