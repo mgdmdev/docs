@@ -22,7 +22,8 @@
             "pages": [
               "index",
               "guides/overview",
-              "guides/quickstart"
+              "guides/quickstart",
+              "guides/developer-console"
             ]
           },
           {

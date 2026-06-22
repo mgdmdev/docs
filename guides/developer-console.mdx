@@ -1,0 +1,102 @@
+---
+title: "Developer Console"
+description: "Sign up, create applications, enable capabilities, and manage webhooks yourself at console.mgpass.net — no admin hand-off required."
+---
+
+## What is the Developer Console?
+
+The **Developer Console** at [console.mgpass.net](https://console.mgpass.net) is the self-serve portal for building on mgPass. It replaces the old "email MG Digital to provision an Application" hand-off: you sign up, create your own [Applications](/guides/applications), enable the capabilities you need (OAuth, Rewards, Subscriptions), and wire up webhooks — all without waiting on a human.
+
+The console is a separate surface from the consumer-facing account portal at `mgpass.net`. It signs you in through the standard mgPass OAuth flow and scopes everything you see to the organizations and applications **you own**.
+
+<Note>
+The console talks to the same API and the same `application_id` spine described in [Applications](/guides/applications). Anything you create here is a first-class Application — identical to one provisioned by an admin. There is no "developer-tier" second-class object.
+</Note>
+
+## Sign up
+
+<Steps>
+  <Step title="Create a developer account">
+    Go to [auth.mgpass.net/developer/signup](https://auth.mgpass.net/developer/signup) and register with your work email. This is the same identity system end-users sign in with, but the `developer` intent also grants you the `mgpass:developer` role.
+  </Step>
+  <Step title="Verify your email">
+    Click the verification link we email you. Verification is required before any `developer:*` scopes are granted.
+  </Step>
+  <Step title="Land in the console">
+    After verifying you're redirected to [console.mgpass.net](https://console.mgpass.net). The console performs an OAuth code-grant against `auth.mgpass.net/authorize`, and your session carries the `developer:applications:read`, `developer:applications:write`, and `developer:webhooks:write` scopes.
+  </Step>
+</Steps>
+
+## Create an application
+
+From the console dashboard, **New Application** creates an Application spine row owned by your organization. You provide a display name and slug; the slug must be unique across mgPass (you'll get a friendly conflict message if it's taken).
+
+Every application you create is stamped with `created_by = your user` and bound to your organization. Ownership is enforced on every request — you can only read or modify applications your organization owns. Attempting to reach another developer's `application_id` returns `403`.
+
+## Enable capabilities
+
+An Application does nothing until you attach a capability. In the console, open your Application → **Capabilities** and enable the ones you need:
+
+<CardGroup cols={3}>
+  <Card title="OAuth" icon="key" href="/guides/oauth-flows">
+    Sign users in with mgPass identity. Configure redirect URIs, allowed scopes, CORS origins, and token TTLs.
+  </Card>
+  <Card title="Rewards" icon="gift" href="/guides/awarding-points">
+    Emit events that earn users points in the shared loyalty ledger.
+  </Card>
+  <Card title="Subscriptions" icon="credit-card" href="/guides/subscriptions/overview">
+    Sell recurring plans — checkout, billing, entitlements, and dunning handled for you.
+  </Card>
+</CardGroup>
+
+Enabling a capability inserts its row; disabling it deletes the row. Presence of the row *is* the on/off switch — there is no separate boolean.
+
+### One-time secret reveal
+
+When you enable a capability that issues a credential (the OAuth `client_secret`, or a Rewards/Subscriptions API key) **or rotate one**, the plaintext value is shown **exactly once**, immediately after the action.
+
+<Warning>
+Copy the secret as soon as it's revealed. mgPass stores only a hash — we cannot show it to you again. If you lose it, your only recovery is to rotate the credential, which immediately invalidates the old one. Store secrets in a vault or your platform's secret manager, never in source control.
+</Warning>
+
+## Set up webhooks
+
+In the console, open your Application → **Webhooks** → **Add endpoint**. You provide:
+
+- **Endpoint URL** — your HTTPS endpoint that receives `POST` payloads.
+- **Event types** — which events to subscribe to (across any capability the Application has enabled).
+
+On creation the console reveals the **signing secret once** (same one-time-reveal rule as above) and fires a **test ping** so you can confirm your endpoint is reachable before any real event flows. Verify the `X-Webhook-Signature` HMAC on every delivery — see [Webhooks](/guides/webhooks) for the verification recipe. Failed deliveries are retried with backoff, and you can inspect or replay them.
+
+## Daily caps
+
+To keep the self-serve surface safe, a few actions are rate-limited per developer per day. These are generous for normal integration work and reset at midnight UTC:
+
+| Action | Daily cap |
+|---|---|
+| Capability enables | 3 / day |
+| Credential (secret/key) rotations | 10 / day |
+| Webhook endpoint creates | 10 / day |
+
+Exceeding a cap returns `429` with a `Retry-After` header. If you have a legitimate need for higher limits, contact MG Digital.
+
+<Note>
+These caps govern self-serve console actions only. Runtime traffic (token issuance, checkout, rewards events) is governed separately by your application's plan — see the per-capability guides.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Applications model" icon="layer-group" href="/guides/applications">
+    How the unified `application_id` spine and capabilities fit together.
+  </Card>
+  <Card title="OAuth flows" icon="key" href="/guides/oauth-flows">
+    Wire sign-in into your app with authorization code + PKCE.
+  </Card>
+  <Card title="Subscriptions quickstart" icon="credit-card" href="/guides/subscriptions/quickstart">
+    Stand up plans, checkout, and entitlements.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Receive and verify real-time event deliveries.
+  </Card>
+</CardGroup>
