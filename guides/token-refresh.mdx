@@ -29,7 +29,7 @@ sequenceDiagram
     App->>API: Request with expired token
     API-->>App: 401 Unauthorized
 
-    App->>Auth: POST /api/token (refresh_token grant)
+    App->>Auth: POST /token (refresh_token grant)
     Auth-->>App: New access token + new refresh token
 
     App->>API: Retry with new access token
@@ -65,7 +65,7 @@ class TokenManager {
   async refresh() {
     try {
       const response = await fetch(
-        "https://auth.mgpass.net/api/token",
+        "https://auth.mgpass.net/token",
         {
           method: "POST",
           headers: {
@@ -139,7 +139,7 @@ class TokenManager:
 
     def refresh(self):
         response = requests.post(
-            "https://auth.mgpass.net/api/token",
+            "https://auth.mgpass.net/token",
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": self.refresh_token,
@@ -162,7 +162,7 @@ mgPass enforces **refresh token rotation** for security. Every time you use a re
 <Steps>
   <Step title="Exchange refresh token">
     ```bash
-    POST /api/token
+    POST /token
     grant_type=refresh_token
     &refresh_token=rt_OLD_TOKEN
     &client_id=YOUR_CLIENT_ID
@@ -297,7 +297,7 @@ If a refresh token is expired or revoked, fall back to silent authentication usi
 ```mermaid
 flowchart TD
     A[API returns 401] --> B{Have refresh token?}
-    B -- Yes --> C[POST /api/token with refresh_token]
+    B -- Yes --> C[POST /token with refresh_token]
     C --> D{Refresh succeeded?}
     D -- Yes --> E[Retry API call with new token]
     D -- No --> F[Try prompt=none redirect]
@@ -336,7 +336,7 @@ sequenceDiagram
     participant Auth as mgPass
 
     SPA->>BFF: POST /auth/refresh (httpOnly cookie sent)
-    BFF->>Auth: POST /api/token (refresh_token from cookie)
+    BFF->>Auth: POST /token (refresh_token from cookie)
     Auth-->>BFF: New tokens
     BFF-->>SPA: New access_token (in response body)
     Note over BFF: New refresh_token stored in httpOnly cookie

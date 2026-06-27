@@ -1,5 +1,5 @@
 ---
 title: "FedCM Token Assertion"
 api: "POST /fedcm/assertion"
-description: "Issues a JWT token for the selected account. Called by the browser after the user consents to sharing their identity."
+description: "Issues a signed ID token (iss / aud=client_id / sub, plus email, email_verified, name, picture) for the selected account. Called by the browser after the user consents in the native FedCM prompt; verify it against the JWKS endpoint."
 ---

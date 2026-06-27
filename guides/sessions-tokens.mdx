@@ -86,7 +86,7 @@ Default lifetimes can be overridden per application:
 
 mgPass implements refresh token rotation for security:
 
-1. Client sends the refresh token to `/api/token` with `grant_type=refresh_token`
+1. Client sends the refresh token to `/token` with `grant_type=refresh_token`
 2. mgPass validates the refresh token and issues a new token pair
 3. The old refresh token is invalidated
 

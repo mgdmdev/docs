@@ -269,6 +269,10 @@ Active users who interact with any mgPass-connected application at least once ev
 
   <Accordion title="Handle all callback states">
     Your OAuth callback handler must handle three outcomes: `code` (success), `error=login_required` (no session), and `error=consent_required` (first-time app). Missing any of these causes a broken experience.
+
+    Consent is recorded durably on first authorization, so `consent_required`
+    only fires the **first** time a user authorizes your app — subsequent SSO is
+    silent. This holds even for apps that don't request `offline_access`.
   </Accordion>
 
   <Accordion title="Store the ID token for logout">
@@ -276,7 +280,7 @@ Active users who interact with any mgPass-connected application at least once ev
   </Accordion>
 
   <Accordion title="Register post-logout URIs">
-    Configure your application's `post_logout_redirect_uris` in the mgPass admin console. Without this, the user sees a generic "logged out" page instead of being redirected back to your app.
+    Configure your application's `post_logout_redirect_uris` in the mgPass admin console. At logout, mgPass identifies your app from the `id_token_hint` **or** a `client_id` query parameter, and only redirects to a `post_logout_redirect_uri` that **exactly matches** a registered value (trailing-slash differences are tolerated). An unregistered or unidentified URI returns a plain "logged out" response instead of redirecting — this prevents open-redirect abuse.
   </Accordion>
 </AccordionGroup>
 
