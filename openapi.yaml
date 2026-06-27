@@ -179,8 +179,11 @@ paths:
       summary: OAuth 2.0 token endpoint
       description: |
         Exchange an authorization code, refresh token, or client credentials for
-        an access token. Confidential clients authenticate with HTTP Basic auth;
-        public clients (PKCE) include `client_id` in the body.
+        an access token. **Confidential clients MUST authenticate** — send the
+        `client_secret` via HTTP Basic (`client_id:client_secret`) or in the
+        request body (`client_secret_post`). **Public clients MUST use PKCE**
+        (send `code_verifier`; no secret). The `password` (ROPC) grant is
+        deprecated and is not offered.
       security:
         - basicClient: []
         - {}
@@ -2925,6 +2928,10 @@ paths:
       tags: [SDKs]
       security: []
       summary: One-Tap sign-in SDK bundle
+      description: |
+        Public JS bundle exposing `window.mgpass.onetap({ client_id, callback, login_url })`.
+        On Chromium it runs the native FedCM account chooser; on Safari/Firefox (no
+        FedCM) it shows a "Continue with mgPass" card that redirects to `login_url`.
       responses:
         '200':
           description: JS bundle.

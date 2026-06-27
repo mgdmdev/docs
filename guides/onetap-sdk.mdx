@@ -41,10 +41,13 @@ Key properties:
 
 | Browser | Support |
 |---------|---------|
-| Chrome 108+ | Fully supported |
-| Edge 108+ | Fully supported |
-| Firefox | Behind flag |
-| Safari | In development |
+| Chrome / Edge 136+ | Fully supported (native one-tap prompt) |
+| Other Chromium (Opera, Samsung Internet) | Supported |
+| Firefox | Not shipped (implementation paused) |
+| Safari | Not supported (no implementation planned) |
+
+FedCM is Chromium-only today. For Safari and Firefox, the SDK shows a redirect
+fallback instead (see [Fallback for unsupported browsers](#fallback-for-unsupported-browsers)) — so configure `login_url` to support every browser.
 
 ---
 
@@ -98,24 +101,49 @@ sequenceDiagram
 
 ## Quick Start (Using SDK)
 
-The mgPass SDK wraps the FedCM API with automatic fallback for unsupported browsers.
+The mgPass SDK wraps the FedCM API and shows a redirect fallback on browsers
+without FedCM (Safari, Firefox).
 
 ```html
 <script src="https://auth.mgpass.net/sdk/onetap.js"></script>
 <script>
   mgpass.onetap({
     client_id: 'your_client_id',
+
+    // Chromium: called with a signed JWT when the user taps the native prompt.
     callback: function(token) {
-      // Send token to your backend to verify
+      // Send token to your backend to verify (see "Token Verification" below).
       fetch('/api/auth/fedcm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token })
       });
-    }
+    },
+
+    // Safari / Firefox / FedCM-disabled Chrome: the SDK shows a
+    // "Continue with mgPass" card whose button navigates here. Point it at the
+    // page on YOUR site that starts the normal OAuth login (with state + PKCE),
+    // e.g. your "Sign in" route. Omit it to disable the fallback card.
+    login_url: '/sign-in'
   });
 </script>
 ```
+
+<ParamField path="client_id" type="string" required>
+  Your registered mgPass application (client) ID.
+</ParamField>
+<ParamField path="callback" type="function">
+  Receives the signed FedCM JWT (Chromium path). POST it to your backend to verify and create a session.
+</ParamField>
+<ParamField path="login_url" type="string">
+  URL on your own site that initiates the standard OAuth/SSO redirect. Used by the non-FedCM fallback card. No card is shown if omitted.
+</ParamField>
+
+<Info>
+The fallback's `login_url` should point at your existing login route (the one that
+generates `state` + PKCE and redirects to `/authorize`) — **not** directly at
+`auth.mgpass.net/authorize` — so the callback's CSRF/state checks still pass.
+</Info>
 
 ---
 
@@ -186,25 +214,34 @@ See the [API Reference](/api-reference/authentication/fedcm-discovery) for full 
 
 ---
 
-## Fallback for Unsupported Browsers
+## Fallback for unsupported browsers
 
-FedCM is not yet supported in all browsers. Use the standard OAuth redirect flow as a fallback:
+FedCM is Chromium-only. On Safari and Firefox the mgPass SDK automatically shows
+a small **"Continue with mgPass"** card whose button navigates to the `login_url`
+you configured. Point `login_url` at your normal OAuth login route (the one that
+generates `state` + PKCE and redirects to `/authorize`) and you're done — no
+extra code:
 
-```javascript
-if (!window.IdentityCredential) {
-  // FedCM not supported -- fall back to OAuth redirect
-  window.location.href = 'https://auth.mgpass.net/authorize?' +
-    new URLSearchParams({
-      response_type: 'code',
-      client_id: 'your_client_id',
-      redirect_uri: 'https://yoursite.com/callback',
-      scope: 'openid profile email'
-    });
-}
+```html
+<script src="https://auth.mgpass.net/sdk/onetap.js"></script>
+<script>
+  mgpass.onetap({
+    client_id: 'your_client_id',
+    callback: handleToken,   // Chromium / FedCM path
+    login_url: '/sign-in'    // fallback for everyone else
+  });
+</script>
 ```
 
+<Warning>
+If you build the fallback yourself instead of using `login_url`, route the user
+through your **own** login endpoint (which sets `state` + PKCE) — do **not** link
+straight to `auth.mgpass.net/authorize`, or your `/callback` state check will
+reject the response. See [OAuth Flows](/guides/oauth-flows).
+</Warning>
+
 <Note>
-The mgPass SDK (`onetap.js`) handles this fallback automatically. If FedCM is not available, the SDK falls back to the OAuth redirect flow.
+The card is dismissible (per browser session) and is never shown if you omit `login_url`.
 </Note>
 
 ---

@@ -121,8 +121,6 @@
               "api-reference/authentication/logout",
               "api-reference/authentication/oidc-discovery",
               "api-reference/authentication/jwks",
-              "api-reference/authentication/onetap-check",
-              "api-reference/authentication/onetap-session",
               "api-reference/authentication/onetap-sdk",
               "api-reference/authentication/fedcm-discovery",
               "api-reference/authentication/fedcm-config",
