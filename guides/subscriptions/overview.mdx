@@ -78,7 +78,7 @@ A separate `paused` status exists for manually-suspended and sponsored-only flow
 
 Every subscription belongs to an [Application](/guides/applications) via `application_id`. The Application is the long-lived spine; subscription billing is a **capability** attached to that spine via the `application_subscriptions` row.
 
-Before you can sell anything, an admin enables the Subscriptions capability on the Application (in the admin console or via API). That action:
+Before you can sell anything, you enable the Subscriptions capability on the Application (in the developer console or via API). That action:
 
 1. Inserts the capability row.
 2. Generates an `X-API-Key` your backend uses to call `/v1/*` endpoints.

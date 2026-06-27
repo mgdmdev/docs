@@ -5,7 +5,7 @@ description: "Identity, Rewards, and Subscriptions for African digital products.
 
 ## Welcome to mgPass
 
-mgPass is the platform behind MG Digital's identity, loyalty, and recurring-revenue stack. One account, one application record, three engines: sign-in, points, and subscriptions — all on Cloudflare's edge, all behind a single management API.
+mgPass is the platform behind MG Digital's identity, loyalty, and recurring-revenue stack. One account, one application record, three engines: sign-in, points, and subscriptions — all delivered from the edge, all behind a single management API.
 
 <CardGroup cols={3}>
   <Card title="Identity & Auth" icon="lock" href="/guides/oauth-flows">
@@ -46,17 +46,17 @@ mgPass is the platform behind MG Digital's identity, loyalty, and recurring-reve
 
 | Domain | Service | What it does |
 |--------|---------|--------------|
-| `auth.mgpass.net` | auth-worker | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhooks, SDK bundle |
-| `pay.mgpass.net` | auth-worker route | Hosted checkout (`/checkout/:sessionId`) |
-| `admin.mgpass.net` | admin console | Operator dashboard — manage Applications, plans, subscriptions, users, rewards |
+| `auth.mgpass.net` | mgPass authorization service | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhooks, SDK bundle |
+| `pay.mgpass.net` | mgPass checkout service | Hosted checkout (`/checkout/:sessionId`) |
+| `console.mgpass.net` | developer console | Self-serve portal — manage your Applications, plans, subscriptions, OAuth credentials, webhooks, and branding |
 | `mgpass.net` | account portal | End-user self-service — profile, sessions, subscriptions, notifications, rewards |
 
-All four run on Cloudflare Workers backed by D1 (relational), KV (sessions and entitlement cache), R2 (assets), and Durable Objects (subscription state machine).
+All surfaces are backed by mgPass: a primary relational database for durable state, a fast session and entitlement cache for low-latency validation, asset storage for branding, and a consistency coordinator for the subscription state machine.
 
 ## What's new in v3
 
 - **Unified Applications model.** Every integration is one `applications` row with capability rows (`application_oauth`, `application_rewards`, `application_subscriptions`) attached as you enable them. One `application_id` flows end-to-end. See [Applications](/guides/applications).
-- **Subscriptions Engine.** Plans, Paystack card billing, hosted + embedded checkout, promo codes, trials, seats, sponsored subs, multi-currency (GHS/USD), JWT entitlements, and a Durable Object state machine. See [Subscriptions overview](/guides/subscriptions/overview).
+- **Subscriptions Engine.** Plans, Paystack card billing, hosted + embedded checkout, promo codes, trials, seats, sponsored subs, multi-currency (GHS/USD), JWT entitlements, and a coordinated subscription state machine. See [Subscriptions overview](/guides/subscriptions/overview).
 - **In-app notifications.** A user-visible inbox with per-event-type, per-surface preferences. See [Notifications inbox](/guides/notifications-inbox).
 
 <Note>

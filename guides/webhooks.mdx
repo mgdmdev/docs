@@ -9,7 +9,7 @@ Webhooks allow your platform to receive real-time HTTP notifications when events
 
 ## Setup
 
-Webhooks are configured by MG Digital admins via the admin console. You provide:
+Webhooks are configured in the [developer console](https://console.mgpass.net). You provide:
 
 - **Endpoint URL** -- your HTTPS endpoint that receives webhook payloads
 - **Event types** -- which events you want to subscribe to
@@ -118,7 +118,7 @@ Failed deliveries are retried with exponential backoff:
 | 3 | 5 seconds |
 | 4 | 25 seconds |
 
-A delivery is considered successful on any `2xx` response. After 4 failed attempts, the delivery is marked as failed and can be manually replayed from the admin console.
+A delivery is considered successful on any `2xx` response. After 4 failed attempts, the delivery is marked as failed and can be manually replayed from the developer console.
 
 ## Best Practices
 

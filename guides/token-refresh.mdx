@@ -356,17 +356,7 @@ The SPA only ever sees the access token (held in memory). The refresh token live
 
 ## Configuration
 
-Token lifetimes are configured per-application in the mgPass admin console or via the API:
-
-```bash
-curl -X PATCH https://auth.mgpass.net/api/applications/app_abc123/capabilities/oauth \
-  -H "Authorization: Bearer ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "access_token_ttl": 1800,
-    "refresh_token_ttl": 604800
-  }'
-```
+Token lifetimes are set per application in the **developer console**, under your application's OAuth settings:
 
 | Field | Default | Description |
 |-------|---------|-------------|

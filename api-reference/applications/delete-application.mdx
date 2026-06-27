@@ -32,7 +32,7 @@ A hard delete is irreversible and removes every OAuth session, refresh token, su
 
 ## Cascade order (hard delete)
 
-When `?hard=true&confirm=DELETE <slug>` is accepted, the worker runs this sequence before deleting the row:
+When `?hard=true&confirm=DELETE <slug>` is accepted, mgPass runs this sequence before deleting the row:
 
 1. Cancels every active subscription for the application (`reason: admin:application_deletion`). Each cancellation fires its own `subscription.cancelled` webhook + notification.
 2. Fans out a final synchronous `application.deleting` webhook event to every registered endpoint **in parallel** (5-second timeout per endpoint, 5-second total bound via `Promise.allSettled`). This event is delivered regardless of the endpoint's `event_types` filter — see [Subscription webhooks → `application.deleting`](/guides/subscriptions/webhooks#application-deleting).

@@ -80,7 +80,7 @@ The embed widget renders an iframe on your page. The user never leaves your doma
 
 ### Prerequisites
 
-1. **Add at least one allowed origin.** In the admin console, open the Application → **Subscriptions capability** → **Allowed widget origins**. Add the exact origin(s) you'll mount the widget on, e.g. `https://yourapp.com`. The iframe checks `document.referrer` and the parent origin against this list and shows a 403 frame on mismatch.
+1. **Add at least one allowed origin.** In the developer console, open the Application → **Subscriptions capability** → **Allowed widget origins**. Add the exact origin(s) you'll mount the widget on, e.g. `https://yourapp.com`. The iframe checks `document.referrer` and the parent origin against this list and shows a 403 frame on mismatch.
 2. **Include the SDK.** Add the `<script>` tag from `auth.mgpass.net/sdk/checkout.js` to your page. Pin it with Subresource Integrity — see [SRI](#subresource-integrity-sri) below.
 
 <Steps>
@@ -199,7 +199,7 @@ When you ship a new release of mgPass, this hash rotates. Keep your `<script int
 
 The iframe loads with `?mode=embedded` and inspects the framing origin on render. If the origin isn't in the Application's `allowed_widget_origins`, the iframe replaces itself with a 403 page that says "This site isn't authorized to embed mgPass checkout" and posts a `mgpass:checkout:error` with `code: "origin_not_allowed"`. The session is also marked dead so reusing the URL won't help.
 
-Manage origins via the admin console or the management API. Wildcards aren't supported — add each subdomain explicitly.
+Manage origins via the developer console or the management API. Wildcards aren't supported — add each subdomain explicitly.
 
 ## Promo codes
 

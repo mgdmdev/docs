@@ -30,7 +30,7 @@ Run mgPass alongside Logto, mirroring all write operations to mgPass without ser
 Both systems are active. Reads gradually shift to mgPass via feature flags.
 
 - Enable dual-write for all user operations
-- Use KV-based feature flags to route a percentage of traffic to mgPass
+- Use feature flags to route a percentage of traffic to mgPass
 - Monitor error rates and latency
 - Gradually increase mgPass traffic percentage
 
@@ -78,7 +78,7 @@ Users migrated without passwords will need to authenticate via social login or c
 
 ## Points and Rewards Data
 
-Rewards data migration is straightforward since it lives in D1:
+Rewards data migration is straightforward since it lives in the primary database:
 
 1. Export the points ledger from the source system
 2. Import ledger entries preserving timestamps and reference IDs
@@ -94,7 +94,7 @@ Always use the stored `total_points` value for balance migration, not a recalcul
 For session continuity during migration, import Logto's JWT signing keys into mgPass:
 
 1. Export the RSA private key from Logto
-2. Import it into mgPass via the admin console
+2. Import it into mgPass via the developer console
 3. mgPass will use the imported key to validate existing tokens
 4. New tokens are signed with mgPass's own key
 5. As old tokens expire, all active tokens will use the new key
@@ -107,5 +107,5 @@ Before completing the cutover:
 - Token validation works for both Logto-issued and mgPass-issued tokens
 - Points balances match between systems
 - Webhooks are firing correctly
-- Admin console shows all users and data
+- Developer console shows all users and data
 - Audit logs are capturing events

@@ -42,7 +42,7 @@ sequenceDiagram
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Create an OAuth 2.0 client ID (Web application type)
 3. Add `https://auth.mgpass.net/callback/google` as an authorized redirect URI
-4. Configure the connector in the mgPass admin console with the client ID and secret
+4. Configure the connector in the mgPass developer console with the client ID and secret
 
 <Note>
 Set `hosted_domains` to restrict sign-in to specific Google Workspace domains (e.g., `["mediageneral.com"]`). Leave empty to allow any Google account.
@@ -65,7 +65,7 @@ Set `hosted_domains` to restrict sign-in to specific Google Workspace domains (e
 2. Create a Service ID and configure the web authentication settings
 3. Add `https://auth.mgpass.net/callback/apple` as a return URL
 4. Generate a private key for Sign in with Apple
-5. Configure the connector in the mgPass admin console
+5. Configure the connector in the mgPass developer console
 
 <Warning>
 Apple only sends the user's name on the first authentication. mgPass stores it on initial link, but if missed, the name field will be empty.
@@ -85,7 +85,7 @@ Apple only sends the user's name on the first authentication. mgPass stores it o
 1. Create a Facebook App at [developers.facebook.com](https://developers.facebook.com)
 2. Add Facebook Login product
 3. Add `https://auth.mgpass.net/callback/facebook` as a valid OAuth redirect URI
-4. Configure the connector in the mgPass admin console
+4. Configure the connector in the mgPass developer console
 
 ## Linking and Unlinking
 

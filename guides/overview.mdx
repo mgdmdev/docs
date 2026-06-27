@@ -10,18 +10,18 @@ mgPass is the identity, loyalty, and recurring-revenue platform behind MG Digita
 
 ## Architecture
 
-mgPass runs entirely on Cloudflare's edge:
+mgPass is built from a core service backed by a durable database, a fast cache layer, asset storage, and a per-subscription coordination service:
 
 ```mermaid
 graph LR
-    Client[Your app] -->|OAuth / X-API-Key| AW[auth-worker<br/>auth.mgpass.net]
-    Pay[End user] -->|Hosted checkout| AW
-    Admin[Operators] -->|Service binding| AW
-    Account[End users] -->|Bearer token| AW
-    AW --> D1[(D1<br/>relational)]
-    AW --> KV[(KV<br/>sessions + entitlements)]
-    AW --> R2[(R2<br/>assets)]
-    AW --> DO[(Durable Objects<br/>subscription state)]
+    Client[Your app] -->|OAuth / X-API-Key| MGP[mgPass<br/>auth.mgpass.net]
+    Pay[End user] -->|Hosted checkout| MGP
+    Operator[Operators] -->|Internal call| MGP
+    Account[End users] -->|Bearer token| MGP
+    MGP --> DB[(Database<br/>relational)]
+    MGP --> CACHE[(Session Cache<br/>sessions + entitlements)]
+    MGP --> ASSETS[(Asset Storage)]
+    MGP --> COORD[(Coordination Service<br/>subscription state)]
     AW -->|Outbound HMAC| Webhooks[Tenant webhook endpoints]
 ```
 
@@ -29,19 +29,19 @@ graph LR
 
 | Service | Domain | Purpose |
 |---------|--------|---------|
-| **auth-worker** | `auth.mgpass.net` | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhook delivery, SDK bundle, hosted checkout route |
-| **Hosted checkout** | `pay.mgpass.net` | Public `/checkout/:sessionId` page rendered by the auth-worker for redirect-style flows |
-| **admin console** | `admin.mgpass.net` | SSR operator dashboard — manage Applications, plans, subscriptions, users, rewards |
+| **mgPass API** | `auth.mgpass.net` | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhook delivery, SDK bundle, hosted checkout route |
+| **Hosted checkout** | `pay.mgpass.net` | Public `/checkout/:sessionId` page rendered by the mgPass service for redirect-style flows |
+| **developer console** | `console.mgpass.net` | Self-serve dashboard — register Applications, configure plans, subscriptions, webhooks, OAuth credentials, branding |
 | **account portal** | `mgpass.net` | End-user self-service — profile, sessions, subscriptions, notifications, rewards |
 
 ### Infrastructure
 
-- **Cloudflare Workers** for compute.
-- **D1** for relational data (users, applications, plans, subscriptions, ledger).
-- **KV** for sessions, entitlement caches, and feature flags.
-- **R2** for uploaded assets.
-- **Durable Objects** for the per-subscription state machine that gates renewals.
-- **Queues** for renewal scheduling and webhook delivery retries.
+- **The mgPass service** for compute.
+- **A relational database** for durable data (users, applications, plans, subscriptions, ledger).
+- **A fast cache layer** for sessions, entitlement caches, and feature flags.
+- **Asset storage** for uploaded assets.
+- **A coordination service** for the per-subscription state machine that gates renewals.
+- **A job queue** for renewal scheduling and webhook delivery retries.
 
 ## Core concepts
 
@@ -53,7 +53,7 @@ Every integration — a web app, a partner storefront, a subscription tenant —
 - `application_rewards` — Rewards partner (event types, custom rules, points multiplier, API key hash).
 - `application_subscriptions` — Subscription tenant (billing email, JWT entitlement mode, allowed widget origins, API key hash).
 
-A capability is enabled by inserting its row and disabled by deleting it — there is no boolean. The legacy `oauth_clients`, `rewards_partners`, and `subscription_tenants` tables are gone. One `application_id` is the durable foreign key across the database, services, API JSON, and admin views.
+A capability is enabled by inserting its row and disabled by deleting it — there is no boolean. The legacy `oauth_clients`, `rewards_partners`, and `subscription_tenants` tables are gone. One `application_id` is the durable foreign key across the database, services, and API JSON.
 
 ### Users, roles, scopes
 
@@ -65,7 +65,7 @@ Organizations represent tenants — partner companies, enterprise customers, or 
 
 ### Plans and Subscriptions
 
-A **Plan** is the price + interval + currency + features bundle defined per Application. A **Subscription** binds a user to a plan with a billing cycle, current period, and lifecycle state (trialing, active, past_due, unpaid, cancelled, expired). The Subscriptions Engine maintains state in Durable Objects, charges via Paystack, and emits webhooks at every transition.
+A **Plan** is the price + interval + currency + features bundle defined per Application. A **Subscription** binds a user to a plan with a billing cycle, current period, and lifecycle state (trialing, active, past_due, unpaid, cancelled, expired). The Subscriptions Engine maintains state in a per-subscription coordination service, charges via Paystack, and emits webhooks at every transition.
 
 ### Checkout sessions
 
@@ -87,7 +87,7 @@ OAuth 2.0 / OIDC authorization code, PKCE, client credentials, and refresh-token
 
 ### Subscriptions Engine
 
-Plans, hosted and embedded checkout, Paystack card billing (GHS and USD on a merchant-multi-currency Paystack account), promo codes, trials, family / multi-seat plans, sponsored subs, upgrade proration, and a renewal queue driven by per-subscription Durable Objects. JWT entitlements are signed on demand and cached in KV for sub-millisecond enforcement. Every state transition emits a webhook: `subscription.created`, `.activated`, `.renewed`, `.payment_failed`, `.unpaid`, `.cancelled`, `.expired`, `.trial_ending`, `.plan_changed`. The embed widget (`https://auth.mgpass.net/sdk/checkout.js`) ships with an SRI hash and origin-checks against `application_subscriptions.allowed_widget_origins`.
+Plans, hosted and embedded checkout, Paystack card billing (GHS and USD on a merchant-multi-currency Paystack account), promo codes, trials, family / multi-seat plans, sponsored subs, upgrade proration, and a renewal queue driven by per-subscription coordination services. JWT entitlements are signed on demand and cached for sub-millisecond enforcement. Every state transition emits a webhook: `subscription.created`, `.activated`, `.renewed`, `.payment_failed`, `.unpaid`, `.cancelled`, `.expired`, `.trial_ending`, `.plan_changed`. The embed widget (`https://auth.mgpass.net/sdk/checkout.js`) ships with an SRI hash and origin-checks against `application_subscriptions.allowed_widget_origins`.
 
 Annual plans are card-only. Hubtel MoMo repeat payments are deferred — document this capability gap with users on mobile-money-only flows.
 

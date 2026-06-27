@@ -9,7 +9,7 @@ mgPass gives each user granular control over which event types they hear about a
 For the inbox UI and the always-in-app guarantee, read the [Notification inbox guide](/guides/notifications-inbox) first.
 
 <Note>
-**Preferences are enforced at the delivery worker, not just the UI.** The notification dispatcher consults `user_notification_preferences` before handing off to SES (email) or Hubtel (SMS). A user who opted out of marketing email will never receive a marketing email — regardless of how the notification was emitted, who emitted it, or what `surfaces` array the caller supplied. The opt-out is server-side enforcement, not a client courtesy.
+**Preferences are enforced server-side by mgPass, not just in the UI.** The notification dispatcher consults the user's stored preferences before handing off to the email provider or the SMS provider (Hubtel). A user who opted out of marketing email will never receive a marketing email — regardless of how the notification was emitted, who emitted it, or what `surfaces` array the caller supplied. The opt-out is server-side enforcement, not a client courtesy.
 
 Transactional email remains always-on (regulatory requirement). Marketing defaults to OFF until the user opts in; other categories default ON.
 </Note>
@@ -52,7 +52,7 @@ The [GET preferences](/api-reference/notification-preferences/get-preferences) e
 
 ## SMS rate limit
 
-SMS delivery is capped at **5 messages per user per day**. This is mgPass-side, not user-controllable, and exists to keep Hubtel costs and recipient annoyance bounded. The cap is enforced inside the notification dispatcher: once five SMS deliveries have fired for a user in a rolling 24-hour window, additional SMS attempts are skipped (the inbox row and email still go through).
+SMS delivery is capped at **5 messages per user per day**. This is mgPass-side, not user-controllable, and exists to keep SMS costs and recipient annoyance bounded. The cap is enforced inside the notification dispatcher: once five SMS deliveries have fired for a user in a rolling 24-hour window, additional SMS attempts are skipped (the inbox row and email still go through).
 
 Critical-priority events bypass the cap. If you're integrating against subscription state, expect `subscription.payment_failed` and `subscription.unpaid` to always SMS-deliver even if the user is at the cap.
 

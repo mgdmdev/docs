@@ -6,7 +6,7 @@ api: "POST /v1/notifications"
 
 The Partner Notification API. Applications push arbitrary events into mgPass; mgPass owns dispatch (email, SMS, webhook, push), template resolution, and the in-app inbox.
 
-- **Templates.** Pass `template_id` to use one of your pre-defined templates, or omit and rely on the event-type-derived built-in (works for `subscription.created`, `subscription.renewed`, `subscription.cancelled`, `subscription.expired`, `subscription.payment_failed`, `subscription.trial_ending`). Unknown event types with no `template_id` are still inserted, but the worker logs a no-op.
+- **Templates.** Pass `template_id` to use one of your pre-defined templates, or omit and rely on the event-type-derived built-in (works for `subscription.created`, `subscription.renewed`, `subscription.cancelled`, `subscription.expired`, `subscription.payment_failed`, `subscription.trial_ending`). Unknown event types with no `template_id` are still inserted, but mgPass logs a no-op.
 
 Requires the `X-API-Key` header with a Subscriptions capability key.
 
@@ -47,7 +47,7 @@ Up to **100 requests per minute** per application id. Exceeding returns **429 `r
 </ParamField>
 
 <ParamField body="template_id" type="string">
-  Pre-registered template ID. Omit to let the worker resolve a built-in by `event_type`.
+  Pre-registered template ID. Omit to let mgPass resolve a built-in by `event_type`.
 </ParamField>
 
 ## Response

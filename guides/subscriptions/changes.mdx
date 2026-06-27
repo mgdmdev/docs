@@ -110,7 +110,7 @@ A few worked examples on a 30-day monthly plan priced at 50.00 GHS (`5000`) upgr
 
 Upgrades reset `current_period_start` to "now" and set `current_period_end` to `now + new_plan.interval`. The user's renewal cadence moves with them. This is intentional — billing on a per-plan basis is simpler than carrying forward a partial period at a new price.
 
-The Durable Object's alarm is rewritten to the new period end as part of the change.
+The scheduled renewal timer is rewritten to the new period end as part of the change.
 
 ## When credit exceeds the new charge
 

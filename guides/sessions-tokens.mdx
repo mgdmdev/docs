@@ -14,25 +14,25 @@ sequenceDiagram
     participant User
     participant App
     participant mgPass
-    participant KV as KV Store
-    participant D1 as D1 Database
+    participant Cache as Session Cache
+    participant DB as Database
 
     User->>App: Login
     App->>mgPass: Authorization flow
-    mgPass->>D1: Create session record
-    mgPass->>KV: Cache session
+    mgPass->>DB: Create session record
+    mgPass->>Cache: Cache session
     mgPass->>App: Issue tokens
     App->>mgPass: API request with access token
-    mgPass->>KV: Validate session (fast path)
+    mgPass->>Cache: Validate session (fast path)
     mgPass->>App: Response
 ```
 
-### Dual-Write Storage
+### Durable + Cached Storage
 
-Sessions are stored in both KV and D1 for performance and durability:
+Sessions are stored durably and cached for fast validation:
 
-- **KV** — Primary lookup for token validation (fast, eventually consistent)
-- **D1** — Durable record for session management and audit (strongly consistent)
+- **Session cache** — Primary lookup for token validation (fast path)
+- **Database** — Durable record for session management and audit
 
 ## Token Types
 
@@ -66,7 +66,7 @@ Sessions are stored in both KV and D1 for performance and durability:
   "name": "Kwame Asante",
   "email": "kwame@example.com",
   "email_verified": true,
-  "picture": "https://r2.mgdm.dev/avatars/usr_abc123.jpg",
+  "picture": "https://cdn.mgpass.net/avatars/usr_abc123.jpg",
   "iat": 1711900000,
   "exp": 1711903600
 }

@@ -7,21 +7,20 @@ info:
 
     ## Hosts
 
-    | Host                | Purpose                                                |
-    |---------------------|--------------------------------------------------------|
-    | `auth.mgpass.net`   | Primary API, OAuth/OIDC, SDK bundles, hosted UI        |
-    | `pay.mgpass.net`    | Hosted checkout (UI only — same worker)                |
-    | `admin.mgpass.net`  | Admin console (SSR — not part of this spec)            |
-    | `mgpass.net`        | Account portal (SSR — not part of this spec)           |
-    | `docs.mgpass.net`   | This documentation site                                |
+    | Host                 | Purpose                                                |
+    |----------------------|--------------------------------------------------------|
+    | `auth.mgpass.net`    | Primary API, OAuth/OIDC, SDK bundles, hosted UI        |
+    | `pay.mgpass.net`     | Hosted checkout UI                                      |
+    | `console.mgpass.net` | Developer console — register and configure your apps   |
+    | `mgpass.net`         | End-user account portal                                |
+    | `docs.mgpass.net`    | This documentation site                                |
 
-    ## v3 Unified Applications model
+    ## Unified Applications model
 
-    Every integration in mgPass is an **application** (the spine row) with zero or more
-    **capability** rows attached: OAuth, Rewards, and/or Subscriptions. The legacy
-    `oauth_clients`, `rewards_partners`, and `subscription_tenants` tables are gone — a single
-    `application_id` flows end-to-end. Capability presence is determined by row existence;
-    enable a capability by `POST`ing it, disable by `DELETE`ing it.
+    Every integration in mgPass is an **application** with zero or more
+    **capabilities** attached: OAuth, Rewards, and/or Subscriptions. A single
+    `application_id` is used across the entire API. A capability is enabled by
+    `POST`ing it and disabled by `DELETE`ing it.
 
     ## Authentication
 

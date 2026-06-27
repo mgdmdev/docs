@@ -72,14 +72,14 @@ Every subscription moves through a fixed state machine. The engine schedules ren
 
 ## Renewals
 
-A Durable Object owns each subscription's schedule. On creation (or trial conversion), the DO sets an alarm for `current_period_end`. When the alarm fires, the renewal worker:
+A coordination service owns each subscription's schedule. On creation (or trial conversion), it sets an alarm for `current_period_end`. When the alarm fires, the mgPass renewal service:
 
 1. Looks up the stored Paystack authorization for the user.
 2. Charges `current_price` in `current_currency`.
 3. On success: advances `current_period_start` and `current_period_end` by one interval, writes a `payments` row, sends a `subscription.renewed` webhook, and resets the alarm for the new period end.
 4. On failure: flips status to `past_due`, schedules the first retry, and fires `subscription.payment_failed`.
 
-Renewals run inside the queue with at-least-once delivery, so the worker is idempotent — retrying the same renewal won't double-charge.
+Renewals run on a queue with at-least-once delivery, so the renewal service is idempotent — retrying the same renewal won't double-charge.
 
 ## Retry schedule
 
@@ -122,7 +122,7 @@ Users can mute individual event types per channel from the account portal at `mg
 - Never run renewal charges. No retries, no dunning.
 - Expire at `current_period_end` unless an admin extends them with another sponsored grant.
 
-Sponsored subs are excluded from revenue analytics (`MRR`, `ARPU`, `churn`) — see the analytics dashboard in the admin console.
+Sponsored subs are excluded from revenue analytics (`MRR`, `ARPU`, `churn`) — see the operator analytics dashboard (requires the `mgpass:admin` scope).
 
 ## Reactivation
 

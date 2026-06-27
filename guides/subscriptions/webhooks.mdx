@@ -36,7 +36,7 @@ Money-bearing events add `amount` (minor units) and `currency` (`GHS` or `USD`).
 
 ## Idempotency
 
-Deliveries can repeat — Cloudflare Workers retry on non-2xx responses, and our delivery layer is at-least-once. **Always dedupe on `event_id`** in your receiver. The `event_id` is unique per event; the same event re-delivered carries the same `event_id`.
+Deliveries can repeat — mgPass retries on non-2xx responses, and our delivery layer is at-least-once. **Always dedupe on `event_id`** in your receiver. The `event_id` is unique per event; the same event re-delivered carries the same `event_id`.
 
 Recommended pattern:
 
@@ -333,4 +333,4 @@ The full HMAC verification pattern is documented in the [general webhooks guide]
 
 ## Testing
 
-Use the admin console's webhook tester to fire synthetic events with realistic payloads against your endpoint. The console also shows the full delivery log (response status, body snippet, retry timestamps) for every real event — invaluable when debugging.
+Use the developer console's webhook tester to fire synthetic events with realistic payloads against your endpoint. The console also shows the full delivery log (response status, body snippet, retry timestamps) for every real event — invaluable when debugging.

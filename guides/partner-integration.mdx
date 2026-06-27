@@ -9,7 +9,7 @@ As a partner, you integrate with mgPass Rewards by publishing **events** when us
 
 ## Onboarding
 
-1. MG Digital creates your partner account in the admin console
+1. You create your application and enable the rewards capability in the [developer console](https://console.mgpass.net)
 2. You receive an **API key** and a list of **allowed event types**
 3. You map your user accounts to mgPass user IDs (via email or the mgPass OAuth flow)
 4. You start publishing events
@@ -54,7 +54,7 @@ curl -X POST https://auth.mgpass.net/api/partner/events \
 
 ## Event Types
 
-Event types are strings that you define with MG Digital during onboarding. Common patterns:
+Event types are strings that you define for your application during onboarding. Common patterns:
 
 | Event Type | Description | Typical Points |
 |------------|-------------|----------------|
@@ -214,10 +214,7 @@ If your users also have mgPass accounts, you can offer seamless SSO using the On
 
 ## Testing
 
-Use the staging environment for testing:
-
-```
-Base URL: https://auth.mgpass.net
-```
-
-Staging uses the same API key format but with a separate key issued for testing.
+mgPass runs a single environment at `https://auth.mgpass.net`. For development,
+register a **separate application** in the developer console and use its
+credentials with non-production redirect URIs and widget origins — that keeps
+your test traffic cleanly isolated from your live integration.

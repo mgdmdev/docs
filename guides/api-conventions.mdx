@@ -77,7 +77,7 @@ Generate the key once at the top of your retry loop, not on each attempt. The wh
 
 ## Per-tenant rate limits
 
-Write endpoints are rate-limited per `application_id` using a minute-bucket. Exceeding the limit returns **429 `rate_limit_exceeded`** with a `Retry-After` header set to the seconds remaining in the current bucket. Limits fail open if the underlying KV store is unavailable.
+Write endpoints are rate-limited per `application_id` using a minute-bucket. Exceeding the limit returns **429 `rate_limit_exceeded`** with a `Retry-After` header set to the seconds remaining in the current bucket. Limits fail open if the underlying cache is unavailable.
 
 | Endpoint | Limit |
 |---|---|
@@ -142,7 +142,7 @@ See [Error handling](/guides/error-handling) for the full status-code-to-action 
 
 ## Webhook event_id
 
-Every webhook payload mgPass dispatches carries a top-level `event_id` (prefix `whe_`) generated once per logical event and held identical across all retry attempts. **Dedupe by `event_id` on your receiver** — Cloudflare Workers retry on non-2xx responses and the delivery layer is at-least-once.
+Every webhook payload mgPass dispatches carries a top-level `event_id` (prefix `whe_`) generated once per logical event and held identical across all retry attempts. **Dedupe by `event_id` on your receiver** — mgPass retries on non-2xx responses and the delivery layer is at-least-once.
 
 ```json
 {

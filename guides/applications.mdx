@@ -33,7 +33,7 @@ A capability is a row attached to an Application by `application_id` (primary ke
 
 Folding OAuth clients, rewards partners, and subscription tenants into a single Application spine gives a few concrete properties:
 
-- **One ID end-to-end.** `application_id` is the same value in the database, the admin URL, the API response JSON, the webhook payload, and the OAuth `client_id` flow parameter. No translation layer, no joins to bridge "the OAuth client for this rewards partner."
+- **One ID end-to-end.** `application_id` is the same value in the database, the console URL, the API response JSON, the webhook payload, and the OAuth `client_id` flow parameter. No translation layer, no joins to bridge "the OAuth client for this rewards partner."
 - **Combined integrations are free.** A partner that signs users in *and* sells subscriptions *and* awards points is one Application with three capability rows. Branding, support contact, organization assignment, and webhook config are shared automatically.
 - **Adding capabilities later is cheap.** A new capability is one new table keyed on `application_id` — no schema-wide migration, no backfill, no admin UI rewrite.
 - **Webhooks are unified.** An Application has N webhook endpoints, and each endpoint can subscribe to events from any of the capabilities the Application has enabled. You don't configure webhooks per capability; you configure them per Application and pick the event types.
@@ -46,7 +46,7 @@ The spine carries identity fields only. Everything operational lives on capabili
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | `app_*` identifier. Used as `client_id` in OAuth flows and `application_id` everywhere else. |
-| `slug` | string | URL-safe short name (`3news`, `mgtix`). Unique. Used in admin URLs and as a stable handle. |
+| `slug` | string | URL-safe short name (`3news`, `mgtix`). Unique. Used in console URLs and as a stable handle. |
 | `name` | string | Display name shown on consent screens, checkout, emails. |
 | `description` | string \| null | Optional one-liner shown on the consent screen. |
 | `logo_url` | string \| null | Public URL to the Application's logo. Rendered on consent, checkout, and notification surfaces. |
@@ -59,11 +59,11 @@ The spine carries identity fields only. Everything operational lives on capabili
 
 ## Enabling a capability
 
-You can enable a capability from the admin console or directly via the management API. Both flows return the secret/api key **once** — there is no way to retrieve it later, only rotate.
+You can enable a capability from the developer console or directly via the management API. Both flows return the secret/api key **once** — there is no way to retrieve it later, only rotate.
 
 <Steps>
   <Step title="Create the Application">
-    In the admin console, go to **Applications → New Application**. Fill in name, slug, optional logo/branding, optional organization. Save. At this point you have a spine row with zero capabilities — useful as a placeholder, but it can't do anything yet.
+    In the developer console, go to **Applications → New Application**. Fill in name, slug, optional logo/branding, optional organization. Save. At this point you have a spine row with zero capabilities — useful as a placeholder, but it can't do anything yet.
 
     Equivalent API call: `POST /api/applications` — see [Create application](/api-reference/applications/create-application).
   </Step>
@@ -96,7 +96,7 @@ You can enable a capability from the admin console or directly via the managemen
   </Step>
 </Steps>
 
-To disable a capability, delete its row: **Disable** in the admin UI, or `DELETE /api/applications/:id/capabilities/<oauth|rewards|subscriptions>`. The spine row stays intact. Re-enabling later generates a fresh secret.
+To disable a capability, delete its row: **Disable** in the developer console, or `DELETE /api/applications/:id/capabilities/<oauth|rewards|subscriptions>`. The spine row stays intact. Re-enabling later generates a fresh secret.
 
 ## Secrets and rotation
 
@@ -143,7 +143,7 @@ Manage webhooks via:
 
 The OAuth capability supports serving the authorize, token, userinfo, and logout endpoints from a domain you control — e.g. `auth.yourdomain.com` instead of `auth.mgpass.net`. This lets users see your brand in the URL bar during the login redirect.
 
-Set `application_oauth.custom_domain` (and optionally `custom_subdomain` for a subdomain of `mgpass.net`) when enabling or updating the OAuth capability. mgPass terminates TLS for the custom domain via Cloudflare for SaaS; you point a CNAME at the value we give you and we handle certificates.
+Set `application_oauth.custom_domain` (and optionally `custom_subdomain` for a subdomain of `mgpass.net`) when enabling or updating the OAuth capability. mgPass terminates TLS for the custom domain; you point a CNAME at the value we give you and we handle certificates.
 
 Custom domains apply **only** to OAuth endpoints. Rewards and Subscriptions APIs always live at `auth.mgpass.net`, and hosted checkout always lives at `pay.mgpass.net`.
 

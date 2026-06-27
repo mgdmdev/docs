@@ -17,12 +17,12 @@ curl -X POST https://auth.mgpass.net/api/partner/events \
 ```
 
 <Info>
-  API keys are issued during partner onboarding via the mgPass Admin Console. They are hashed with SHA-256 before storage -- MG Digital cannot retrieve your key after issuance.
+  API keys are issued during partner onboarding via the mgPass Developer Console. They are hashed with SHA-256 before storage -- mgPass cannot retrieve your key after issuance.
 </Info>
 
 ### Key Rotation
 
-If your key is compromised, contact MG Digital to rotate it. The old key is immediately invalidated and a new one is issued.
+If your key is compromised, rotate it from the [developer console](https://console.mgpass.net). The old key is immediately invalidated and a new one is issued.
 
 ### Rate Limits
 
@@ -85,7 +85,7 @@ list; the role gate above is the second, user-level check.
 
 ## Admin Bearer Token
 
-For **mgPass Admin Console** and internal tools. Requires the `mgpass:admin` scope in the access token.
+For **mgPass operator tooling**. Requires the `mgpass:admin` scope in the access token.
 
 ```bash
 curl https://auth.mgpass.net/api/rewards/rules \
@@ -109,7 +109,7 @@ Admin tokens are obtained through the same OAuth flow but require the user to ha
     When receiving webhook events, always verify the `X-Webhook-Signature` header using HMAC-SHA256 with your webhook secret.
   </Accordion>
   <Accordion title="Rotate keys periodically">
-    Rotate your partner API key at least every 90 days. The admin console supports zero-downtime key rotation.
+    Rotate your partner API key at least every 90 days. The developer console supports zero-downtime key rotation.
   </Accordion>
 </AccordionGroup>
 
@@ -128,13 +128,13 @@ mgPass authentication sessions use a **30-day sliding window**:
 
 ### Global Logout
 
-Logging out from **any** mgPass surface (admin console, account portal, or any connected application) revokes sessions everywhere:
+Logging out from **any** mgPass surface (the account portal or any connected application) revokes sessions everywhere:
 
 1. The session cookie on `.mgpass.net` is cleared
 2. All refresh tokens for the user are revoked
-3. Admin and account workers are notified via back-channel (Cloudflare service bindings) to destroy their local sessions
+3. The mgPass account and operator services are notified via a back-channel to destroy their local sessions
 4. The user must re-authenticate on every application
 
-This ensures that a single logout action provides complete session termination across the entire MG Digital ecosystem.
+This ensures that a single logout action provides complete session termination across the entire mgPass ecosystem.
 
 For implementation details, see the [SSO Guide](/guides/sso#global-logout).
