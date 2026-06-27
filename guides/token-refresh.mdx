@@ -105,7 +105,7 @@ class TokenManager {
       state: crypto.randomUUID(),
     });
     window.location.href =
-      `https://auth.mgpass.net/oidc/auth?${params}`;
+      `https://auth.mgpass.net/authorize?${params}`;
   }
 }
 ```
@@ -196,8 +196,18 @@ If a previously-used refresh token is submitted (indicating potential token thef
 3. The user must re-authenticate everywhere
 
 <Warning>
-Never store multiple copies of a refresh token or retry with an old token after receiving a new one. Reusing an old refresh token triggers replay detection and locks out the user.
+Never store multiple copies of a refresh token or retry with an old token after receiving a new one. Genuine reuse of an old refresh token triggers replay detection and locks out the user.
 </Warning>
+
+<Note>
+**Concurrent refreshes are safe.** Two requests that race the *same* refresh
+token (e.g. multiple tabs) won't trip replay detection: one wins and rotates,
+the other gets `409 invalid_grant` (`rotation_in_progress`) or a plain
+`invalid_grant` within a short grace window — the session is **not** revoked.
+Replay detection (revoke-all) only fires for genuine reuse outside that window.
+You still shouldn't deliberately reuse an old token; just don't fear a momentary
+race.
+</Note>
 
 ```mermaid
 sequenceDiagram
@@ -349,7 +359,7 @@ The SPA only ever sees the access token (held in memory). The refresh token live
 Token lifetimes are configured per-application in the mgPass admin console or via the API:
 
 ```bash
-curl -X PATCH https://auth.mgpass.net/api/clients/app_abc123 \
+curl -X PATCH https://auth.mgpass.net/api/applications/app_abc123/capabilities/oauth \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

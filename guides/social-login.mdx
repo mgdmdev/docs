@@ -17,7 +17,7 @@ sequenceDiagram
     participant Provider as Social Provider
 
     User->>App: Click "Sign in with Google"
-    App->>mgPass: Redirect to /oidc/auth (social hint)
+    App->>mgPass: Redirect to /authorize (social hint)
     mgPass->>Provider: Redirect to Google OAuth
     User->>Provider: Authenticate
     Provider->>mgPass: Callback with auth code

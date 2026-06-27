@@ -37,7 +37,7 @@ Best for traditional web applications with a server-side backend.
     Redirect the user to the authorization endpoint:
 
     ```
-    GET https://auth.mgpass.net/oidc/auth?
+    GET https://auth.mgpass.net/authorize?
       response_type=code
       &client_id=YOUR_CLIENT_ID
       &redirect_uri=https://yourapp.com/callback
@@ -160,7 +160,7 @@ Required for SPAs and mobile apps that cannot securely store a client secret.
 
   <Step title="Redirect with PKCE parameters">
     ```
-    GET https://auth.mgpass.net/oidc/auth?
+    GET https://auth.mgpass.net/authorize?
       response_type=code
       &client_id=YOUR_CLIENT_ID
       &redirect_uri=https://yourapp.com/callback
@@ -271,7 +271,7 @@ The `prompt=none` parameter lets you check if a user has an active mgPass sessio
 **Request:**
 
 ```
-GET https://auth.mgpass.net/oidc/auth?
+GET https://auth.mgpass.net/authorize?
   prompt=none
   &client_id=YOUR_CLIENT_ID
   &redirect_uri=https://yourapp.com/callback

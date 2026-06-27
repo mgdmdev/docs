@@ -38,9 +38,9 @@ Sessions are stored in both KV and D1 for performance and durability:
 
 | Token | Format | Lifetime | Purpose |
 |-------|--------|----------|---------|
-| **Access Token** | JWT (RS256) | 1 hour (configurable) | Authorize API requests |
+| **Access Token** | JWT (ES256) | 1 hour (configurable) | Authorize API requests |
 | **Refresh Token** | Opaque string | 30 days (configurable) | Obtain new access tokens |
-| **ID Token** | JWT (RS256) | 1 hour | User identity claims (OIDC) |
+| **ID Token** | JWT (ES256) | 1 hour | User identity claims (OIDC) |
 
 ### Access Token Claims
 
