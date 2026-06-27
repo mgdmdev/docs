@@ -9,7 +9,7 @@ mgPass offers two ways to take a subscription payment. Both flows hit the same `
 | Mode | UX | When to pick it |
 |---|---|---|
 | `hosted` | Redirect to `pay.mgpass.net/checkout/:sessionId` | Fast to integrate. No frontend work beyond a button. PCI scope offloaded entirely. |
-| `embedded` | Inline iframe served by `auth.mgpass.net` and mounted by `mgpass.checkout.open()` | Users stay on your domain. Better for high-conversion flows and SPAs. |
+| `embedded` | Inline iframe served from `pay.mgpass.net` and mounted by `mgpass.checkout.open()` | Users stay on your domain. Better for high-conversion flows and SPAs. |
 
 ## Hosted checkout
 
@@ -128,7 +128,7 @@ The embed widget renders an iframe on your page. The user never leaves your doma
     </CodeGroup>
 
     <Warning>
-      `mode: "embedded"` requires the Application's `allowed_widget_origins` to be non-empty. The endpoint returns 400 `widget_origins_not_configured` otherwise.
+      `mode: "embedded"` requires the Application's `allowed_widget_origins` (https-only) to be non-empty. The endpoint returns 400 `no_widget_origins` otherwise.
     </Warning>
   </Step>
 
@@ -169,7 +169,15 @@ The iframe communicates with your page via `window.postMessage`. The SDK wraps t
 | `mgpass:checkout:error` | `{ code, message }` | payment failed, validation error, or session expired |
 | `mgpass:checkout:close` | none | user clicked the close button |
 
-Always validate `event.origin === "https://auth.mgpass.net"` before trusting the payload.
+Always validate `event.origin === "https://pay.mgpass.net"` before trusting the
+payload. The SDK bundle loads from `auth.mgpass.net`, but the checkout **iframe**
+is served from `pay.mgpass.net`, so that is the origin the messages arrive from.
+
+<Note>
+If you run a Content Security Policy, allow `script-src https://auth.mgpass.net`
+and `frame-src https://pay.mgpass.net`. A `frame-src https://auth.mgpass.net`
+will block the modal — the iframe is on `pay.mgpass.net`.
+</Note>
 
 ### Subresource integrity (SRI)
 
