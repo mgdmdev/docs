@@ -85,6 +85,17 @@ app.post('/webhook', (req, res) => {
 | `rewards.tier_promoted` | User promoted to a higher tier |
 | `rewards.redeemed` | Catalog item redeemed |
 
+### Payment Events
+
+For [one-off payments](/guides/one-off-payments). `failed` and `abandoned` are separate
+events because they are different things that happened to a buyer.
+
+| Event | Description |
+|-------|-------------|
+| `payment.succeeded` | Money moved. Safe to fulfil. |
+| `payment.failed` | The provider declined the charge |
+| `payment.abandoned` | Nobody completed the charge before it expired |
+
 ### Cashback Events
 
 | Event | Description |

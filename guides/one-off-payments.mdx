@@ -109,9 +109,69 @@ curl "https://auth.mgpass.net/v1/payments/by-reference/acme-ORD-4821" \
 Ticket issuance, order fulfilment and anything else irreversible hangs off the webhook,
 never off the response to `POST /v1/payments`.
 
+Three events, registered on your [webhook endpoint](/guides/webhooks):
+
+| Event | When |
+|---|---|
+| `payment.succeeded` | Money moved. Fulfil. |
+| `payment.failed` | The provider declined it. `failure_reason` says why. |
+| `payment.abandoned` | Nobody completed it before `expires_at`. |
+
+`failed` and `abandoned` are separate events on purpose. One buyer was refused, the
+other walked away — you will almost certainly word those differently, and you should not
+have to re-derive which happened from a status field.
+
+Every event carries the same payload, with `null` where a field cannot apply:
+
+```json
+{
+  "event_id": "whe_01HXR3M4K2",
+  "event_type": "payment.succeeded",
+  "timestamp": "2026-09-18T11:24:12.431Z",
+  "data": {
+    "payment_id": "pay_01HXR3M4K2",
+    "application_id": "app_acme",
+    "reference": "acme-ORD-4821",
+    "status": "succeeded",
+    "amount": 46000,
+    "currency": "GHS",
+    "channel": "mobile_money",
+    "provider_reference": "mgp_pay_01HXR3M4K2",
+    "failure_reason": null,
+    "paid_at": 1789716652,
+    "settled_amount": 44000,
+    "platform_fee": 2000,
+    "split_subaccount": "ACCT_organizer123",
+    "user_id": "usr_abc123",
+    "metadata": { "order_id": "4821" }
+  }
+}
+```
+
+### Verify the signature
+
+Every delivery is signed HMAC-SHA256 over the raw body with your webhook secret, in the
+`X-Mgpass-Signature` header. Verify it before acting — an unverified payment webhook is
+an endpoint anyone can use to issue themselves a ticket.
+
+```typescript
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+const expected = createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+const received = req.headers["x-mgpass-signature"] as string;
+
+const ok =
+  expected.length === received.length &&
+  timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+if (!ok) return res.status(401).end();
+```
+
+Compare in constant time. A plain `===` leaks the signature a byte at a time to anyone
+willing to measure.
+
 <Warning>
-  Webhook delivery is **at-least-once**. The same successful charge can arrive twice.
-  Dedupe on `payment_id` and make your fulfilment idempotent — mgPass settles the payment
+  Delivery is **at-least-once** and `event_id` is stable across every retry of the same
+  event. Dedupe on it, and make fulfilment idempotent — mgPass settles the payment
   exactly once on its side, but it cannot make your ticket issuance safe to repeat.
 </Warning>
 
@@ -153,12 +213,30 @@ the flat amount in minor units you retain.
 When the payment settles, `settled_amount` and `platform_fee` record what actually went
 where.
 
-<Note>
-  This matters beyond convenience. If you are selling on behalf of someone else — an
-  event organiser, a vendor, a merchant — splitting at the provider means the money owed
-  to them is never held by anyone else on the way. Ask your account manager to confirm
-  subaccounts are enabled before you build against this.
-</Note>
+This matters beyond convenience. If you are selling on behalf of someone else — an event
+organiser, a vendor, a merchant — splitting at the provider means the money owed to them
+is never held by anyone else on the way. Their share transfers to them directly, on the
+normal payout schedule, and does not sit in the platform balance first.
+
+Splits work on mobile money as well as cards.
+
+<Warning>
+  **A payee can be settled to an MTN or Telecel wallet, but not AirtelTigo.** A buyer can
+  still *pay* from an AirtelTigo wallet — that restriction is on payouts only. A payee
+  whose only mobile money is AirtelTigo needs a bank account instead.
+
+  The list of wallets you can charge and the list you can settle into are different, so
+  do not validate both against one enum. Catch it at onboarding: a clear refusal when
+  someone signs up beats a held payout after their first event.
+</Warning>
+
+Two things worth telling payees before they sign up:
+
+- **A new subaccount has its first payouts held until verification completes.** Normal
+  scheduling resumes afterwards, but the first payout is not immediate.
+- **Mobile money settlements are exempt from the minimum payout thresholds** that apply
+  to bank transfers, which usually makes a wallet the friendlier default for a small
+  payee.
 
 ## Errors
 
