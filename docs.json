@@ -211,7 +211,11 @@
             "pages": [
               "api-reference/payments/create-payment",
               "api-reference/payments/get-payment-by-reference",
-              "api-reference/payments/list-payments"
+              "api-reference/payments/list-payments",
+              "api-reference/payments/create-payout-destination",
+              "api-reference/payments/get-payout-destination",
+              "api-reference/payments/list-payout-destinations",
+              "api-reference/payments/list-banks"
             ]
           },
           {

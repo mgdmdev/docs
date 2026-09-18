@@ -4117,6 +4117,153 @@ paths:
         '404':
           description: No payment with that reference for this Application.
 
+  # ──── Payout destinations ────
+
+  /v1/payout-destinations:
+    post:
+      operationId: createPayoutDestination
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Register where money settles
+      description: |
+        Creates a payout destination — a bank account or mobile money wallet that a
+        payment's share can settle to directly, without passing through the platform
+        balance.
+
+        Pass the returned `subaccount` on a payment to split it.
+
+        This models a place money goes, nothing more. Who it belongs to — an organiser,
+        a vendor, a merchant — is your concept, not ours. mgPass stores the destination
+        against your own `reference` and never learns what is on the other end.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference, business_name, settlement_bank, account_number]
+              properties:
+                reference:
+                  type: string
+                  description: Your own id for whoever this pays. Idempotency key — a repeat returns the first destination rather than creating a second.
+                  example: organizer-4821
+                business_name:
+                  type: string
+                  description: The payee's business name, as it should appear to the payment provider.
+                destination_type:
+                  type: string
+                  enum: [bank, mobile_money]
+                  default: bank
+                settlement_bank:
+                  type: string
+                  description: A bank or wallet code from `GET /v1/banks`. Not the same namespace as `momo_provider` on a charge.
+                account_number:
+                  type: string
+                  description: Account or wallet number. Only the last four digits are retained — the provider holds the rest.
+                currency: { type: string, enum: [GHS, USD], default: GHS }
+                platform_percentage:
+                  type: number
+                  default: 0
+                  description: Percentage of each payment the platform retains. Prefer the flat `platform_fee` on the payment instead.
+                contact_email: { type: string, format: email }
+                contact_name: { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: The destination was created. `notice` carries the verification-hold warning.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutDestination' }
+        '200':
+          description: This `reference` already had a destination; the original is returned with `replayed` true.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutDestination' }
+        '400':
+          description: '`invalid_request` for a missing field, or `wallet_not_settleable` when an AirtelTigo wallet is offered as a payout destination.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502':
+          description: '`provider_error` — the payment provider rejected the account details.'
+    get:
+      operationId: listPayoutDestinations
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: List payout destinations
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+      responses:
+        '200':
+          description: Your Application's payout destinations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/PayoutDestination' } }
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/payout-destinations/by-reference/{reference}:
+    get:
+      operationId: getPayoutDestinationByReference
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Get a payout destination by your own reference
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string }, example: organizer-4821 }
+      responses:
+        '200':
+          description: The destination.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutDestination' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No payout destination with that reference.
+
+  /v1/banks:
+    get:
+      operationId: listSettlementBanks
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Banks and wallets that can receive a settlement
+      description: |
+        Fetched live from the payment provider, so a code is never stale.
+
+        Wallets that cannot receive a payout are filtered out — notably AirtelTigo,
+        which can be charged but not settled to. A picker built from this list cannot
+        offer an option that would be rejected later.
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [mobile_money] }
+          description: Omit for banks; `mobile_money` for wallets.
+        - { name: country, in: query, schema: { type: string, default: ghana } }
+      responses:
+        '200':
+          description: Settleable destinations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string, example: MTN Mobile Money }
+                        code: { type: string, example: MTN }
+                        type: { type: string }
+                        currency: { type: string }
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { description: '`provider_error` — the provider could not be reached.' }
+
 components:
   securitySchemes:
     adminBearer:
@@ -5421,3 +5568,36 @@ components:
         display_text:
           type: [string, 'null']
           description: What to tell the buyer about the prompt on their phone. Mobile money only.
+
+    PayoutDestination:
+      type: object
+      description: A place money settles to. Not a person, a vendor or an organiser — those are the caller's concepts.
+      properties:
+        destination_id: { type: string, example: pyd_01HXR3M4K2 }
+        reference: { type: string, description: Your own id for the payee. }
+        subaccount:
+          type: string
+          description: Pass this as `subaccount` on a payment to split it here.
+          example: ACCT_organizer123
+        business_name: { type: string }
+        destination_type: { type: string, enum: [bank, mobile_money] }
+        settlement_bank: { type: string, description: The bank or wallet code money settles to. }
+        account_last4:
+          type: [string, 'null']
+          description: The last four digits. The full number is held by the payment provider, not here.
+        account_name:
+          type: [string, 'null']
+          description: The name the bank has on file, as resolved by the provider. Worth showing the payee.
+        currency: { type: string, enum: [GHS, USD] }
+        platform_percentage: { type: number }
+        status:
+          type: string
+          enum: [pending_verification, active, inactive]
+          description: New destinations start `pending_verification` — the provider holds first payouts until it verifies them.
+        created_at: { type: integer, description: Unix epoch seconds. }
+        replayed:
+          type: boolean
+          description: True when this `reference` already had a destination and the original was returned.
+        notice:
+          type: [string, 'null']
+          description: Present on creation. Says that first payouts are held until verification, which the payee needs to hear before their first sale.

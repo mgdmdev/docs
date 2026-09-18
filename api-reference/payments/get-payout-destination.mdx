@@ -1,0 +1,88 @@
+---
+title: "Get Payout Destination"
+description: "Look up a payout destination by your own reference."
+api: "GET /v1/payout-destinations/by-reference/{reference}"
+---
+
+One payout destination, by the `reference` you gave it.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+## Path parameters
+
+<ParamField path="reference" type="string" required />
+
+## Response
+
+<ResponseField name="destination_id" type="string" />
+
+<ResponseField name="reference" type="string">
+  Your own id for the payee.
+</ResponseField>
+
+<ResponseField name="subaccount" type="string">
+  Pass this as `subaccount` on a payment to split it here.
+</ResponseField>
+
+<ResponseField name="business_name" type="string" />
+
+<ResponseField name="destination_type" type="string">
+  One of `bank`, `mobile_money`.
+</ResponseField>
+
+<ResponseField name="settlement_bank" type="string">
+  The bank or wallet code money settles to.
+</ResponseField>
+
+<ResponseField name="account_last4" type="string">
+  The last four digits. The full number is held by the payment provider, not here.
+</ResponseField>
+
+<ResponseField name="account_name" type="string">
+  The name the bank has on file, as resolved by the provider. Worth showing the payee.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`, `USD`.
+</ResponseField>
+
+<ResponseField name="platform_percentage" type="number" />
+
+<ResponseField name="status" type="string">
+  New destinations start `pending_verification` — the provider holds first payouts until it verifies them. One of `pending_verification`, `active`, `inactive`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="replayed" type="boolean">
+  True when this `reference` already had a destination and the original was returned.
+</ResponseField>
+
+<ResponseField name="notice" type="string">
+  Present on creation. Says that first payouts are held until verification, which the payee needs to hear before their first sale.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No payout destination with that reference. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/payout-destinations/by-reference/<reference>" \
+  -H "X-API-Key: $API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payout-destinations/by-reference/<reference>", {
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

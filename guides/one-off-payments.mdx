@@ -194,6 +194,40 @@ the record reflects that.
 
 ## Settlement
 
+When you enable the Payments capability you must say where money goes. There is no
+default, because the default would be "our balance" and that is not a thing anyone
+should arrive at by omitting a field.
+
+| `settlement_mode` | Use when |
+|---|---|
+| `destination` | Everything you sell settles to one account. You supply it at enable time and it is created for you. |
+| `per_payment` | You sell on behalf of many different payees. You pass a `subaccount` on each charge. |
+| `platform` | The money is genuinely yours. Only correct when you are the payee. |
+
+### Payout destinations
+
+A payout destination is a bank account or wallet that a payment's share settles to
+directly. Create one per payee:
+
+```bash
+curl -X POST "https://auth.mgpass.net/v1/payout-destinations" \
+  -H "X-API-Key: $PAYMENTS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference": "organizer-4821",
+    "business_name": "Acme Events Ltd",
+    "destination_type": "mobile_money",
+    "settlement_bank": "MTN",
+    "account_number": "0244123456"
+  }'
+```
+
+`reference` is your own id for the payee — it is how you find the destination again,
+and mgPass never learns anything else about who they are. Get valid `settlement_bank`
+codes from [`GET /v1/banks`](/api-reference/payments/list-banks).
+
+Then pass the returned `subaccount` when you charge.
+
 By default a payment settles to the platform account.
 
 Pass `subaccount` (or a pre-built `split_code`) and the payee's share settles **directly

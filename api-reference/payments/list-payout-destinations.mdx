@@ -1,0 +1,99 @@
+---
+title: "List Payout Destinations"
+description: "Your Application's payout destinations."
+api: "GET /v1/payout-destinations"
+---
+
+Your Application's payout destinations, newest first.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+## Query parameters
+
+<ParamField query="page" type="integer" default="1" />
+
+<ParamField query="limit" type="integer" default="20">
+  Values above 100 are reduced to 100.
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  
+
+  <Expandable title="result">
+    <ResponseField name="destination_id" type="string" />
+
+    <ResponseField name="reference" type="string">
+      Your own id for the payee.
+    </ResponseField>
+
+    <ResponseField name="subaccount" type="string">
+      Pass this as `subaccount` on a payment to split it here.
+    </ResponseField>
+
+    <ResponseField name="business_name" type="string" />
+
+    <ResponseField name="destination_type" type="string">
+      One of `bank`, `mobile_money`.
+    </ResponseField>
+
+    <ResponseField name="settlement_bank" type="string">
+      The bank or wallet code money settles to.
+    </ResponseField>
+
+    <ResponseField name="account_last4" type="string">
+      The last four digits. The full number is held by the payment provider, not here.
+    </ResponseField>
+
+    <ResponseField name="account_name" type="string">
+      The name the bank has on file, as resolved by the provider. Worth showing the payee.
+    </ResponseField>
+
+    <ResponseField name="currency" type="string">
+      One of `GHS`, `USD`.
+    </ResponseField>
+
+    <ResponseField name="platform_percentage" type="number" />
+
+    <ResponseField name="status" type="string">
+      New destinations start `pending_verification` — the provider holds first payouts until it verifies them. One of `pending_verification`, `active`, `inactive`.
+    </ResponseField>
+
+    <ResponseField name="created_at" type="integer">
+      Unix epoch seconds.
+    </ResponseField>
+
+    <ResponseField name="replayed" type="boolean">
+      True when this `reference` already had a destination and the original was returned.
+    </ResponseField>
+
+    <ResponseField name="notice" type="string">
+      Present on creation. Says that first payouts are held until verification, which the payee needs to hear before their first sale.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/payout-destinations" \
+  -H "X-API-Key: $API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payout-destinations", {
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

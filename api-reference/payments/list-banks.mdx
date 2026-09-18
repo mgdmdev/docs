@@ -1,0 +1,62 @@
+---
+title: "List Settlement Banks"
+description: "Banks and wallets that can receive a settlement."
+api: "GET /v1/banks"
+---
+
+Banks and mobile money wallets that can receive a settlement, fetched live from the payment provider so a code is never stale.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+<Note>
+  Wallets that cannot receive a payout are filtered out — notably AirtelTigo, which can be charged but not settled to. A picker built from this list cannot offer an option that would be rejected two steps later.
+</Note>
+
+## Query parameters
+
+<ParamField query="type" type="string">
+  Omit for banks; `mobile_money` for wallets.
+</ParamField>
+
+<ParamField query="country" type="string" default="ghana" />
+
+## Response
+
+<ResponseField name="results" type="array">
+  
+
+  <Expandable title="result">
+    <ResponseField name="name" type="string" />
+
+    <ResponseField name="code" type="string" />
+
+    <ResponseField name="type" type="string" />
+
+    <ResponseField name="currency" type="string" />
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 502 | `provider_error` | The payment provider could not be reached. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/banks" \
+  -H "X-API-Key: $API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/banks", {
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

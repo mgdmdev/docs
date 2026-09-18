@@ -1,0 +1,160 @@
+---
+title: "Create Payout Destination"
+description: "Register a bank account or wallet that payments can settle to."
+api: "POST /v1/payout-destinations"
+---
+
+Creates a payout destination — a bank account or wallet that a payment's share settles to directly, without passing through the platform balance. Pass the returned `subaccount` on a payment to split it there.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+<Warning>
+  **A payee cannot be settled into an AirtelTigo wallet.** They can still *pay* from one — the restriction is on payouts. Offer MTN, Telecel, or a bank account. This endpoint refuses AirtelTigo rather than letting the provider reject it later, because by then it looks like a held payout after someone's first event.
+</Warning>
+
+<Note>
+  Only the last four digits of the account number are kept. The payment provider holds the rest, and a second copy would be one more thing to leak.
+</Note>
+
+## Body
+
+<ParamField body="reference" type="string" required>
+  Your own id for whoever this pays. Idempotency key — a repeat returns the first destination rather than creating a second.
+</ParamField>
+
+<ParamField body="business_name" type="string" required>
+  The payee's business name, as it should appear to the payment provider.
+</ParamField>
+
+<ParamField body="destination_type" type="string" default="bank">
+  One of `bank`, `mobile_money`.
+</ParamField>
+
+<ParamField body="settlement_bank" type="string" required>
+  A bank or wallet code from `GET /v1/banks`. Not the same namespace as `momo_provider` on a charge.
+</ParamField>
+
+<ParamField body="account_number" type="string" required>
+  Account or wallet number. Only the last four digits are retained — the provider holds the rest.
+</ParamField>
+
+<ParamField body="currency" type="string" default="GHS">
+  One of `GHS`, `USD`.
+</ParamField>
+
+<ParamField body="platform_percentage" type="number" default="0">
+  Percentage of each payment the platform retains. Prefer the flat `platform_fee` on the payment instead.
+</ParamField>
+
+<ParamField body="contact_email" type="string" />
+
+<ParamField body="contact_name" type="string" />
+
+<ParamField body="description" type="string" />
+
+## Response
+
+<ResponseField name="destination_id" type="string" />
+
+<ResponseField name="reference" type="string">
+  Your own id for the payee.
+</ResponseField>
+
+<ResponseField name="subaccount" type="string">
+  Pass this as `subaccount` on a payment to split it here.
+</ResponseField>
+
+<ResponseField name="business_name" type="string" />
+
+<ResponseField name="destination_type" type="string">
+  One of `bank`, `mobile_money`.
+</ResponseField>
+
+<ResponseField name="settlement_bank" type="string">
+  The bank or wallet code money settles to.
+</ResponseField>
+
+<ResponseField name="account_last4" type="string">
+  The last four digits. The full number is held by the payment provider, not here.
+</ResponseField>
+
+<ResponseField name="account_name" type="string">
+  The name the bank has on file, as resolved by the provider. Worth showing the payee.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`, `USD`.
+</ResponseField>
+
+<ResponseField name="platform_percentage" type="number" />
+
+<ResponseField name="status" type="string">
+  New destinations start `pending_verification` — the provider holds first payouts until it verifies them. One of `pending_verification`, `active`, `inactive`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="replayed" type="boolean">
+  True when this `reference` already had a destination and the original was returned.
+</ResponseField>
+
+<ResponseField name="notice" type="string">
+  Present on creation. Says that first payouts are held until verification, which the payee needs to hear before their first sale.
+</ResponseField>
+
+<Tip>
+  New destinations come back `pending_verification`, and the response carries a `notice` saying so. First payouts are held until the provider verifies the account — tell the payee at signup, not the morning their money does not arrive.
+</Tip>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | A required field is missing. |
+| 400 | `wallet_not_settleable` | An AirtelTigo wallet was offered as a payout destination. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 502 | `provider_error` | The payment provider rejected the account details. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/payout-destinations" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "reference": "organizer-4821",
+  "business_name": "<string>",
+  "destination_type": "bank",
+  "settlement_bank": "<string>",
+  "account_number": "<string>",
+  "currency": "GHS",
+  "platform_percentage": 1.0,
+  "contact_email": "<string>",
+  "contact_name": "<string>",
+  "description": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payout-destinations", {
+  method: "POST",
+  headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "reference": "organizer-4821",
+    "business_name": "<string>",
+    "destination_type": "bank",
+    "settlement_bank": "<string>",
+    "account_number": "<string>",
+    "currency": "GHS",
+    "platform_percentage": 1.0,
+    "contact_email": "<string>",
+    "contact_name": "<string>",
+    "description": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>
