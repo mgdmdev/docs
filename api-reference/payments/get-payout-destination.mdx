@@ -46,7 +46,9 @@ Requires the `X-API-Key` header with a Payments capability key.
   One of `GHS`, `USD`.
 </ResponseField>
 
-<ResponseField name="platform_percentage" type="number" />
+<ResponseField name="subaccount_percentage" type="number">
+  Percentage of each payment this payee receives. A flat `platform_fee` on a payment takes precedence over it.
+</ResponseField>
 
 <ResponseField name="status" type="string">
   New destinations start `pending_verification` — the provider holds first payouts until it verifies them. One of `pending_verification`, `active`, `inactive`.

@@ -244,6 +244,21 @@ the flat amount in minor units you retain.
 }
 ```
 
+<Warning>
+  **`platform_fee` is required whenever you split.** Send `0` to take no fee.
+
+  It is not optional because of how the provider resolves a split: a flat per-transaction
+  fee takes precedence over the destination's stored percentage, and the percentage is
+  only consulted when the flat fee is missing. That is the one path where the payee's
+  share is decided by a value you did not look at on this request, so we refuse it rather
+  than guess. An explicit zero is a decision; an absent one is an oversight, and they
+  should not look the same when someone else's money is the difference.
+</Warning>
+
+A destination also carries `subaccount_percentage` — the share the **payee** receives,
+defaulting to **100**. It is a fallback, not the main lever. Prefer the flat fee: it is
+stated per transaction, where you can see it.
+
 When the payment settles, `settled_amount` and `platform_fee` record what actually went
 where.
 

@@ -12,6 +12,10 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
   Do not fulfil on this response. A charge is `pending` until the buyer completes it — issue tickets or release goods on the webhook, and dedupe on `payment_id` because delivery is at-least-once.
 </Warning>
 
+<Warning>
+  **`platform_fee` is required whenever you set `subaccount` or `split_code`.** Send `0` to take no fee. It is not optional because omitting it falls back to the destination's stored percentage — the one path where the payee's share is decided by a value you did not look at on this request.
+</Warning>
+
 <Note>
   `amount` is in minor units: `46000` is GH¢ 460.00. A decimal is refused rather than rounded, because sending cedis where pesewas are expected is a 100x error.
 </Note>
@@ -67,7 +71,7 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 </ParamField>
 
 <ParamField body="platform_fee" type="integer">
-  Flat fee in minor units retained when a split applies. Cannot exceed `amount`.
+  Flat fee in minor units retained when a split applies. Cannot exceed `amount`. REQUIRED whenever `subaccount` or `split_code` is set — send 0 to take no fee. Omitting it would fall back to the destination's stored percentage, so an absent value is refused rather than guessed at.
 </ParamField>
 
 <ParamField body="ttl_seconds" type="integer" default="3600">
@@ -156,6 +160,7 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 |--------|------|------|
 | 400 | `invalid_request` | `reference` or `customer_email` missing, or `customer_phone` missing on a mobile money charge. |
 | 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
+| 400 | `platform_fee_required` | A split was requested without a flat `platform_fee`. |
 | 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
 | 400 | `unsupported_currency` | Not `GHS` or `USD`. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |

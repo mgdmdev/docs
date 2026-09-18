@@ -4048,7 +4048,12 @@ paths:
                   description: A pre-built Paystack split group, as an alternative to `subaccount`.
                 platform_fee:
                   type: integer
-                  description: Flat fee in minor units retained when a split applies. Cannot exceed `amount`.
+                  description: >
+                    Flat fee in minor units retained when a split applies. Cannot exceed
+                    `amount`. REQUIRED whenever `subaccount` or `split_code` is set —
+                    send 0 to take no fee. Omitting it would fall back to the
+                    destination's stored percentage, so an absent value is refused
+                    rather than guessed at.
                 ttl_seconds:
                   type: integer
                   default: 3600
@@ -4064,7 +4069,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OneOffPayment' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: >
+            `invalid_request`, `invalid_amount`, `invalid_momo_provider`,
+            `unsupported_currency`, or `platform_fee_required` when a split is
+            requested without a flat fee.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: '`channel_not_allowed` — that channel is not enabled for this Application.'
@@ -4161,10 +4170,16 @@ paths:
                   type: string
                   description: Account or wallet number. Only the last four digits are retained — the provider holds the rest.
                 currency: { type: string, enum: [GHS, USD], default: GHS }
-                platform_percentage:
+                subaccount_percentage:
                   type: number
-                  default: 0
-                  description: Percentage of each payment the platform retains. Prefer the flat `platform_fee` on the payment instead.
+                  default: 100
+                  description: >
+                    Percentage of each payment the PAYEE receives; the remainder is
+                    retained. Defaults to 100. A flat `platform_fee` on the payment
+                    overrides this, and is the recommended way to take a fee — this
+                    percentage only applies if a payment omits one.
+                  minimum: 0
+                  maximum: 100
                 contact_email: { type: string, format: email }
                 contact_name: { type: string }
                 description: { type: string }
@@ -4304,7 +4319,10 @@ paths:
                     destination_type: { type: string, enum: [bank, mobile_money], default: bank }
                     settlement_bank: { type: string, description: A bank or wallet code. AirtelTigo is refused — it cannot receive settlements. }
                     account_number: { type: string, description: Only the last four digits are retained. }
-                    platform_percentage: { type: number, default: 0 }
+                    subaccount_percentage:
+                      type: number
+                      default: 100
+                      description: Percentage the payee receives. Defaults to 100 so a payment that omits its flat fee overpays the payee rather than paying them nothing.
                 default_platform_fee:
                   type: [integer, 'null']
                   description: Flat fee in minor units retained on each split payment, when the charge does not specify one.
@@ -5736,7 +5754,9 @@ components:
           type: [string, 'null']
           description: The name the bank has on file, as resolved by the provider. Worth showing the payee.
         currency: { type: string, enum: [GHS, USD] }
-        platform_percentage: { type: number }
+        subaccount_percentage:
+          type: number
+          description: Percentage of each payment this payee receives. A flat `platform_fee` on a payment takes precedence over it.
         status:
           type: string
           enum: [pending_verification, active, inactive]

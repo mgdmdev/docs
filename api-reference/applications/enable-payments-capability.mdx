@@ -13,6 +13,10 @@ Requires an admin bearer token.
 </Warning>
 
 <Note>
+  `subaccount_percentage` on `default_payout` is the share the **payee** receives, and defaults to **100**. A flat fee per payment overrides it.
+</Note>
+
+<Note>
   `api_key` is returned once and cannot be retrieved again. Store it when you read this response; if it is lost, rotate rather than re-enable.
 </Note>
 
@@ -48,7 +52,9 @@ Requires an admin bearer token.
       Only the last four digits are retained.
     </ResponseField>
 
-    <ResponseField name="platform_percentage" type="number" default="0" />
+    <ResponseField name="subaccount_percentage" type="number" default="100">
+      Percentage the payee receives. Defaults to 100 so a payment that omits its flat fee overpays the payee rather than paying them nothing.
+    </ResponseField>
   </Expandable>
 </ParamField>
 
@@ -122,7 +128,7 @@ curl -X POST "https://auth.mgpass.net/api/applications/usr_abc123/capabilities/p
     "destination_type": "bank",
     "settlement_bank": "<string>",
     "account_number": "<string>",
-    "platform_percentage": 1.0
+    "subaccount_percentage": 1.0
   },
   "default_platform_fee": 123,
   "allowed_channels": [
@@ -145,7 +151,7 @@ const res = await fetch("https://auth.mgpass.net/api/applications/usr_abc123/cap
       "destination_type": "bank",
       "settlement_bank": "<string>",
       "account_number": "<string>",
-      "platform_percentage": 1.0
+      "subaccount_percentage": 1.0
     },
     "default_platform_fee": 123,
     "allowed_channels": [
