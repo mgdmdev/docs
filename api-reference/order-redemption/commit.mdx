@@ -3,3 +3,55 @@ title: "Commit a Redemption"
 description: "Settle a reservation once the order has been paid."
 api: "POST /api/partner/redemptions/{id}/commit"
 ---
+
+Moves the redemption to `completed`. No points move — they left the balance at [reservation](/api-reference/order-redemption/reserve). Committing simply records that the sale went through.
+
+Requires the `X-API-Key` header with a Rewards capability key. The redemption must belong to the calling Application.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The `redemption_id` returned by the reservation, e.g. `rdm_xyz789`.
+</ParamField>
+
+## Response
+
+The redemption row, with `status` now `completed` and `committed_at` set.
+
+<ResponseField name="already" type="boolean">
+  `true` when the redemption was already committed. Repeating a commit is safe and changes nothing.
+</ResponseField>
+
+<Warning>
+  Committing after the hold has lapsed returns **409 `wrong_state`**. The points are already back with the user at that point, so the order is no longer discounted: re-quote and charge the full amount, or reserve again.
+</Warning>
+
+#### Rate limit
+
+Up to **300 requests per minute** per application id, shared with [void](/api-reference/order-redemption/void).
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No redemption with that id belongs to your Application. |
+| 409 | `wrong_state` | Already voided, or the hold lapsed and the points were returned. |
+| 429 | `rate_limit_exceeded` | More than 300 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/redemptions/rdm_xyz789/commit" \
+  -H "X-API-Key: $REWARDS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/partner/redemptions/${redemptionId}/commit`,
+  { method: "POST", headers: { "X-API-Key": rewardsApiKey } },
+);
+const settled = await res.json();
+```
+
+</CodeGroup>

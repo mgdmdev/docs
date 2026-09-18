@@ -3,3 +3,66 @@ title: "Void a Redemption"
 description: "Return the points when an order fails, expires or is abandoned."
 api: "POST /api/partner/redemptions/{id}/void"
 ---
+
+Returns the points and moves the redemption to `cancelled`. Safe to repeat: the refund is guarded on its own ledger entry, so a double void credits once.
+
+Requires the `X-API-Key` header with a Rewards capability key. The redemption must belong to the calling Application.
+
+<Warning>
+  Void a reservation as soon as you know its payment will not complete, rather than leaving it to lapse. The expiry is a backstop for crashes and closed tabs, not the design — until it fires, the buyer's points are held and their balance reads low.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The `redemption_id` returned by the reservation, e.g. `rdm_xyz789`.
+</ParamField>
+
+## Body
+
+<ParamField body="reason" type="string">
+  Optional free-text reason recorded on the audit trail, e.g. `payment_failed`, `cart_abandoned`. The body may be omitted entirely.
+</ParamField>
+
+## Response
+
+The redemption row, with `status` now `cancelled` and `voided_at` set.
+
+<ResponseField name="already" type="boolean">
+  `true` when the redemption was already voided. The points are credited once, not twice.
+</ResponseField>
+
+#### Rate limit
+
+Up to **300 requests per minute** per application id, shared with [commit](/api-reference/order-redemption/commit).
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No redemption with that id belongs to your Application. |
+| 409 | `wrong_state` | The redemption is already committed. |
+| 429 | `rate_limit_exceeded` | More than 300 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/redemptions/rdm_xyz789/void" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "payment_failed" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/partner/redemptions/${redemptionId}/void`,
+  {
+    method: "POST",
+    headers: { "X-API-Key": rewardsApiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: "payment_failed" }),
+  },
+);
+```
+
+</CodeGroup>

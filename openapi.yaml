@@ -4328,11 +4328,10 @@ components:
         currency: { type: string, example: GHS }
         tier_at_redemption: { type: string, example: gold }
         created_at: { type: integer, example: 1789714852 }
-        committed_at: { type: integer, nullable: true }
-        voided_at: { type: integer, nullable: true }
+        committed_at: { type: [integer, 'null'] }
+        voided_at: { type: [integer, 'null'] }
         expires_at:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
           description: >
             When the hold lapses and the platform returns the points. A
             reservation is a hold, not a plain debit.

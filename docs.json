@@ -374,11 +374,11 @@
               "api-reference/admin-templates/update-template"
             ]
           }
-        ]
+        ],
+        "openapi": "openapi.yaml"
       }
     ]
   },
-  "openapi": "/openapi.yaml",
   "feedback": {
     "suggestEdit": true,
     "raiseIssue": true

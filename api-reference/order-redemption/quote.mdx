@@ -3,3 +3,121 @@ title: "Quote a Redemption"
 description: "What a user's points are worth against an order total, with no side effects."
 api: "POST /api/partner/redemptions/quote"
 ---
+
+Runs the same arithmetic the reservation will, so a quote and the reservation that follows it cannot disagree. It has no side effects — call it on every cart change.
+
+Requires the `X-API-Key` header with a Rewards capability key. See [Order redemption](/guides/order-redemption) for the full flow.
+
+<Warning>
+  Never compute a points discount in your own client. The rate is per tier and set by mgPass operators, so a number worked out in your app is a number your server has no authority to charge.
+</Warning>
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  mgPass user ID whose balance is being quoted.
+</ParamField>
+
+<ParamField body="order_amount" type="number" required>
+  The order total before any points discount, in **cedis** — `500.00` means GH¢ 500.00, not 500 pesewas.
+</ParamField>
+
+<ParamField body="points" type="integer">
+  Ask what a specific number of points is worth instead of the maximum. Clamped to what is actually spendable.
+</ParamField>
+
+## Response
+
+<ResponseField name="tier" type="string">
+  The user's current tier: `bronze`, `silver`, `gold` or `platinum`.
+</ResponseField>
+
+<ResponseField name="rate" type="number">
+  Cedis one point is worth at this tier, e.g. `0.008`.
+</ResponseField>
+
+<ResponseField name="balance" type="integer">
+  The user's full points balance.
+</ResponseField>
+
+<ResponseField name="min_points" type="integer">
+  Smallest redemption this tier permits.
+</ResponseField>
+
+<ResponseField name="max_order_fraction" type="number">
+  Largest share of the order points may cover. `1.0` means the whole order.
+</ResponseField>
+
+<ResponseField name="max_points" type="integer">
+  The ceiling: the smaller of what the user holds and what the order can absorb.
+</ResponseField>
+
+<ResponseField name="max_value" type="number">
+  What `max_points` is worth, in cedis.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  The points this quote covers — your requested amount, or `max_points`.
+</ResponseField>
+
+<ResponseField name="value" type="number">
+  The discount the order would receive, in cedis. Subtract it from `order_amount` when you charge.
+</ResponseField>
+
+<ResponseField name="eligible" type="boolean">
+  `false` when nothing can be spent.
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Present when `eligible` is `false`: `no_config`, `no_balance`, `below_minimum` or `order_too_small`. Show it — "you need 100 points to redeem" is a better screen than a disabled switch.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `user_id` missing, or `order_amount` absent, non-numeric or negative. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 429 | `rate_limit_exceeded` | More than 1000 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/redemptions/quote" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "order_amount": 500.00
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/partner/redemptions/quote", {
+  method: "POST",
+  headers: {
+    "X-API-Key": rewardsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ user_id: "usr_abc123", order_amount: 500.0 }),
+});
+const quote = await res.json();
+// quote.value is the discount in cedis; quote.eligible says whether to offer it.
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "tier": "gold",
+  "rate": 0.008,
+  "balance": 5000,
+  "min_points": 100,
+  "max_order_fraction": 1.0,
+  "max_points": 5000,
+  "max_value": 40.0,
+  "points": 5000,
+  "value": 40.0,
+  "eligible": true
+}
+```

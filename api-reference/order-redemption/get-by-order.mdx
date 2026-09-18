@@ -3,3 +3,54 @@ title: "Get Redemption by Order Reference"
 description: "Look up a reservation by your own order id after a lost response."
 api: "GET /api/partner/redemptions/by-order/{reference}"
 ---
+
+For recovering from a lost response without retrying blind. If a [reservation's](/api-reference/order-redemption/reserve) response never reached you, look it up by the `order_reference` you sent rather than reserving again.
+
+Requires the `X-API-Key` header with a Rewards capability key. Only redemptions belonging to the calling Application are visible.
+
+## Path parameters
+
+<ParamField path="reference" type="string" required>
+  The `order_reference` you sent when reserving, e.g. `acme-ORD-4821`.
+</ParamField>
+
+## Response
+
+The redemption row — the same shape [reserve](/api-reference/order-redemption/reserve) returns, including `status`, `points_spent`, `value` and `expires_at`. Read `status` to decide what to do next:
+
+| `status` | Meaning |
+|---|---|
+| `pending` | The hold is live. Commit or void it. |
+| `completed` | Already settled. Nothing to do. |
+| `cancelled` | Voided or expired. The points are back with the user. |
+
+#### Rate limit
+
+Up to **600 requests per minute** per application id.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No redemption for that order reference. The reservation never landed — reserve again. |
+| 429 | `rate_limit_exceeded` | More than 600 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/partner/redemptions/by-order/acme-ORD-4821" \
+  -H "X-API-Key: $REWARDS_API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/partner/redemptions/by-order/${orderReference}`,
+  { headers: { "X-API-Key": rewardsApiKey } },
+);
+if (res.status === 404) {
+  // The reservation never landed — safe to reserve again.
+}
+```
+
+</CodeGroup>

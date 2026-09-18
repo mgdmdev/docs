@@ -3,3 +3,170 @@ title: "Reserve a Redemption"
 description: "Hold a user's points against an order and get the cedi value to discount."
 api: "POST /api/partner/redemptions"
 ---
+
+Holds the points and returns the cedi value the order may claim. Charge `order_amount - value`.
+
+A reservation is a **hold, not a debit**. If nobody commits or voids it by `expires_at` the platform returns the points itself, so a crashed checkout cannot strand a buyer's balance. Settle it anyway — until the hold lapses, the buyer's balance reads low.
+
+Requires the `X-API-Key` header with a Rewards capability key.
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  mgPass user ID spending the points.
+</ParamField>
+
+<ParamField body="order_reference" type="string" required>
+  Your own order id. This is the idempotency key of record — see [Idempotency](#idempotency) below.
+</ParamField>
+
+<ParamField body="order_amount" type="number" required>
+  The order total before the discount, in **cedis**, greater than zero.
+</ParamField>
+
+<ParamField body="points" type="integer" required>
+  Points to spend, greater than zero. Take this from a [quote](/api-reference/order-redemption/quote).
+</ParamField>
+
+<ParamField body="currency" type="string" default="GHS">
+  Optional. `GHS` is the only accepted value — the rate is configured in cedis, so another currency would mean inventing a conversion.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Arbitrary JSON stored with the redemption for your own reconciliation.
+</ParamField>
+
+<ParamField body="ttl_seconds" type="integer" default="1800">
+  How long the hold lasts. Clamped to between `300` (5 minutes) and `86400` (24 hours); values outside that range are silently brought inside it.
+</ParamField>
+
+## Response
+
+<ResponseField name="redemption_id" type="string">
+  Pass this to [commit](/api-reference/order-redemption/commit) or [void](/api-reference/order-redemption/void).
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `pending` on a fresh reservation.
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  The user the points came from.
+</ResponseField>
+
+<ResponseField name="order_reference" type="string">
+  The reference you sent.
+</ResponseField>
+
+<ResponseField name="order_amount" type="number">
+  The order total you sent, in cedis.
+</ResponseField>
+
+<ResponseField name="points_spent" type="integer">
+  Points held for this order.
+</ResponseField>
+
+<ResponseField name="value" type="number">
+  The authorised discount in cedis. **Subtract this from `order_amount` when you charge.**
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  Always `GHS`.
+</ResponseField>
+
+<ResponseField name="tier_at_redemption" type="string">
+  The tier whose rate was applied, recorded so a later tier change cannot rewrite history.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="committed_at" type="integer">
+  `null` until the redemption is committed.
+</ResponseField>
+
+<ResponseField name="voided_at" type="integer">
+  `null` until the redemption is voided.
+</ResponseField>
+
+<ResponseField name="expires_at" type="integer">
+  Unix epoch seconds at which the hold lapses and the points are returned.
+</ResponseField>
+
+<ResponseField name="replayed" type="boolean">
+  `true` when this `order_reference` already had a reservation and the original was returned instead of a second debit.
+</ResponseField>
+
+## Idempotency
+
+`order_reference` is the idempotency key of record. Retry a reservation after a timeout and you get the original back with `replayed: true` rather than a second debit — no `Idempotency-Key` header needed, though one is honoured if you send it. Two first-time requests racing resolve the same way: the loser is handed the winner's reservation.
+
+If a response never reached you at all, [look the reservation up by reference](/api-reference/order-redemption/get-by-order) rather than retrying blind.
+
+<Warning>
+  Asking for more points than are spendable returns **400** with the current quote in `details.quote`. The amount is never quietly reduced, because a silent clamp is how a buyer ends up seeing one discount and being charged against another.
+</Warning>
+
+#### Rate limit
+
+Up to **300 requests per minute** per application id.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `user_id` or `order_reference` missing, or `order_amount` / `points` not a positive number. |
+| 400 | `insufficient_points` | The user does not hold that many spendable points. `details.quote` carries the current numbers. |
+| 400 | `not_eligible` | The order or tier does not permit this redemption. `details.quote` says why. |
+| 400 | `unsupported_currency` | `currency` was sent as something other than `GHS`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 429 | `rate_limit_exceeded` | More than 300 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/redemptions" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "usr_abc123",
+    "order_reference": "acme-ORD-4821",
+    "order_amount": 500.00,
+    "points": 5000
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/partner/redemptions", {
+  method: "POST",
+  headers: {
+    "X-API-Key": rewardsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    user_id: "usr_abc123",
+    order_reference: "acme-ORD-4821",
+    order_amount: 500.0,
+    points: 5000,
+  }),
+});
+const reservation = await res.json();
+const amountToCharge = reservation.order_amount - reservation.value; // 460.00
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "redemption_id": "rdm_xyz789",
+  "status": "pending",
+  "order_reference": "acme-ORD-4821",
+  "order_amount": 500.0,
+  "points_spent": 5000,
+  "value": 40.0,
+  "currency": "GHS",
+  "expires_at": 1789716652,
+  "replayed": false
+}
+```
