@@ -114,6 +114,8 @@ tags:
     description: Operator search, export and reconciliation over the points ledger.
   - name: Rewards Redemptions
     description: Operator search over every redemption, across all types.
+  - name: Payments
+    description: One-off charges for an arbitrary amount, separate from subscription billing.
   - name: Roles & Permissions
     description: Manage roles and scope assignments.
   - name: API Resources
@@ -3976,6 +3978,145 @@ paths:
         '400':
           description: '`invalid_request` — the `Sec-Fetch-Dest: webidentity` header was absent.'
 
+  # ──── One-off payments ────
+
+  /v1/payments:
+    post:
+      operationId: createOneOffPayment
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Charge an arbitrary amount
+      description: |
+        A single charge for an amount you decide — a ticket, an order, a top-up.
+        Unlike checkout, nothing here is derived from a plan.
+
+        **The amount you send is the amount charged.** It is stored exactly as
+        received and never recomputed, so a total you worked out server-side
+        (after a promo code, a points discount, or both) survives intact.
+
+        `channel: mobile_money` charges the wallet directly and returns
+        `display_text` for the prompt the buyer is about to see. Every other
+        channel returns an `authorization_url` to send them to.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference, amount, customer_email]
+              properties:
+                reference:
+                  type: string
+                  description: Your own order id, and the idempotency key of record. A retry returns the original payment rather than charging twice.
+                  example: acme-ORD-4821
+                amount:
+                  type: integer
+                  description: Minor units — pesewas for GHS, cents for USD. A decimal is refused rather than rounded.
+                  example: 46000
+                currency: { type: string, enum: [GHS, USD], default: GHS }
+                customer_email:
+                  type: string
+                  format: email
+                  description: Required on every charge, including mobile money — Paystack requires it.
+                customer_phone:
+                  type: string
+                  description: Required when `channel` is `mobile_money`.
+                  example: '0244123456'
+                channel:
+                  type: string
+                  enum: [card, mobile_money, bank, ussd, bank_transfer]
+                  default: card
+                momo_provider:
+                  type: string
+                  enum: [mtn, vod, atl]
+                  description: Required when `channel` is `mobile_money`. `vod` is Telecel, `atl` is AirtelTigo.
+                user_id:
+                  type: string
+                  description: The mgPass user, when you know who this is. Omit for guest checkout.
+                description: { type: string }
+                metadata:
+                  type: object
+                  additionalProperties: true
+                callback_url:
+                  type: string
+                  description: Where the payer returns after a hosted channel.
+                subaccount:
+                  type: string
+                  description: Settle a share directly to this Paystack subaccount instead of the platform balance.
+                split_code:
+                  type: string
+                  description: A pre-built Paystack split group, as an alternative to `subaccount`.
+                platform_fee:
+                  type: integer
+                  description: Flat fee in minor units retained when a split applies. Cannot exceed `amount`.
+                ttl_seconds:
+                  type: integer
+                  default: 3600
+                  description: How long the charge may stay pending before it is swept to `abandoned`. Clamped to 300–86400.
+      responses:
+        '201':
+          description: The charge was started.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OneOffPayment' }
+        '200':
+          description: This `reference` already had a payment. The original is returned with `replayed` true and the provider was not called again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OneOffPayment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: '`channel_not_allowed` — that channel is not enabled for this Application.'
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502':
+          description: '`provider_error` — the payment provider refused. The payment is recorded as failed with the reason, and `details.payment_id` identifies it.'
+    get:
+      operationId: listOneOffPayments
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: List payments
+      description: Your Application's payments, newest first.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, succeeded, failed, abandoned, refunded] }
+      responses:
+        '200':
+          description: Matching payments.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/OneOffPayment' } }
+                  total: { type: integer, description: 'Payments matching the filter, ignoring paging.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/payments/by-reference/{reference}:
+    get:
+      operationId: getOneOffPaymentByReference
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Get a payment by your own reference
+      description: For recovering from a lost response without retrying blind.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string }, example: acme-ORD-4821 }
+      responses:
+        '200':
+          description: The payment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OneOffPayment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No payment with that reference for this Application.
+
 components:
   securitySchemes:
     adminBearer:
@@ -4781,7 +4922,7 @@ components:
               type: object
               properties:
                 subscription: { $ref: '#/components/schemas/Subscription' }
-                payment: { $ref: '#/components/schemas/Payment' }
+                payment: { $ref: '#/components/schemas/OneOffPayment' }
                 amount: { type: integer }
                 currency: { type: string, enum: [GHS, USD] }
                 attempt: { type: integer }
@@ -5236,3 +5377,47 @@ components:
         api_resource_id: { type: string, example: res_orders }
         name: { type: string, example: 'orders:read' }
         description: { type: [string, 'null'] }
+
+    OneOffPayment:
+      type: object
+      description: A one-off charge, distinct from a subscription payment. Money is in minor units throughout.
+      properties:
+        payment_id: { type: string, example: pay_01HXR3M4K2 }
+        reference:
+          type: string
+          description: Your own order id, as you sent it.
+        status:
+          type: string
+          enum: [pending, succeeded, failed, abandoned, refunded]
+          description: '`abandoned` is a charge nobody completed before it expired — a real outcome, not a stuck row.'
+        amount: { type: integer, description: 'What you asked to charge, in minor units.' }
+        currency: { type: string, enum: [GHS, USD] }
+        channel: { type: [string, 'null'], enum: [card, mobile_money, bank, ussd, bank_transfer, null] }
+        provider_reference: { type: [string, 'null'], description: 'The payment provider''s reference, for reconciliation.' }
+        customer_email: { type: string, format: email }
+        customer_phone: { type: [string, 'null'] }
+        user_id: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        settled_amount:
+          type: [integer, 'null']
+          description: What reached the subaccount, when a split applied.
+        platform_fee:
+          type: [integer, 'null']
+          description: What was retained, when a split applied.
+        split_subaccount: { type: [string, 'null'] }
+        failure_reason: { type: [string, 'null'] }
+        created_at: { type: integer, description: Unix epoch seconds. }
+        paid_at: { type: [integer, 'null'] }
+        failed_at: { type: [integer, 'null'] }
+        expires_at:
+          type: [integer, 'null']
+          description: When a still-pending charge is swept to `abandoned`.
+        replayed:
+          type: boolean
+          description: True when this `reference` already had a payment and the original was returned.
+        authorization_url:
+          type: [string, 'null']
+          description: Where to send the payer. Present on hosted channels only.
+        display_text:
+          type: [string, 'null']
+          description: What to tell the buyer about the prompt on their phone. Mobile money only.

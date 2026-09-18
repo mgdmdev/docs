@@ -66,7 +66,8 @@
               "guides/subscriptions/seats",
               "guides/subscriptions/sponsored",
               "guides/subscriptions/currency",
-              "guides/subscriptions/webhooks"
+              "guides/subscriptions/webhooks",
+              "guides/one-off-payments"
             ]
           },
           {
@@ -203,6 +204,14 @@
               "api-reference/subscriptions-tenant/create-promo-code",
               "api-reference/subscriptions-tenant/apply-promo",
               "api-reference/subscriptions-tenant/emit-notification"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "api-reference/payments/create-payment",
+              "api-reference/payments/get-payment-by-reference",
+              "api-reference/payments/list-payments"
             ]
           },
           {

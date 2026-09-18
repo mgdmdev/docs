@@ -1,0 +1,216 @@
+---
+title: "Create Payment"
+description: "Charge an arbitrary amount by card, mobile money or bank."
+api: "POST /v1/payments"
+---
+
+Starts a single charge for an amount you decide. Nothing is derived from a plan — the amount you send is the amount charged, stored exactly as received and never recomputed.
+
+Requires the `X-API-Key` header with a Payments capability key. See [One-off payments](/guides/one-off-payments) for the full flow.
+
+<Warning>
+  Do not fulfil on this response. A charge is `pending` until the buyer completes it — issue tickets or release goods on the webhook, and dedupe on `payment_id` because delivery is at-least-once.
+</Warning>
+
+<Note>
+  `amount` is in minor units: `46000` is GH¢ 460.00. A decimal is refused rather than rounded, because sending cedis where pesewas are expected is a 100x error.
+</Note>
+
+## Body
+
+<ParamField body="reference" type="string" required>
+  Your own order id, and the idempotency key of record. A retry returns the original payment rather than charging twice.
+</ParamField>
+
+<ParamField body="amount" type="integer" required>
+  Minor units — pesewas for GHS, cents for USD. A decimal is refused rather than rounded.
+</ParamField>
+
+<ParamField body="currency" type="string" default="GHS">
+  One of `GHS`, `USD`.
+</ParamField>
+
+<ParamField body="customer_email" type="string" required>
+  Required on every charge, including mobile money — Paystack requires it.
+</ParamField>
+
+<ParamField body="customer_phone" type="string">
+  Required when `channel` is `mobile_money`.
+</ParamField>
+
+<ParamField body="channel" type="string" default="card">
+  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`.
+</ParamField>
+
+<ParamField body="momo_provider" type="string">
+  Required when `channel` is `mobile_money`. `vod` is Telecel, `atl` is AirtelTigo. One of `mtn`, `vod`, `atl`.
+</ParamField>
+
+<ParamField body="user_id" type="string">
+  The mgPass user, when you know who this is. Omit for guest checkout.
+</ParamField>
+
+<ParamField body="description" type="string" />
+
+<ParamField body="metadata" type="object" />
+
+<ParamField body="callback_url" type="string">
+  Where the payer returns after a hosted channel.
+</ParamField>
+
+<ParamField body="subaccount" type="string">
+  Settle a share directly to this Paystack subaccount instead of the platform balance.
+</ParamField>
+
+<ParamField body="split_code" type="string">
+  A pre-built Paystack split group, as an alternative to `subaccount`.
+</ParamField>
+
+<ParamField body="platform_fee" type="integer">
+  Flat fee in minor units retained when a split applies. Cannot exceed `amount`.
+</ParamField>
+
+<ParamField body="ttl_seconds" type="integer" default="3600">
+  How long the charge may stay pending before it is swept to `abandoned`. Clamped to 300–86400.
+</ParamField>
+
+## Response
+
+<ResponseField name="payment_id" type="string" />
+
+<ResponseField name="reference" type="string">
+  Your own order id, as you sent it.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `abandoned` is a charge nobody completed before it expired — a real outcome, not a stuck row. One of `pending`, `succeeded`, `failed`, `abandoned`, `refunded`.
+</ResponseField>
+
+<ResponseField name="amount" type="integer">
+  What you asked to charge, in minor units.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`, `USD`.
+</ResponseField>
+
+<ResponseField name="channel" type="string">
+  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`.
+</ResponseField>
+
+<ResponseField name="provider_reference" type="string">
+  The payment provider's reference, for reconciliation.
+</ResponseField>
+
+<ResponseField name="customer_email" type="string" />
+
+<ResponseField name="customer_phone" type="string" />
+
+<ResponseField name="user_id" type="string" />
+
+<ResponseField name="description" type="string" />
+
+<ResponseField name="settled_amount" type="integer">
+  What reached the subaccount, when a split applied.
+</ResponseField>
+
+<ResponseField name="platform_fee" type="integer">
+  What was retained, when a split applied.
+</ResponseField>
+
+<ResponseField name="split_subaccount" type="string" />
+
+<ResponseField name="failure_reason" type="string" />
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="paid_at" type="integer" />
+
+<ResponseField name="failed_at" type="integer" />
+
+<ResponseField name="expires_at" type="integer">
+  When a still-pending charge is swept to `abandoned`.
+</ResponseField>
+
+<ResponseField name="replayed" type="boolean">
+  True when this `reference` already had a payment and the original was returned.
+</ResponseField>
+
+<ResponseField name="authorization_url" type="string">
+  Where to send the payer. Present on hosted channels only.
+</ResponseField>
+
+<ResponseField name="display_text" type="string">
+  What to tell the buyer about the prompt on their phone. Mobile money only.
+</ResponseField>
+
+<Tip>
+  `reference` is your own order id and the idempotency key of record. A retry after a timeout returns the original with `replayed: true` and does not call the provider again — the same contract as `order_reference` on [order redemption](/guides/order-redemption).
+</Tip>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `reference` or `customer_email` missing, or `customer_phone` missing on a mobile money charge. |
+| 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
+| 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
+| 400 | `unsupported_currency` | Not `GHS` or `USD`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 403 | `channel_not_allowed` | That channel is not enabled for this Application. |
+| 429 | `rate_limit_exceeded` | More than 300 charges in the current minute. |
+| 502 | `provider_error` | The provider refused. The payment is recorded as failed; `details.payment_id` identifies it. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/v1/payments" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "reference": "acme-ORD-4821",
+  "amount": 46000,
+  "currency": "GHS",
+  "customer_email": "<string>",
+  "customer_phone": "0244123456",
+  "channel": "card",
+  "momo_provider": "mtn",
+  "user_id": "<string>",
+  "description": "<string>",
+  "metadata": {},
+  "callback_url": "<string>",
+  "subaccount": "<string>",
+  "split_code": "<string>",
+  "platform_fee": 123,
+  "ttl_seconds": 123
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payments", {
+  method: "POST",
+  headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "reference": "acme-ORD-4821",
+    "amount": 46000,
+    "currency": "GHS",
+    "customer_email": "<string>",
+    "customer_phone": "0244123456",
+    "channel": "card",
+    "momo_provider": "mtn",
+    "user_id": "<string>",
+    "description": "<string>",
+    "metadata": {},
+    "callback_url": "<string>",
+    "subaccount": "<string>",
+    "split_code": "<string>",
+    "platform_fee": 123,
+    "ttl_seconds": 123
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

@@ -1,0 +1,180 @@
+---
+title: "One-off Payments"
+description: "Charging an arbitrary amount for a ticket, an order or a top-up."
+---
+
+## Overview
+
+[Hosted checkout](/guides/subscriptions/quickstart) charges against a plan. **One-off
+payments** charge whatever you decide: a ticket priced by the organiser, a cart total
+after discounts, a wallet top-up.
+
+Nothing about the amount is derived on our side. You compute it, you send it, we charge
+it. That matters when your own server has already applied a promo code and a
+[points discount](/guides/order-redemption) — recomputing it anywhere downstream would
+be the seam where your total and ours drift apart.
+
+<Note>
+  Money is in **minor units** — pesewas for GHS, cents for USD. `46000` is GH¢ 460.00.
+  A decimal is refused rather than rounded, because sending cedis where pesewas are
+  expected is a 100x error and it should fail loudly.
+</Note>
+
+## Before you start
+
+One-off payments are the [Application's](/guides/applications) **Payments capability** —
+a separate capability from Subscriptions, because selling a ticket is not selling a
+subscription. Enable it in the [developer console](https://console.mgpass.net) and
+authenticate with that capability's key in the `X-API-Key` header.
+
+## Mobile money
+
+MoMo is a first-class channel, not a fallback. Most Ghanaian buyers pay that way.
+
+```bash
+curl -X POST "https://auth.mgpass.net/v1/payments" \
+  -H "X-API-Key: $PAYMENTS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference": "acme-ORD-4821",
+    "amount": 46000,
+    "customer_email": "ama@example.com",
+    "customer_phone": "0244123456",
+    "channel": "mobile_money",
+    "momo_provider": "mtn"
+  }'
+```
+
+```json
+{
+  "payment_id": "pay_01HXR3M4K2",
+  "reference": "acme-ORD-4821",
+  "status": "pending",
+  "amount": 46000,
+  "currency": "GHS",
+  "channel": "mobile_money",
+  "display_text": "Approve the prompt on your phone to complete payment.",
+  "replayed": false
+}
+```
+
+`momo_provider` is `mtn`, `vod` (Telecel) or `atl` (AirtelTigo).
+
+Show `display_text` to the buyer verbatim. It comes from the payment provider and
+describes the prompt they are about to see on their handset — your own wording will
+eventually disagree with what actually appears.
+
+The charge is `pending` until the buyer approves. Do not fulfil on this response;
+fulfil on the webhook.
+
+## Cards and other channels
+
+Omit `channel`, or set it to `card`, `bank`, `ussd` or `bank_transfer`, and you get an
+`authorization_url` to send the payer to.
+
+```bash
+curl -X POST "https://auth.mgpass.net/v1/payments" \
+  -H "X-API-Key: $PAYMENTS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference": "acme-ORD-4822",
+    "amount": 46000,
+    "customer_email": "ama@example.com",
+    "callback_url": "https://acme.com/orders/4822/return"
+  }'
+```
+
+## Idempotency
+
+`reference` is your own order id and the idempotency key of record — the same contract
+as `order_reference` on [order redemption](/guides/order-redemption).
+
+Retry after a timeout and you get the original payment back with `replayed: true`. The
+provider is **not** called again, so there is no second charge. Two first-time requests
+racing resolve the same way: the loser is handed the winner's payment rather than an
+error, because a caller retrying its own timeout should never be told it has a conflict.
+
+References are scoped per Application, so your `ORD-1` and another Application's `ORD-1`
+are different payments.
+
+If a response never reached you at all, look it up rather than retrying blind:
+
+```bash
+curl "https://auth.mgpass.net/v1/payments/by-reference/acme-ORD-4821" \
+  -H "X-API-Key: $PAYMENTS_API_KEY"
+```
+
+## Fulfilling on the webhook
+
+Ticket issuance, order fulfilment and anything else irreversible hangs off the webhook,
+never off the response to `POST /v1/payments`.
+
+<Warning>
+  Webhook delivery is **at-least-once**. The same successful charge can arrive twice.
+  Dedupe on `payment_id` and make your fulfilment idempotent — mgPass settles the payment
+  exactly once on its side, but it cannot make your ticket issuance safe to repeat.
+</Warning>
+
+A payment reaches one of these and then stops moving:
+
+| `status` | Meaning |
+|---|---|
+| `pending` | Started. The buyer has not completed it yet. |
+| `succeeded` | Paid. Fulfil. |
+| `failed` | The provider declined it. `failure_reason` says why. |
+| `abandoned` | Nobody completed it before `expires_at`. |
+| `refunded` | Settled and later reversed. |
+
+`abandoned` is a real outcome, not a stuck row. A charge left pending forever would show
+up in reconciliation as an unresolved sale, so uncompleted charges are swept once their
+window passes. Set `ttl_seconds` to change that window (300 to 86400, default 3600).
+
+A late failure after a success cannot flip a settled payment back. Once money has moved,
+the record reflects that.
+
+## Settlement
+
+By default a payment settles to the platform account.
+
+Pass `subaccount` (or a pre-built `split_code`) and the payee's share settles **directly
+to their own account** without passing through the platform balance. `platform_fee` is
+the flat amount in minor units you retain.
+
+```json
+{
+  "reference": "acme-ORD-4823",
+  "amount": 46000,
+  "customer_email": "ama@example.com",
+  "subaccount": "ACCT_organizer123",
+  "platform_fee": 2000
+}
+```
+
+When the payment settles, `settled_amount` and `platform_fee` record what actually went
+where.
+
+<Note>
+  This matters beyond convenience. If you are selling on behalf of someone else — an
+  event organiser, a vendor, a merchant — splitting at the provider means the money owed
+  to them is never held by anyone else on the way. Ask your account manager to confirm
+  subaccounts are enabled before you build against this.
+</Note>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `reference` or `customer_email` missing; `customer_phone` missing on a mobile money charge. |
+| 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
+| 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
+| 400 | `unsupported_currency` | Not `GHS` or `USD`. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 403 | `channel_not_allowed` | That channel is not enabled for your Application. |
+| 429 | `rate_limit_exceeded` | More than 300 charges in the current minute. |
+| 502 | `provider_error` | The provider refused. The payment is recorded as failed and `details.payment_id` identifies it. |
+
+Errors use the envelope described in [API conventions](/guides/api-conventions).
+
+## Rate limits
+
+Per Application, per minute: **300** charges, **600** reads.

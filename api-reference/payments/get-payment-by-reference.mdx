@@ -1,0 +1,109 @@
+---
+title: "Get Payment by Reference"
+description: "Look up a payment by your own order id after a lost response."
+api: "GET /v1/payments/by-reference/{reference}"
+---
+
+For recovering from a lost response without retrying blind. Look the payment up by the `reference` you sent rather than charging again.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+## Path parameters
+
+<ParamField path="reference" type="string" required />
+
+## Response
+
+<ResponseField name="payment_id" type="string" />
+
+<ResponseField name="reference" type="string">
+  Your own order id, as you sent it.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `abandoned` is a charge nobody completed before it expired — a real outcome, not a stuck row. One of `pending`, `succeeded`, `failed`, `abandoned`, `refunded`.
+</ResponseField>
+
+<ResponseField name="amount" type="integer">
+  What you asked to charge, in minor units.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`, `USD`.
+</ResponseField>
+
+<ResponseField name="channel" type="string">
+  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`.
+</ResponseField>
+
+<ResponseField name="provider_reference" type="string">
+  The payment provider's reference, for reconciliation.
+</ResponseField>
+
+<ResponseField name="customer_email" type="string" />
+
+<ResponseField name="customer_phone" type="string" />
+
+<ResponseField name="user_id" type="string" />
+
+<ResponseField name="description" type="string" />
+
+<ResponseField name="settled_amount" type="integer">
+  What reached the subaccount, when a split applied.
+</ResponseField>
+
+<ResponseField name="platform_fee" type="integer">
+  What was retained, when a split applied.
+</ResponseField>
+
+<ResponseField name="split_subaccount" type="string" />
+
+<ResponseField name="failure_reason" type="string" />
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="paid_at" type="integer" />
+
+<ResponseField name="failed_at" type="integer" />
+
+<ResponseField name="expires_at" type="integer">
+  When a still-pending charge is swept to `abandoned`.
+</ResponseField>
+
+<ResponseField name="replayed" type="boolean">
+  True when this `reference` already had a payment and the original was returned.
+</ResponseField>
+
+<ResponseField name="authorization_url" type="string">
+  Where to send the payer. Present on hosted channels only.
+</ResponseField>
+
+<ResponseField name="display_text" type="string">
+  What to tell the buyer about the prompt on their phone. Mobile money only.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No payment with that reference for this Application. The charge never landed — safe to create it again. |
+| 429 | `rate_limit_exceeded` | More than 600 reads in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/v1/payments/by-reference/<reference>" \
+  -H "X-API-Key: $API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payments/by-reference/<reference>", {
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>
