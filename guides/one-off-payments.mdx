@@ -58,14 +58,17 @@ curl -X POST "https://auth.mgpass.net/v1/payments" \
 }
 ```
 
-`momo_provider` is `mtn`, `vod` (Telecel) or `atl` (AirtelTigo).
+`momo_provider` is `mtn`, `vod` (Telecel) or `atl` (AirtelTigo). It is
+optional: send `channel: "mobile_money"` without the wallet details and you get a
+payment page restricted to mobile money instead, where the buyer enters their own
+number and network.
 
 Show `display_text` to the buyer verbatim. It comes from the payment provider and
 describes the prompt they are about to see on their handset — your own wording will
 eventually disagree with what actually appears.
 
 The charge is `pending` until the buyer approves. Do not fulfil on this response;
-fulfil on the webhook.
+[confirm the payment](#confirming-a-payment) first.
 
 ## Cards and other channels
 
@@ -157,12 +160,82 @@ curl "https://auth.mgpass.net/v1/payments/by-reference/acme-ORD-4821" \
   -H "X-API-Key: $PAYMENTS_API_KEY"
 ```
 
-## Fulfilling on the webhook
+## If you already take payments directly
 
-Ticket issuance, order fulfilment and anything else irreversible hangs off the webhook,
-never off the response to `POST /v1/payments`.
+If you have an existing integration that charges through Paystack directly and
+confirms payments by calling their verify endpoint with your own reference, read this
+before you route through us. Its absence has already cost one integrator real money.
 
-Three events, registered on your [webhook endpoint](/guides/webhooks):
+When you create a payment here, it is registered with Paystack under **our own
+reference**, not yours. Your `reference` travels with it as metadata, but it is not
+the identifier Paystack knows the transaction by.
+
+That means your existing verification call breaks the moment you switch over:
+
+```typescript
+// BEFORE: verifying directly with Paystack. This worked while Paystack knew
+// your reference. Once you route through us, it does not.
+const res = await fetch(`https://api.paystack.co/transaction/verify/${orderReference}`, {
+  headers: { Authorization: `Bearer ${paystackSecret}` },
+});
+```
+
+Paystack has never seen your reference, so this is not a mismatch — it is an absence.
+You get "transaction not found" for a payment that genuinely succeeded. The buyer has
+paid, your verification fails, and nothing is delivered. It is invisible until real
+money is in flight, because it only appears at the confirmation step.
+
+Confirm against us instead, using the same reference you sent:
+
+```typescript
+// AFTER: confirm against mgPass with your own reference.
+const res = await fetch(
+  `https://auth.mgpass.net/v1/payments/by-reference/${orderReference}`,
+  { headers: { "X-API-Key": paymentsApiKey } }
+);
+const payment = await res.json();
+if (payment.status === "succeeded") {
+  // Fulfil.
+}
+```
+
+Your `reference` is the identifier we key on. See
+[Confirming a payment](#confirming-a-payment) for the full pattern, including what to
+do when the answer is still `pending`.
+
+<Note>
+  The payment view carries `provider_reference` — our reference, the one Paystack
+  knows. If you reconcile against the Paystack dashboard or a statement later, match
+  on that value, not yours.
+</Note>
+
+## Confirming a payment
+
+Ticket issuance, order fulfilment and anything else irreversible hangs off
+confirmation, never off the response to `POST /v1/payments`. There are two
+confirmation paths, and you should understand the trade-off before you pick one.
+
+### Poll: the path that cannot silently stop
+
+```bash
+curl "https://auth.mgpass.net/v1/payments/by-reference/acme-ORD-4821" \
+  -H "X-API-Key: $PAYMENTS_API_KEY"
+```
+
+Polling [`GET /v1/payments/by-reference/{reference}`](/api-reference/payments/get-payment-by-reference)
+with your own reference is the recommended primary path for anything irreversible. It
+needs no shared secret, no endpoint registered with us, no signature to verify, and
+nothing to misconfigure — there is simply less to go wrong.
+
+That endpoint is also self-healing. If a payment is still `pending` after a short
+while, reading it makes us check with the provider before answering, so a confirmation
+that never reached us is recovered by the act of asking. You do not opt into this and
+do not need to do anything. Poll every few minutes, not every second.
+
+### Webhooks: sooner, but not surer
+
+Webhooks remain available and are still useful as a latency optimisation — they tell
+you sooner. Three events, registered on your [webhook endpoint](/guides/webhooks):
 
 | Event | When |
 |---|---|
@@ -228,19 +301,34 @@ willing to measure.
   exactly once on its side, but it cannot make your ticket issuance safe to repeat.
 </Warning>
 
+<Warning>
+  **A webhook can fail to arrive, and if it is your only confirmation path a buyer can
+  pay and receive nothing.** A real payment has succeeded at the provider with no
+  webhook following it — the buyer paid and got nothing until someone asked us
+  directly. If you fulfil off webhooks, run a periodic sweep over your own `pending`
+  orders against `GET /v1/payments/by-reference/{reference}` as a backstop.
+</Warning>
+
 A payment reaches one of these and then stops moving:
 
 | `status` | Meaning |
 |---|---|
-| `pending` | Started. The buyer has not completed it yet. |
-| `succeeded` | Paid. Fulfil. |
-| `failed` | The provider declined it. `failure_reason` says why. |
-| `abandoned` | Nobody completed it before `expires_at`. |
+| `pending` | Started, no money confirmed either way. Not a failure — it may still resolve. |
+| `succeeded` | Money taken. Fulfil. |
+| `failed` | The provider told us it failed. `failure_reason` says why. |
+| `abandoned` | The payment window closed with no completion. Different from `failed`: it means no answer ever came, not that anyone declined. |
 | `refunded` | Settled and later reversed. |
 
 `abandoned` is a real outcome, not a stuck row. A charge left pending forever would show
 up in reconciliation as an unresolved sale, so uncompleted charges are swept once their
 window passes. Set `ttl_seconds` to change that window (300 to 86400, default 3600).
+
+<Warning>
+  Do not treat a long-lived `pending` as dead. If you void a discount, release stock or
+  reverse loyalty points on it, you will do so to buyers whose payment simply had not
+  resolved yet. Only `failed` means the money is not coming; only `abandoned` means the
+  window closed.
+</Warning>
 
 A late failure after a success cannot flip a settled payment back. Once money has moved,
 the record reflects that.
@@ -351,7 +439,8 @@ worth defaulting to, rather than leaving them to discover a threshold they never
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | `reference` or `customer_email` missing; `customer_phone` missing on a mobile money charge. |
+| 400 | `invalid_request` | `reference` missing, or neither `customer_email` nor `customer_phone` given. |
+| 400 | `invalid_phone` | `customer_phone` could not be read as a Ghanaian number. |
 | 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
 | 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
 | 400 | `unsupported_currency` | Not `GHS` or `USD`. |

@@ -236,7 +236,10 @@
               "api-reference/payments/create-payout-destination",
               "api-reference/payments/get-payout-destination",
               "api-reference/payments/list-payout-destinations",
-              "api-reference/payments/list-banks"
+              "api-reference/payments/list-banks",
+              "api-reference/payments/resolve-account",
+              "api-reference/payments/update-payout-destination",
+              "api-reference/payments/deactivate-payout-destination"
             ]
           },
           {

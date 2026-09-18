@@ -1,0 +1,140 @@
+---
+title: "Update Payout Destination"
+description: "Change a payout destination's account or details in place."
+api: "PATCH /v1/payout-destinations/by-reference/{reference}"
+---
+
+Changes a payout destination — a corrected account number, a new bank, a renamed business — without creating a new one.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+<Tip>
+  **The subaccount identifier does not change.** If you are storing the `subaccount`, it stays valid across an edit, and a payment already in flight is unaffected. Update in place rather than deleting and re-creating.
+</Tip>
+
+<Warning>
+  **`settlement_bank` and `account_number` move together.** Send both or neither — changing one without the other is refused rather than half-applied, because one without the other describes an account that does not exist.
+</Warning>
+
+<Note>
+  `subaccount_percentage` is the share the **payee** receives, not the share you keep. A flat `platform_fee` on each payment overrides it.
+</Note>
+
+## Path parameters
+
+<ParamField path="reference" type="string" required>
+  Your own id for the payee, as you sent it at creation.
+</ParamField>
+
+## Body
+
+All fields are optional. Omitted fields stay untouched, and empty strings count as absent.
+
+<ParamField body="business_name" type="string">
+  The payee's business name, as it should appear to the payment provider.
+</ParamField>
+
+<ParamField body="settlement_bank" type="string">
+  A bank or wallet code from `GET /v1/banks`. Must be sent together with `account_number`.
+</ParamField>
+
+<ParamField body="account_number" type="string">
+  Account or wallet number. Must be sent together with `settlement_bank`. Only the last four digits are retained.
+</ParamField>
+
+<ParamField body="subaccount_percentage" type="number">
+  Percentage of each payment the PAYEE receives; the remainder is retained. A flat `platform_fee` on the payment overrides this.
+</ParamField>
+
+<ParamField body="contact_email" type="string" />
+
+<ParamField body="contact_name" type="string" />
+
+<ParamField body="description" type="string" />
+
+## Response
+
+The updated destination, in the same shape as the create endpoint returns.
+
+<ResponseField name="destination_id" type="string" />
+
+<ResponseField name="reference" type="string">
+  Your own id for the payee.
+</ResponseField>
+
+<ResponseField name="subaccount" type="string">
+  Unchanged by the edit. Pass this as `subaccount` on a payment to split it here.
+</ResponseField>
+
+<ResponseField name="business_name" type="string" />
+
+<ResponseField name="destination_type" type="string">
+  One of `bank`, `mobile_money`.
+</ResponseField>
+
+<ResponseField name="settlement_bank" type="string">
+  The bank or wallet code money settles to.
+</ResponseField>
+
+<ResponseField name="account_last4" type="string">
+  The last four digits. The full number is held by the payment provider, not here.
+</ResponseField>
+
+<ResponseField name="account_name" type="string">
+  The name the bank has on file for the current account. Refreshed when the account changes, so it never names someone the money no longer goes to.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`, `USD`.
+</ResponseField>
+
+<ResponseField name="subaccount_percentage" type="number">
+  Percentage of each payment this payee receives. A flat `platform_fee` on a payment takes precedence over it.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  One of `pending_verification`, `active`, `inactive`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Nothing updatable was supplied. |
+| 400 | `invalid_request` | `settlement_bank` and `account_number` were not sent together, or `subaccount_percentage` is outside 0–100. |
+| 400 | `wallet_not_settleable` | An AirtelTigo wallet was offered as a payout destination. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No payout destination with that reference. |
+| 502 | `provider_error` | The payment provider rejected the update. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/v1/payout-destinations/by-reference/organizer-4821" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "business_name": "Acme Events Ltd",
+  "settlement_bank": "MTN",
+  "account_number": "0244123456"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payout-destinations/by-reference/organizer-4821", {
+  method: "PATCH",
+  headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "business_name": "Acme Events Ltd",
+    "settlement_bank": "MTN",
+    "account_number": "0244123456"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

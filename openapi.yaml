@@ -3988,9 +3988,12 @@ paths:
         received and never recomputed, so a total you worked out server-side
         (after a promo code, a points discount, or both) survives intact.
 
-        `channel: mobile_money` charges the wallet directly and returns
-        `display_text` for the prompt the buyer is about to see. Every other
-        channel returns an `authorization_url` to send them to.
+        `channel: mobile_money` WITH `customer_phone` and `momo_provider` charges
+        the wallet directly and returns `display_text` for the prompt the buyer is
+        about to see. Without them it returns an `authorization_url` to a hosted
+        page restricted to mobile money, where the buyer enters their own details.
+        Every other channel returns an `authorization_url` to send them to, and
+        omitting `channel` offers every method enabled for the Application.
       requestBody:
         required: true
         content:
@@ -4018,19 +4021,32 @@ paths:
                 customer_phone:
                   type: string
                   description: >
-                    Either this or `customer_email` is required, and always required for
-                    `mobile_money`. Any Ghanaian spelling is accepted — "024 123 4567",
-                    "+233241234567", "0241234567" — and canonicalised before it is
-                    stored or used, so one person is one customer.
+                    Either this or `customer_email` is required. Send it together with
+                    `momo_provider` when `channel` is `mobile_money` and the buyer's
+                    handset is prompted directly, with no payment page. Any Ghanaian
+                    spelling is accepted — "024 123 4567", "+233241234567",
+                    "0241234567" — and canonicalised before it is stored or used, so
+                    one person is one customer.
                   example: '0244123456'
                 channel:
                   type: string
                   enum: [card, mobile_money, bank, ussd, bank_transfer]
-                  default: card
+                  description: >
+                    Omit it and the buyer chooses from every method enabled for this
+                    Application — the right default for most integrations. Send one only
+                    when you have already asked the buyer how they want to pay on your
+                    own screen: the payment page is then restricted to that method,
+                    except `mobile_money` with `customer_phone` and `momo_provider`,
+                    which prompts the handset directly with no page at all.
                 momo_provider:
                   type: string
                   enum: [mtn, vod, atl]
-                  description: Required when `channel` is `mobile_money`. `vod` is Telecel, `atl` is AirtelTigo.
+                  description: >
+                    Optional. Supply it with `customer_phone` when `channel` is
+                    `mobile_money` to skip the payment page and prompt the buyer's
+                    handset directly — the response then carries `display_text` instead
+                    of `authorization_url`. `vod` is Telecel, `atl` is AirtelTigo. An
+                    unrecognised value is a `400 invalid_momo_provider`.
                 user_id:
                   type: string
                   description: The mgPass user, when you know who this is. Omit for guest checkout.
@@ -4224,6 +4240,59 @@ paths:
                   total: { type: integer }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /v1/payout-destinations/resolve:
+    get:
+      operationId: resolvePayoutDestination
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Check whose account this number is
+      description: |
+        Returns the name the bank has on file for an account number, so you can show
+        it to the payee and have them confirm before you save a payout destination.
+
+        A well-formed number tells you nothing about whose account it is — a typo
+        produces a valid number belonging to a real stranger, and a destination
+        created against it is accepted without complaint. This is the one place that
+        mistake gets caught while it is still just text.
+
+        Only the last four digits come back. The full number is never echoed.
+
+        Rate-limited: call it when the payee leaves the account field or behind an
+        explicit "check account" button, not on every keystroke.
+      parameters:
+        - name: account_number
+          in: query
+          required: true
+          schema: { type: string }
+          description: The account or wallet number to check.
+        - name: settlement_bank
+          in: query
+          required: true
+          schema: { type: string }
+          description: A bank or wallet code from `GET /v1/banks`.
+      responses:
+        '200':
+          description: The name on file.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account_name:
+                    type: string
+                    description: 'The name the bank has on file. Show it to the payee and have them confirm.'
+                  account_last4:
+                    type: string
+                    description: 'The last four digits of the number you sent. The full number is never echoed back.'
+                  settlement_bank:
+                    type: string
+                    description: 'The bank or wallet code you sent.'
+        '400':
+          description: '`invalid_request` when either field is missing, or `wallet_not_settleable` when an AirtelTigo wallet is offered — a payer may still pay from one, the restriction is on payouts only.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502':
+          description: '`provider_error` — the payment provider could not resolve the number.'
+
   /v1/payout-destinations/by-reference/{reference}:
     get:
       operationId: getPayoutDestinationByReference
@@ -4238,6 +4307,89 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PayoutDestination' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No payout destination with that reference.
+    patch:
+      operationId: updatePayoutDestination
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Update a payout destination in place
+      description: |
+        Changes a payout destination without changing its subaccount identifier — a
+        stored `subaccount` stays valid across an edit, and a payment already in
+        flight is unaffected.
+
+        All fields are optional. Omitted fields stay untouched; empty strings count
+        as absent.
+
+        `settlement_bank` and `account_number` move together: changing one without
+        the other is refused rather than half-applied, because one without the other
+        describes an account that does not exist.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string }, example: organizer-4821 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                business_name:
+                  type: string
+                  description: The payee's business name, as it should appear to the payment provider.
+                settlement_bank:
+                  type: string
+                  description: A bank or wallet code from `GET /v1/banks`. Must be sent together with `account_number`.
+                account_number:
+                  type: string
+                  description: Account or wallet number. Must be sent together with `settlement_bank`. Only the last four digits are retained.
+                subaccount_percentage:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  description: Percentage of each payment the PAYEE receives. A flat `platform_fee` on a payment takes precedence over it.
+                contact_email: { type: string, format: email }
+                contact_name: { type: string }
+                description: { type: string }
+      responses:
+        '200':
+          description: The updated destination. `account_name` reflects the new account when the account changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutDestination' }
+        '400':
+          description: '`no_fields` when nothing updatable was supplied, `invalid_request` when `settlement_bank` and `account_number` were not sent together or `subaccount_percentage` is outside 0–100, or `wallet_not_settleable` when an AirtelTigo wallet is offered as a payout destination.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No payout destination with that reference.
+        '502':
+          description: '`provider_error` — the payment provider rejected the update.'
+    delete:
+      operationId: deactivatePayoutDestination
+      tags: [Payments]
+      security: [{ tenantApiKey: [] }]
+      summary: Deactivate a payout destination
+      description: |
+        Deactivates a payout destination. It does not delete it: past payments
+        reference it for their settlement history, and destroying it would destroy
+        the record of where money already went.
+
+        Idempotent — deactivating an already-inactive destination succeeds.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string }, example: organizer-4821 }
+      responses:
+        '200':
+          description: The destination is off. `provider_warning` appears when it was deactivated here but the provider could not be reached to do the same — still a success, but check the provider.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  provider_warning:
+                    type: [string, "null"]
+                    description: Present when the provider could not be reached. The destination is off as far as mgPass is concerned.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404':
           description: No payout destination with that reference.

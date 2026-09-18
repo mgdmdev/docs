@@ -1,0 +1,74 @@
+---
+title: "Resolve Account"
+description: "Check whose account an account number belongs to before you save it."
+api: "GET /v1/payout-destinations/resolve"
+---
+
+A well-formed account number tells you nothing about whose account it is. A typo produces a valid number belonging to a real stranger, and a payout destination created against it will be accepted without complaint. This endpoint returns the name the bank has on file, so you can show it to the payee and have them confirm before you save.
+
+Put that confirmation step in your UI: resolve, show the name, and only [create the destination](/api-reference/payments/create-payout-destination) once the payee says it is theirs.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+<Note>
+  Only the last four digits come back. The full account number is never echoed.
+</Note>
+
+<Note>
+  This endpoint is rate-limited. Call it when the payee leaves the account field or behind an explicit "check account" button — not on every keystroke.
+</Note>
+
+## Query parameters
+
+<ParamField query="account_number" type="string" required>
+  The account or wallet number to check.
+</ParamField>
+
+<ParamField query="settlement_bank" type="string" required>
+  A bank or wallet code from `GET /v1/banks`.
+</ParamField>
+
+## Response
+
+<ResponseField name="account_name" type="string">
+  The name the bank has on file. Show it to the payee and have them confirm.
+</ResponseField>
+
+<ResponseField name="account_last4" type="string">
+  The last four digits of the number you sent. The full number is never echoed back.
+</ResponseField>
+
+<ResponseField name="settlement_bank" type="string">
+  The bank or wallet code you sent.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `account_number` or `settlement_bank` is missing. |
+| 400 | `wallet_not_settleable` | An AirtelTigo wallet was offered. A payer may still *pay* from an AirtelTigo wallet — the restriction is on payouts only. |
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 502 | `provider_error` | The payment provider could not resolve the number. |
+
+<CodeGroup>
+
+```bash curl
+curl -G "https://auth.mgpass.net/v1/payout-destinations/resolve" \
+  -H "X-API-Key: $API_KEY" \
+  --data-urlencode "account_number=0244123456" \
+  --data-urlencode "settlement_bank=MTN"
+```
+
+```typescript TypeScript
+const params = new URLSearchParams({
+  account_number: "0244123456",
+  settlement_bank: "MTN",
+});
+const res = await fetch(`https://auth.mgpass.net/v1/payout-destinations/resolve?${params}`, {
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

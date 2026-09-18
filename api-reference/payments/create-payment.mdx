@@ -9,7 +9,7 @@ Starts a single charge for an amount you decide. Nothing is derived from a plan 
 Requires the `X-API-Key` header with a Payments capability key. See [One-off payments](/guides/one-off-payments) for the full flow.
 
 <Warning>
-  Do not fulfil on this response. A charge is `pending` until the buyer completes it — issue tickets or release goods on the webhook, and dedupe on `payment_id` because delivery is at-least-once.
+  Do not fulfil on this response. A charge is `pending` until the buyer completes it — confirm it first (see [Confirming a payment](/guides/one-off-payments#confirming-a-payment)), and dedupe webhook handling on `payment_id` because delivery is at-least-once.
 </Warning>
 
 <Warning>
@@ -23,6 +23,15 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 <Note>
   `amount` is in minor units: `46000` is GH¢ 460.00. A decimal is refused rather than rounded, because sending cedis where pesewas are expected is a 100x error.
 </Note>
+
+Omitting `channel` is the right default for most integrations. Send one only when you have already asked the buyer how they want to pay on your own screen.
+
+| You send | The buyer gets |
+|---|---|
+| `channel` omitted | The payment page with every method you have enabled; the buyer chooses. |
+| `channel: "card"` | The payment page, card only. |
+| `channel: "mobile_money"` | The payment page, mobile money only — the buyer enters their own number and network there. |
+| `channel: "mobile_money"` plus `customer_phone` and `momo_provider` | No page at all: a prompt goes straight to the buyer's handset, and the response carries `display_text` instead of `authorization_url`. |
 
 ## Body
 
@@ -43,15 +52,15 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 </ParamField>
 
 <ParamField body="customer_phone" type="string">
-  Either this or `customer_email` is required, and always required for `mobile_money`. Any Ghanaian spelling is accepted — "024 123 4567", "+233241234567", "0241234567" — and canonicalised before it is stored or used, so one person is one customer.
+  Either this or `customer_email` is required. Send it together with `momo_provider` when `channel` is `mobile_money` and the buyer's handset is prompted directly, with no payment page. Any Ghanaian spelling is accepted — "024 123 4567", "+233241234567", "0241234567" — and canonicalised before it is stored or used, so one person is one customer.
 </ParamField>
 
-<ParamField body="channel" type="string" default="card">
-  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`.
+<ParamField body="channel" type="string">
+  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`. Omit it and the buyer chooses from every method you have enabled.
 </ParamField>
 
 <ParamField body="momo_provider" type="string">
-  Required when `channel` is `mobile_money`. `vod` is Telecel, `atl` is AirtelTigo. One of `mtn`, `vod`, `atl`.
+  Optional. Supply it with `customer_phone` when `channel` is `mobile_money` to skip the payment page and prompt the buyer's handset directly — the response then carries `display_text` instead of `authorization_url`. One of `mtn`, `vod` (Telecel), `atl` (AirtelTigo); anything else is a `400 invalid_momo_provider`.
 </ParamField>
 
 <ParamField body="user_id" type="string">
@@ -103,7 +112,7 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 </ResponseField>
 
 <ResponseField name="channel" type="string">
-  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`.
+  One of `card`, `mobile_money`, `bank`, `ussd`, `bank_transfer`. Null when no channel was requested and the buyer has not paid yet — the channel they actually used is recorded at settlement.
 </ResponseField>
 
 <ResponseField name="provider_reference" type="string">
@@ -159,7 +168,7 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 </ResponseField>
 
 <ResponseField name="display_text" type="string">
-  What to tell the buyer about the prompt on their phone. Mobile money only.
+  What to tell the buyer about the prompt on their phone. Present only on the direct handset prompt (`mobile_money` with `customer_phone` and `momo_provider`) — a mobile-money payment page returns `authorization_url` instead. Show it verbatim.
 </ResponseField>
 
 <Tip>
@@ -194,7 +203,6 @@ curl -X POST "https://auth.mgpass.net/v1/payments" \
   "customer_email": "<string>",
   "customer_phone": "0244123456",
   "channel": "card",
-  "momo_provider": "mtn",
   "user_id": "<string>",
   "description": "<string>",
   "metadata": {},
@@ -217,7 +225,6 @@ const res = await fetch("https://auth.mgpass.net/v1/payments", {
     "customer_email": "<string>",
     "customer_phone": "0244123456",
     "channel": "card",
-    "momo_provider": "mtn",
     "user_id": "<string>",
     "description": "<string>",
     "metadata": {},

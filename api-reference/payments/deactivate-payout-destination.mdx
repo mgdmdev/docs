@@ -1,0 +1,55 @@
+---
+title: "Deactivate Payout Destination"
+description: "Stop payouts to a destination without deleting its history."
+api: "DELETE /v1/payout-destinations/by-reference/{reference}"
+---
+
+Stops payouts to a destination. No new split will land somewhere the payee has disowned.
+
+Requires the `X-API-Key` header with a Payments capability key.
+
+<Note>
+  **This deactivates; it does not delete.** The record survives because your past payments reference it for their settlement history. Destroying it would destroy the record of where money already went.
+</Note>
+
+<Note>
+  **It is idempotent.** Deactivating an already-inactive destination succeeds.
+</Note>
+
+## Path parameters
+
+<ParamField path="reference" type="string" required>
+  Your own id for the payee, as you sent it at creation.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean" />
+
+<ResponseField name="provider_warning" type="string">
+  Appears when the destination was deactivated here but the provider could not be reached to do the same. The destination is off as far as mgPass is concerned; the warning tells you to check the provider. It is still a success — an operator who asked to stop payouts is never told nothing happened when something did.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 404 | `not_found` | No payout destination with that reference. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/v1/payout-destinations/by-reference/organizer-4821" \
+  -H "X-API-Key: $API_KEY"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/v1/payout-destinations/by-reference/organizer-4821", {
+  method: "DELETE",
+  headers: { "X-API-Key": apiKey },
+});
+const data = await res.json();
+```
+
+</CodeGroup>
