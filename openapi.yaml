@@ -5951,6 +5951,12 @@ components:
         business_name: { type: string }
         destination_type: { type: string, enum: [bank, mobile_money] }
         settlement_bank: { type: string, description: The bank or wallet code money settles to. }
+        bank_name:
+          type: [string, "null"]
+          description: >-
+            The bank's display name for that code, so you do not have to join this
+            against `GET /v1/banks` yourself. Null when it cannot be determined —
+            never a guess.
         account_last4:
           type: [string, 'null']
           description: The last four digits. The full number is held by the payment provider, not here.
