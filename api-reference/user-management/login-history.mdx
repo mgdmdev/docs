@@ -2,3 +2,47 @@
 title: "Login History"
 api: "GET /api/users/{id}/login-history"
 ---
+
+Recent sign-in activity for one user, newest first. The audit log narrowed to four event types: `session.created`, `user.login.success`, `user.login.failed` and `user.sign_out`.
+
+Requires an admin bearer token. For anything wider, use [the audit log](/api-reference/audit/list-audit-logs) with `actor_id` set to the user.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id. Matches records where the user is either the actor or the target.
+</ParamField>
+
+## Query parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Rows to return. Values above 50 are reduced to 50.
+</ParamField>
+
+## Response
+
+An array of [audit records](/api-reference/audit/list-audit-logs), newest first. `event_type` tells you what happened; `ip_address` and `user_agent` say from where.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/users/usr_abc123/login-history?limit=50" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/users/${userId}/login-history?limit=50`,
+  { headers: { Authorization: `Bearer ${adminToken}` } },
+);
+const events = await res.json();
+const failures = events.filter((e) => e.event_type === "user.login.failed");
+```
+
+</CodeGroup>

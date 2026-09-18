@@ -2,3 +2,55 @@
 title: "Assign Role to User"
 api: "POST /api/users/{id}/roles"
 ---
+
+Gives a user a role. The assignment records which admin made it and when, so the audit trail answers "who granted this" without guesswork.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id.
+</ParamField>
+
+## Body
+
+<ParamField body="role_id" type="string" required>
+  The role to assign. Take it from [list roles](/api-reference/roles/list-roles).
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the role is assigned. Returned with **201**.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `invalid_request` | No role with that `role_id`. |
+| 409 | `invalid_request` | The user already holds this role. Treat as success if you are reconciling state. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/users/usr_abc123/roles" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "role_id": "role_support_agent" }'
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/users/${userId}/roles`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ role_id: "role_support_agent" }),
+});
+```
+
+</CodeGroup>

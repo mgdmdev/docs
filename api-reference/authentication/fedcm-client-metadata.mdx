@@ -3,3 +3,37 @@ title: "FedCM Client Metadata"
 api: "GET /fedcm/client-metadata"
 description: "Returns the privacy policy and terms of service URLs for the requesting client."
 ---
+
+The terms and privacy links the browser shows in its own consent UI, taken from the Application's branding.
+
+<Note>
+  Called by the browser, not by your code. Set `terms_url` and `privacy_url` in your Application's branding and they appear here; leave them unset and users see the mgPass defaults.
+</Note>
+
+## Headers
+
+<ParamField header="Sec-Fetch-Dest" type="string" required>
+  Must be `webidentity`.
+</ParamField>
+
+## Query parameters
+
+<ParamField query="client_id" type="string">
+  The relying party's `application_id`. An empty object is returned when it is absent.
+</ParamField>
+
+## Response
+
+<ResponseField name="privacy_policy_url" type="string">
+  From the Application's `branding.privacy_url`, falling back to `https://mgpass.net/privacy`.
+</ResponseField>
+
+<ResponseField name="terms_of_service_url" type="string">
+  From the Application's `branding.terms_url`, falling back to `https://mgpass.net/terms`.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | The `Sec-Fetch-Dest: webidentity` header was absent. |

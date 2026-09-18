@@ -1,7 +1,7 @@
 ---
 title: "Update plan"
 description: "Patch a subscription plan owned by the calling application."
-api: "PATCH /v1/plans/:id"
+api: "PATCH /v1/plans/{id}"
 ---
 
 Partially updates a plan. Only the fields you send are touched. The plan must belong to the application keyed by `X-API-Key` — cross-application updates return `404`.

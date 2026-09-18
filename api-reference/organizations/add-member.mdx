@@ -2,3 +2,59 @@
 title: "Add Organization Member"
 api: "POST /api/organizations/{id}/members"
 ---
+
+Adds an existing user to an organization, optionally with a role inside it.
+
+Requires an admin bearer token. The user must already exist and not be deleted — this endpoint does not create accounts.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The organization id.
+</ParamField>
+
+## Body
+
+<ParamField body="user_id" type="string" required>
+  The user to add.
+</ParamField>
+
+<ParamField body="role" type="string">
+  Role within the organization, e.g. `owner`, `admin`, `member`. Stored as `null` when omitted.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the membership exists. Returned with **201**.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `user_id` is missing. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `user_not_found` | No live user with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/organizations/org_acme/members" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "user_id": "usr_abc123", "role": "owner" }'
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/organizations/${orgId}/members`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ user_id: "usr_abc123", role: "owner" }),
+});
+```
+
+</CodeGroup>

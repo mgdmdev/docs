@@ -1,7 +1,7 @@
 ---
 title: "Update subscription"
 description: "Patch the lifecycle fields on a subscription from the admin console."
-api: "PATCH /api/subscriptions/:id"
+api: "PATCH /api/subscriptions/{id}"
 ---
 
 Admin-level patch on a subscription row. Useful for ops corrections — extending a trial, manually marking a sub `unpaid`, clearing a retry counter, etc. If you change `status`, the user's entitlement cache is refreshed before the response returns. Writes a `subscriptions.subscription_updated` audit row.

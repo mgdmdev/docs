@@ -1,7 +1,7 @@
 ---
 title: "Refund payment"
 description: "Issue a refund through the original payment provider and cancel the subscription."
-api: "POST /api/subscriptions/:id/refund"
+api: "POST /api/subscriptions/{id}/refund"
 ---
 
 For Paystack-funded payments, calls Paystack's `POST /refund` API with the original `transaction` reference, records a negative-amount `subscription_payments` row (`payment_type=refund`, `status=refunded`, `provider_reference` set to Paystack's refund id), cancels the subscription immediately, and writes a `subscriptions.refund_issued` audit row.
@@ -55,7 +55,7 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 |--------|------|------|
 | 400 | `invalid_request` | `amount` is missing or `<= 0`. |
 | 404 | `not_found` | Subscription doesn't exist. |
-| 404 | `payment_not_found` | `payment_id` provided but doesn't belong to this subscription. |
+| 404 | `not_found` | `payment_id` provided but doesn't belong to this subscription. |
 | 409 | `idempotency_key_conflict` | Same `Idempotency-Key` resent with a different body. |
 | 409 | `refund_already_issued` | The same original transaction has already been refunded. Response echoes the existing `refund_id` and `paystack_refund_id`. Safe to treat as success. |
 | 502 | `paystack_refund_failed` | Paystack rejected the refund (e.g. transaction already refunded, insufficient balance). The subscription is NOT cancelled and no local refund row is written — retry with a different `payment_id` or escalate to Paystack support. The audit log records the failure. |

@@ -2,3 +2,45 @@
 title: "Unsuspend User"
 api: "POST /api/users/{id}/unsuspend"
 ---
+
+Lifts a suspension: the user can sign in again and the stored suspension reason is cleared. Idempotent — unsuspending a user who is not suspended succeeds and changes nothing.
+
+Requires an admin bearer token.
+
+<Note>
+  Unsuspending does not restore sessions that were revoked while the account was suspended. The user signs in again as normal.
+</Note>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the suspension is lifted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/users/usr_abc123/unsuspend" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/users/${userId}/unsuspend`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+```
+
+</CodeGroup>

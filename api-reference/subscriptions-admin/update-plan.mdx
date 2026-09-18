@@ -1,7 +1,7 @@
 ---
 title: "Update plan"
 description: "Patch a subscription plan from the admin console."
-api: "PATCH /api/subscriptions/plans/:id"
+api: "PATCH /api/subscriptions/plans/{id}"
 ---
 
 Partially updates a plan. Same field semantics as the tenant-side [`PATCH /v1/plans/:id`](/api-reference/subscriptions-tenant/update-plan), but no per-application scoping — admins can edit any plan. Writes a `subscriptions.plan_updated` audit row with the list of changed fields.

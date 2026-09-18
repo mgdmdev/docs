@@ -1,7 +1,7 @@
 ---
 title: "Reactivate subscription"
 description: "Restart a cancelled or past-due subscription with a fresh payment method."
-api: "POST /v1/subscriptions/:id/reactivate"
+api: "POST /v1/subscriptions/{id}/reactivate"
 ---
 
 Re-attaches a payment method to the subscription and resumes billing. Use this when a user clears a past-due state by adding a new card, or when they want to undo a cancellation that hasn't taken effect yet.

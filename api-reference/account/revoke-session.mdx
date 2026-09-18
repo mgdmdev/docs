@@ -1,4 +1,43 @@
 ---
 title: "Revoke Own Session"
-api: "POST /api/account/sessions/{id}/revoke"
+api: "DELETE /api/account/sessions/{sessionId}"
 ---
+
+Signs the user out of one of their own sessions. The session must belong to the caller and must still be live — a session id belonging to someone else is reported as **404**, not 403, so the endpoint cannot be used to probe for other people's sessions.
+
+Requires an OAuth access token for the user. To end every session at once, use `DELETE /api/account/sessions`.
+
+## Path parameters
+
+<ParamField path="sessionId" type="string" required>
+  The session id, as returned by [list sessions](/api-reference/account/list-sessions).
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the session is revoked.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid access token. |
+| 404 | `not_found` | No live session with that id belongs to the caller. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/account/sessions/ses_01HXR3M4K2" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/account/sessions/${sessionId}`, {
+  method: "DELETE",
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+```
+
+</CodeGroup>

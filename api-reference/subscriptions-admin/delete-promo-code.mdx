@@ -1,7 +1,7 @@
 ---
 title: "Delete promo code"
 description: "Deactivate a promo code (soft delete)."
-api: "DELETE /api/subscriptions/promo-codes/:id"
+api: "DELETE /api/subscriptions/promo-codes/{id}"
 ---
 
 Soft-deletes the code by setting `active = 0`. The row stays in place because `promo_redemptions` rows reference it via foreign key — hard-deleting would break the historical record of who got what discount. Writes a `subscriptions.promo_deactivated` audit row.

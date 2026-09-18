@@ -1,7 +1,7 @@
 ---
 title: "Sponsor subscription"
 description: "Admin-grants a sponsored subscription to a user without charging anything."
-api: "POST /api/applications/:id/subscriptions/sponsor"
+api: "POST /api/applications/{id}/subscriptions/sponsor"
 ---
 
 Creates an `active` subscription that's flagged `sponsored = 1` with no `payment_provider` and no authorization. Fires the same `subscription.created` webhook + notification fan-out as a paid path, refreshes the user's entitlement cache, and writes an `application.subscription.sponsored` audit row attributing the grant to the calling admin.

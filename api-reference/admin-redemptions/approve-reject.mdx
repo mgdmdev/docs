@@ -2,3 +2,65 @@
 title: "Approve or Reject"
 api: "PATCH /api/rewards/cashback/redemptions/{id}"
 ---
+
+Settles a cashback redemption that is waiting on a decision. Only a redemption still `pending` or `processing` can be settled.
+
+Requires an admin bearer token.
+
+<Warning>
+  Cancelling refunds the points: a positive `cashback_refund` entry is written to the ledger and the user gets them back. Completing moves no points — they left the balance when the redemption was requested. Choose deliberately; there is no second undo.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The redemption id.
+</ParamField>
+
+## Body
+
+<ParamField body="status" type="string" required>
+  `completed` to approve, `cancelled` to reject and refund. No other value is accepted.
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Optional note recorded with the decision.
+</ParamField>
+
+## Response
+
+The settled redemption.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `status` is missing or is not `completed` or `cancelled`. |
+| 400 | `invalid_state` | The redemption is no longer `pending` or `processing`. The message names the state it is in. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No redemption with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/rewards/cashback/redemptions/rdm_xyz789" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "cancelled", "reason": "Mobile money number unreachable" }'
+```
+
+```typescript TypeScript
+await fetch(
+  `https://auth.mgpass.net/api/rewards/cashback/redemptions/${redemptionId}`,
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status: "cancelled", reason: "Mobile money number unreachable" }),
+  },
+);
+```
+
+</CodeGroup>

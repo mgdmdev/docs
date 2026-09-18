@@ -1,7 +1,7 @@
 ---
 title: "Preview upgrade"
 description: "Read-only proration quote before changing plan."
-api: "GET /api/account/subscriptions/:id/upgrade-preview"
+api: "GET /api/account/subscriptions/{id}/upgrade-preview"
 ---
 
 Phase 3 endpoint. Returns the credit + charge breakdown that a [`POST /api/account/subscriptions/:id/change-plan`](/api-reference/subscriptions-account/change-my-plan) call would produce, without committing anything. The shape is consumed by the change-plan confirmation form in the account portal so the user sees what they'll be charged before pressing Confirm.

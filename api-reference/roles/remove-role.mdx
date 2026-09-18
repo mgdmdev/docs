@@ -2,3 +2,49 @@
 title: "Remove Role from User"
 api: "DELETE /api/users/{id}/roles/{roleId}"
 ---
+
+Takes a role away from a user. Idempotent — removing a role the user does not hold succeeds and changes nothing, so a retry after a timeout is safe.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id.
+</ParamField>
+
+<ParamField path="roleId" type="string" required>
+  The role to remove.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true`. Also returned when the user did not hold the role.
+</ResponseField>
+
+<Note>
+  Removing a role does not invalidate tokens already issued. A user keeps the scopes in their current access token until it expires; revoke their sessions if the change has to take effect immediately.
+</Note>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/users/usr_abc123/roles/role_support_agent" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(
+  `https://auth.mgpass.net/api/users/${userId}/roles/${roleId}`,
+  { method: "DELETE", headers: { Authorization: `Bearer ${adminToken}` } },
+);
+```
+
+</CodeGroup>

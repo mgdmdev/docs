@@ -1,7 +1,7 @@
 ---
 title: "Get subscription"
 description: "Fetch a single subscription owned by the calling application."
-api: "GET /v1/subscriptions/:id"
+api: "GET /v1/subscriptions/{id}"
 ---
 
 Returns the full subscription row. The subscription must belong to the application keyed by `X-API-Key` — otherwise a `404` is returned.

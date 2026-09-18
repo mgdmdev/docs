@@ -2,3 +2,62 @@
 title: "Create API Resource"
 api: "POST /api/api-resources"
 ---
+
+Registers an audience that access tokens can be issued for. Clients then request it by `identifier` and receive a token scoped to it, instead of a general-purpose one.
+
+Requires an admin bearer token.
+
+## Body
+
+<ParamField body="name" type="string" required>
+  Display name, shown in admin.
+</ParamField>
+
+<ParamField body="identifier" type="string" required>
+  The audience value tokens will carry, in their `aud` claim. Conventionally a URI, and it does not have to resolve. Unique across the platform.
+</ParamField>
+
+<ParamField body="token_ttl" type="integer">
+  Access-token lifetime in seconds for this audience. Shorter is safer: a token for a payments API should not outlive one for a content API.
+</ParamField>
+
+## Response
+
+The new resource — `id`, `name`, `identifier`, `token_ttl` and `is_active`.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/api-resources" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Orders API",
+    "identifier": "https://api.acme.com",
+    "token_ttl": 3600
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/api-resources", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Orders API",
+    identifier: "https://api.acme.com",
+    token_ttl: 3600,
+  }),
+});
+const resource = await res.json();
+```
+
+</CodeGroup>

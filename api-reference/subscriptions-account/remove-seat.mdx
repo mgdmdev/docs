@@ -1,7 +1,7 @@
 ---
 title: "Remove seat"
 description: "Primary subscriber removes a non-owner seat from a multi-seat subscription."
-api: "DELETE /api/account/subscriptions/:id/seats/:seatId"
+api: "DELETE /api/account/subscriptions/{id}/seats/{seatId}"
 ---
 
 Removes a seat from the subscription. Owner seats can't be removed — cancel the subscription instead. Writes a `user.seat_removed` audit row.

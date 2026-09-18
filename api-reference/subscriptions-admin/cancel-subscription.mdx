@@ -1,7 +1,7 @@
 ---
 title: "Cancel subscription"
 description: "Cancel a subscription from the admin console."
-api: "POST /api/subscriptions/:id/cancel"
+api: "POST /api/subscriptions/{id}/cancel"
 ---
 
 Admin-side cancellation. Same semantics as the tenant [`POST /v1/subscriptions/:id/cancel`](/api-reference/subscriptions-tenant/cancel-subscription): default cancels at period end, `immediate: true` cancels right now. The cancelling actor is recorded as `admin:<user_id>` in the audit log.

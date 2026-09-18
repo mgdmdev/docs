@@ -3,3 +3,43 @@ title: "FedCM Token Assertion"
 api: "POST /fedcm/assertion"
 description: "Issues a signed ID token (iss / aud=client_id / sub, plus email, email_verified, name, picture) for the selected account. Called by the browser after the user consents in the native FedCM prompt; verify it against the JWKS endpoint."
 ---
+
+Issues an ID token for the account the user picked in the browser's chooser.
+
+<Note>
+  Called by the browser as a form post, not by your code. Your page receives the resulting token from `navigator.credentials.get()`.
+</Note>
+
+## Headers
+
+<ParamField header="Sec-Fetch-Dest" type="string" required>
+  Must be `webidentity`.
+</ParamField>
+
+## Body
+
+Sent as `application/x-www-form-urlencoded`.
+
+<ParamField body="account_id" type="string" required>
+  The account the user selected. It must match the session cookie — mgPass will not mint a token for an account the caller is not signed in as.
+</ParamField>
+
+<ParamField body="client_id" type="string" required>
+  The `application_id` of the relying party.
+</ParamField>
+
+## Response
+
+<ResponseField name="token" type="string">
+  A signed ID token. Verify it against [the JWKS](/api-reference/authentication/jwks) exactly as you would a token from the standard flow — do not trust it because it came from the browser API.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | The `Sec-Fetch-Dest` header, `account_id` or `client_id` was missing. |
+
+<Note>
+  A successful assertion records durable consent for this Application, which is what makes it appear in `approved_clients` next time and lets silent SSO work for it.
+</Note>

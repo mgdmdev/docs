@@ -1,7 +1,7 @@
 ---
 title: "Get checkout session"
 description: "Fetch the state of a checkout session you created via POST /v1/checkout."
-api: "GET /v1/checkout/:sessionId"
+api: "GET /v1/checkout/{sessionId}"
 ---
 
 Returns the full checkout session row, including the resulting `subscription_id` once the user completes payment. Use this to verify completion server-side (in case your webhook handler is delayed or you want to confirm before redirecting the user after a successful checkout).

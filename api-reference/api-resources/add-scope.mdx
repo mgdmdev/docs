@@ -2,3 +2,68 @@
 title: "Add Scope to Resource"
 api: "POST /api/api-resources/{id}/scopes"
 ---
+
+Defines a scope on an API resource. Scopes are what a client asks for at authorization and what your API checks in the token it receives.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The API resource the scope belongs to.
+</ParamField>
+
+## Body
+
+<ParamField body="name" type="string" required>
+  The scope string, e.g. `orders:read`. This is the literal value that appears in the token's `scope` claim, so keep it stable once anything depends on it.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Shown on the consent screen. Write it for the end user, not the developer — this is the sentence someone reads before granting access.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  The new scope id.
+</ResponseField>
+
+<ResponseField name="api_resource_id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="description" type="string">
+  `null` when none was supplied.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/api-resources/res_orders/scopes" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "orders:read",
+    "description": "See your order history"
+  }'
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/api-resources/${resourceId}/scopes`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ name: "orders:read", description: "See your order history" }),
+});
+```
+
+</CodeGroup>

@@ -2,3 +2,79 @@
 title: "Search Ledger"
 api: "GET /api/rewards/ledger"
 ---
+
+Every points movement, newest first, with the holder's name and email joined in. The ledger is append-only and is the source of truth for a balance — a cached balance that disagrees with it is the cache being wrong.
+
+Requires an admin bearer token. Filters combine with AND.
+
+## Query parameters
+
+<ParamField query="page" type="integer" default="1" />
+
+<ParamField query="limit" type="integer" default="20">
+  Values above 100 are reduced to 100.
+</ParamField>
+
+<ParamField query="user_id" type="string">
+  Restrict to one user.
+</ParamField>
+
+<ParamField query="user_email" type="string">
+  An exact email address, resolved to a user id. Ignored when `user_id` is also sent. An address matching no user returns an empty page rather than an error.
+</ParamField>
+
+<ParamField query="platform" type="string">
+  The Application the movement came from, by name.
+</ParamField>
+
+<ParamField query="event_type" type="string">
+  e.g. `purchase`, `cashback_redeem`, `cashback_refund`.
+</ParamField>
+
+<ParamField query="from" type="integer">
+  Unix epoch seconds, inclusive.
+</ParamField>
+
+<ParamField query="to" type="integer">
+  Unix epoch seconds, inclusive.
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array">
+  Ledger entries. `points` is signed: positive credits the user, negative debits them.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Rows matching the filters, ignoring paging. Use it to drive pagination.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -G "https://auth.mgpass.net/api/rewards/ledger" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  --data-urlencode "user_email=ama@example.com" \
+  --data-urlencode "event_type=purchase" \
+  --data-urlencode "limit=100"
+```
+
+```typescript TypeScript
+const params = new URLSearchParams({
+  user_email: "ama@example.com",
+  event_type: "purchase",
+  limit: "100",
+});
+const res = await fetch(`https://auth.mgpass.net/api/rewards/ledger?${params}`, {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const { results, total } = await res.json();
+```
+
+</CodeGroup>

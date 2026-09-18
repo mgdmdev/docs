@@ -2,3 +2,55 @@
 title: "List API Resources"
 api: "GET /api/api-resources"
 ---
+
+An API resource is an audience that mgPass can mint access tokens for: your own backend API, with its own scopes and its own token lifetime. This lists the ones registered on the platform.
+
+Requires an admin bearer token.
+
+## Query parameters
+
+<ParamField query="page" type="integer" default="1" />
+
+<ParamField query="limit" type="integer" default="20">
+  Values above 100 are reduced to 100.
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  The API resources on this page.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Resources in total, ignoring paging.
+</ResponseField>
+
+<ResponseField name="page" type="integer" />
+
+<ResponseField name="limit" type="integer" />
+
+<ResponseField name="has_more" type="boolean">
+  `true` when another page follows.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/api-resources?limit=50" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/api-resources?limit=50", {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const { data, has_more } = await res.json();
+```
+
+</CodeGroup>

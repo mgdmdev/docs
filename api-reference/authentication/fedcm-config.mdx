@@ -3,3 +3,35 @@ title: "FedCM IdP Configuration"
 api: "GET /fedcm/config.json"
 description: "Returns the FedCM identity provider configuration including endpoint URLs and branding information."
 ---
+
+The provider manifest the browser fetches first when a page calls `navigator.credentials.get()` with mgPass as the identity provider.
+
+<Note>
+  You do not call this endpoint. The browser does, and it is listed here so you can see what mgPass advertises. To put one-tap on your site, use the [One Tap SDK](/api-reference/authentication/onetap-sdk).
+</Note>
+
+## Response
+
+<ResponseField name="accounts_endpoint" type="string">
+  Where the browser asks who is signed in.
+</ResponseField>
+
+<ResponseField name="id_assertion_endpoint" type="string">
+  Where the browser exchanges the chosen account for a token.
+</ResponseField>
+
+<ResponseField name="client_metadata_endpoint" type="string">
+  Where the browser reads your terms and privacy links for the consent UI.
+</ResponseField>
+
+<ResponseField name="login_url" type="string">
+  Where the browser sends a user who is not signed in.
+</ResponseField>
+
+<ResponseField name="branding" type="object">
+  `background_color`, `color` and an `icons` array, used to style the browser's own account chooser.
+</ResponseField>
+
+<Warning>
+  FedCM is Chromium-only. Safari and Firefox do not implement it, and the mgPass SDK has no fallback by design — use the [standard OAuth flow](/guides/oauth-flows) as your baseline and treat one-tap as an enhancement.
+</Warning>

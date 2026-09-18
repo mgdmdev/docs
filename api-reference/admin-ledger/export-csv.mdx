@@ -2,3 +2,54 @@
 title: "Export CSV"
 api: "GET /api/rewards/ledger/export"
 ---
+
+The same filters as [ledger search](/api-reference/admin-ledger/search-ledger), with no paging — the whole matching set is written out in one response.
+
+Requires an admin bearer token. Returns `text/csv` as an attachment named `ledger-export.csv`.
+
+## Query parameters
+
+Identical to ledger search, minus `page` and `limit`: `user_id`, `user_email`, `platform`, `event_type`, `from`, `to`.
+
+<ParamField query="user_email" type="string">
+  An exact email address, resolved to a user id. An address matching no user returns a CSV containing only the header row.
+</ParamField>
+
+## Response
+
+A CSV document with this header row:
+
+```
+ID,User,Email,Event,Platform,Points,Date
+```
+
+<Warning>
+  There is no row cap. An unfiltered export is the entire ledger — narrow with `from` and `to` before calling it on a large account.
+</Warning>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -G "https://auth.mgpass.net/api/rewards/ledger/export" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  --data-urlencode "from=1767225600" \
+  --data-urlencode "to=1769904000" \
+  -o ledger-export.csv
+```
+
+```typescript TypeScript
+const params = new URLSearchParams({ from: "1767225600", to: "1769904000" });
+const res = await fetch(
+  `https://auth.mgpass.net/api/rewards/ledger/export?${params}`,
+  { headers: { Authorization: `Bearer ${adminToken}` } },
+);
+const csv = await res.text();
+```
+
+</CodeGroup>

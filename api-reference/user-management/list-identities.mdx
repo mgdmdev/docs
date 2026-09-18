@@ -2,3 +2,63 @@
 title: "List Social Identities"
 api: "GET /api/users/{id}/identities"
 ---
+
+The social accounts linked to one user — one row per provider account — newest link first.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id.
+</ParamField>
+
+## Response
+
+An array of linked identities.
+
+<ResponseField name="id" type="string">
+  Identity id. Pass it to the unlink endpoint.
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  The mgPass user this identity belongs to.
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  The identity provider, e.g. `google`, `apple`, `facebook`.
+</ResponseField>
+
+<ResponseField name="provider_user_id" type="string">
+  The user's id at that provider. Stable across sign-ins; use it, not the email, to match an account.
+</ResponseField>
+
+<ResponseField name="profile_data" type="object">
+  The provider profile captured when the account was linked, or `null`. Returned parsed, not as a string.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds the link was made.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/users/usr_abc123/identities" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/users/${userId}/identities`, {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const identities = await res.json();
+```
+
+</CodeGroup>

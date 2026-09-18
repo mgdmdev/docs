@@ -1,7 +1,7 @@
 ---
 title: "Cancel subscription"
 description: "Cancel a subscription at period end or immediately."
-api: "POST /v1/subscriptions/:id/cancel"
+api: "POST /v1/subscriptions/{id}/cancel"
 ---
 
 Schedules a cancellation. By default the subscription stays `active` until `current_period_end`, then transitions to `cancelled`. Pass `immediate: true` to terminate access right now.

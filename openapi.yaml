@@ -110,6 +110,10 @@ tags:
     description: Tenant ingestion of user events for the rewards engine.
   - name: Order Redemption
     description: Spending a user's points against an order in your own checkout.
+  - name: Rewards Ledger
+    description: Operator search, export and reconciliation over the points ledger.
+  - name: Rewards Redemptions
+    description: Operator search over every redemption, across all types.
   - name: Roles & Permissions
     description: Manage roles and scope assignments.
   - name: API Resources
@@ -691,11 +695,16 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Seat' }
+  /api/account/subscriptions/{id}/seats/invite:
     post:
       operationId: inviteAccountSubscriptionSeat
       tags: [Account Self-Service]
       security: [{ userBearer: [] }]
-      summary: Invite a new seat
+      summary: Invite someone to a seat
+      description: |
+        Only the primary subscriber can invite, only on an `active` or `trialing`
+        subscription, and only on a plan that allows more than one seat. The invitee
+        receives an email; the seat exists from this call, before they accept.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
       requestBody:
@@ -706,14 +715,27 @@ paths:
               type: object
               required: [email]
               properties:
-                email: { type: string, format: email }
-                name: { type: string }
+                email: { type: string, format: email, example: friend@example.com }
       responses:
         '201':
-          description: Seat invited.
+          description: The seat was created and the invitation sent.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Seat' }
+              schema:
+                type: object
+                properties:
+                  seat_id: { type: string }
+                  invite_email: { type: string, format: email }
+        '400':
+          description: |
+            `invalid_email` when the address is missing or malformed, `invalid_state`
+            when the subscription is not active or trialing, `not_family_plan` when the
+            plan allows only one seat, and `self_invite` when the address is the primary
+            subscriber's own.
+        '403':
+          description: '`forbidden` — only the primary subscriber can invite seats.'
+        '404':
+          description: '`not_found` or `plan_not_found`.'
 
   /api/account/subscriptions/{id}/seats/{seatId}:
     delete:
@@ -3205,6 +3227,738 @@ paths:
                   integrity: { type: string, description: 'e.g. "sha384-..."' }
                   bundle_version: { type: string }
 
+  # ──── User Management: roles, sessions, identities ────
+
+  /api/users/{id}/unsuspend:
+    post:
+      operationId: unsuspendUser
+      tags: [User Management]
+      security: [{ adminBearer: [] }]
+      summary: Lift a suspension
+      description: Clears `is_suspended` and the stored suspension reason. Idempotent — unsuspending an active user succeeds and changes nothing.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      responses:
+        '200':
+          description: The user is no longer suspended.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/users/{id}/roles:
+    post:
+      operationId: assignUserRole
+      tags: [Roles & Permissions]
+      security: [{ adminBearer: [] }]
+      summary: Assign a role to a user
+      description: Records who assigned the role and when. A role already held is rejected rather than re-inserted.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_id]
+              properties:
+                role_id: { type: string, example: role_support_agent }
+      responses:
+        '201':
+          description: Role assigned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No role with that id.
+        '409':
+          description: The user already holds this role.
+
+  /api/users/{id}/roles/{roleId}:
+    delete:
+      operationId: removeUserRole
+      tags: [Roles & Permissions]
+      security: [{ adminBearer: [] }]
+      summary: Remove a role from a user
+      description: Idempotent — removing a role the user does not hold succeeds and changes nothing.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+        - { name: roleId, in: path, required: true, schema: { type: string }, example: role_support_agent }
+      responses:
+        '200':
+          description: Role removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/users/{id}/sessions:
+    get:
+      operationId: listUserSessions
+      tags: [User Management]
+      security: [{ adminBearer: [] }]
+      summary: List a user's active sessions
+      description: One row per live session, newest activity first, with the Application each session belongs to.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      responses:
+        '200':
+          description: The user's sessions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    client_id:
+                      type: string
+                      description: The `application_id` this session was created for. Named `client_id` for parity with the account portal's sessions contract.
+                    client_name: { type: string }
+                    client_logo_url: { type: [string, 'null'] }
+                    device_info:
+                      type: [object, 'null']
+                      additionalProperties: true
+                      description: Parsed user-agent details, when the session recorded any.
+                    ip_address: { type: [string, 'null'] }
+                    last_active_at: { type: integer }
+                    created_at: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/users/{id}/sessions/revoke-all:
+    post:
+      operationId: revokeAllUserSessions
+      tags: [User Management]
+      security: [{ adminBearer: [] }]
+      summary: Revoke every session and refresh token for a user
+      description: |
+        Signs the user out everywhere: all sessions are revoked, all refresh tokens
+        are revoked, and a back-channel logout is dispatched so the account and
+        admin surfaces drop their local cookies immediately.
+
+        Rate limited to **5 requests per minute** per admin.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Optional note written to the audit record. Trimmed, and truncated at 500 characters.
+                  example: Credential compromise reported by the user
+      responses:
+        '200':
+          description: Everything revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  revoked_sessions: { type: integer, example: 3 }
+                  revoked_refresh_tokens: { type: integer, example: 7 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/users/{id}/identities:
+    get:
+      operationId: listUserIdentities
+      tags: [User Management]
+      security: [{ adminBearer: [] }]
+      summary: List a user's linked social identities
+      description: Newest link first. One row per provider account linked to this user.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      responses:
+        '200':
+          description: The user's linked identities.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    user_id: { type: string }
+                    provider: { type: string, example: google }
+                    provider_user_id:
+                      type: string
+                      description: The user's id at the provider.
+                    profile_data:
+                      type: [object, 'null']
+                      additionalProperties: true
+                      description: The provider profile captured at link time, parsed from storage.
+                    created_at: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/users/{id}/login-history:
+    get:
+      operationId: getUserLoginHistory
+      tags: [User Management]
+      security: [{ adminBearer: [] }]
+      summary: Recent sign-in activity for a user
+      description: |
+        Audit records for this user narrowed to sign-in events: `session.created`,
+        `user.login.success`, `user.login.failed` and `user.sign_out`. Newest first.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+          description: Rows to return. Values above 50 are reduced to 50.
+      responses:
+        '200':
+          description: Sign-in events, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditLogEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ──── Rewards administration: ledger, redemptions, reconciliation ────
+
+  /api/rewards/ledger:
+    get:
+      operationId: searchPointsLedger
+      tags: [Rewards Ledger]
+      security: [{ adminBearer: [] }]
+      summary: Search the points ledger
+      description: |
+        Every points movement, newest first, with the holder's name and email joined in.
+        Filters combine with AND. Passing `user_email` for an address that matches no
+        user returns an empty page rather than an error.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+        - { name: user_id, in: query, schema: { type: string } }
+        - name: user_email
+          in: query
+          schema: { type: string }
+          description: Resolved to a user id. Ignored when `user_id` is also sent.
+        - { name: platform, in: query, schema: { type: string }, example: 3news }
+        - { name: event_type, in: query, schema: { type: string }, example: purchase }
+        - { name: from, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+        - { name: to, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+      responses:
+        '200':
+          description: Matching ledger entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/PointsLedgerEntry' }
+                  total: { type: integer, description: 'Rows matching the filters, ignoring paging.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/rewards/ledger/export:
+    get:
+      operationId: exportPointsLedger
+      tags: [Rewards Ledger]
+      security: [{ adminBearer: [] }]
+      summary: Export the points ledger as CSV
+      description: |
+        The same filters as the ledger search, with no paging — the whole matching set
+        is written out. Returns `text/csv` as an attachment named `ledger-export.csv`,
+        with the header row `ID,User,Email,Event,Platform,Points,Date`.
+      parameters:
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: user_email, in: query, schema: { type: string } }
+        - { name: platform, in: query, schema: { type: string } }
+        - { name: event_type, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: integer } }
+        - { name: to, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: CSV export.
+          content:
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/rewards/redemptions:
+    get:
+      operationId: listAllRedemptions
+      tags: [Rewards Redemptions]
+      security: [{ adminBearer: [] }]
+      summary: Search redemptions across all users
+      description: |
+        Every redemption — catalog, cashback and order — newest first, with the
+        holder's name and email joined in. Filters combine with AND. Passing `q` for
+        an address that matches no user returns an empty page rather than an error.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, processing, completed, failed, cancelled] }
+        - name: type
+          in: query
+          schema: { type: string, enum: [catalog, cashback, partner_order] }
+          description: Which kind of redemption to return.
+        - name: q
+          in: query
+          schema: { type: string }
+          description: An exact user email address.
+        - { name: from, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+        - { name: to, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+      responses:
+        '200':
+          description: Matching redemptions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { type: object, additionalProperties: true } }
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/rewards/cashback/redemptions/{id}:
+    patch:
+      operationId: settleCashbackRedemption
+      tags: [Cashback]
+      security: [{ adminBearer: [] }]
+      summary: Approve or reject a cashback redemption
+      description: |
+        Only a redemption still `pending` or `processing` can be settled. Cancelling
+        writes a positive `cashback_refund` entry to the ledger, returning the points
+        to the user; completing does not move points, because they left at request time.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: rdm_xyz789 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [completed, cancelled] }
+                reason: { type: string, description: Optional note recorded with the decision. }
+      responses:
+        '200':
+          description: The redemption was settled.
+        '400':
+          description: '`invalid_request` when `status` is absent or not one of the two values; `invalid_state` when the redemption is no longer pending or processing.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No redemption with that id.
+
+  /api/rewards/reconcile/{userId}:
+    post:
+      operationId: reconcileUserBalance
+      tags: [Rewards Ledger]
+      security: [{ adminBearer: [] }]
+      summary: Reconcile a user's cached balance against the ledger
+      description: |
+        Sums the user's ledger and compares it with the cached balance. If they differ,
+        the cache is corrected to the ledger total and the correction is audited. The
+        ledger is the source of truth; the cached balance is never trusted over it.
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string }, example: usr_abc123 }
+      responses:
+        '200':
+          description: The comparison, and whether a correction was applied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cached: { type: integer, description: The balance before reconciliation. }
+                  calculated: { type: integer, description: The sum of the user's ledger. }
+                  drift: { type: integer, description: '`cached` minus `calculated`. Zero when the two agree.' }
+                  fixed: { type: boolean, description: True when the cached balance was corrected. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ──── API resources, audit, organization members ────
+
+  /api/api-resources:
+    get:
+      operationId: listApiResources
+      tags: [API Resources]
+      security: [{ adminBearer: [] }]
+      summary: List API resources
+      description: An API resource is an audience that access tokens can be issued for, with its own scopes and token lifetime.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+      responses:
+        '200':
+          description: A page of API resources.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ApiResource' } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  has_more: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createApiResource
+      tags: [API Resources]
+      security: [{ adminBearer: [] }]
+      summary: Create an API resource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, identifier]
+              properties:
+                name: { type: string, example: Orders API }
+                identifier:
+                  type: string
+                  description: The audience value tokens will carry. Conventionally a URI.
+                  example: https://api.acme.com
+                token_ttl:
+                  type: integer
+                  description: Access-token lifetime in seconds for this audience.
+                  example: 3600
+      responses:
+        '201':
+          description: The new API resource.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiResource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/api-resources/{id}:
+    get:
+      operationId: getApiResource
+      tags: [API Resources]
+      security: [{ adminBearer: [] }]
+      summary: Get an API resource with its scopes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: res_orders }
+      responses:
+        '200':
+          description: The API resource, with every scope defined on it.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApiResource' }
+                  - type: object
+                    properties:
+                      scopes: { type: array, items: { $ref: '#/components/schemas/ApiScope' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No API resource with that id.
+
+  /api/api-resources/{id}/scopes:
+    post:
+      operationId: addApiResourceScope
+      tags: [API Resources]
+      security: [{ adminBearer: [] }]
+      summary: Add a scope to an API resource
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: res_orders }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: 'orders:read' }
+                description: { type: string, example: Read orders on behalf of the user. }
+      responses:
+        '201':
+          description: The new scope.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiScope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/audit:
+    get:
+      operationId: listAuditLogs
+      tags: [Audit Logs]
+      security: [{ adminBearer: [] }]
+      summary: Search the audit log
+      description: |
+        Platform-wide audit records, newest first. Filters combine with AND. Actor and
+        target names are resolved into the response where the referenced record still exists.
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+          description: Values above 100 are reduced to 100.
+        - { name: event_type, in: query, schema: { type: string }, example: role.assigned }
+        - { name: actor_id, in: query, schema: { type: string } }
+        - { name: target_id, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+        - { name: to, in: query, schema: { type: integer }, description: 'Unix epoch seconds, inclusive.' }
+      responses:
+        '200':
+          description: Matching audit records.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/AuditLogEntry' } }
+                  total: { type: integer, description: 'Rows matching the filters, ignoring paging.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/organizations/{id}/members:
+    post:
+      operationId: addOrganizationMember
+      tags: [Organizations]
+      security: [{ adminBearer: [] }]
+      summary: Add a user to an organization
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: org_acme }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string, example: usr_abc123 }
+                role:
+                  type: string
+                  description: Optional role within the organization. Stored as null when omitted.
+                  example: owner
+      responses:
+        '201':
+          description: The user is now a member.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '400':
+          description: '`invalid_request` — `user_id` is missing.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: '`user_not_found` — no live user with that id.'
+
+  # ──── RP-initiated logout ────
+
+  /logout:
+    get:
+      operationId: rpInitiatedLogoutGet
+      tags: [Authentication]
+      summary: End the session (RP-initiated logout)
+      description: |
+        Clears the mgPass session cookie and emits the `Set-Login` header so the browser
+        re-queries the accounts endpoint.
+
+        `post_logout_redirect_uri` is honoured only when it matches one of the
+        Application's registered `post_logout_uris` exactly; anything else is ignored and
+        the response is JSON instead of a redirect. Sessions belonging to *other*
+        Applications are revoked only when `id_token_hint` is present and its signature
+        verifies — a forged hint clears the caller's own cookie and nothing more.
+
+        The `POST` form of this endpoint accepts the same three values as a JSON or form
+        body, for callers that would rather not put a token in a query string.
+      parameters:
+        - name: id_token_hint
+          in: query
+          schema: { type: string }
+          description: The ID token from the session being ended. Required for cross-Application sign-out.
+        - name: post_logout_redirect_uri
+          in: query
+          schema: { type: string }
+          description: Where to send the browser afterwards. Must match a registered URI exactly.
+        - name: client_id
+          in: query
+          schema: { type: string }
+          description: The Application requesting the logout.
+      responses:
+        '302':
+          description: Redirect to the validated `post_logout_redirect_uri`.
+        '200':
+          description: No valid redirect was supplied, so the result is returned as JSON.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+
+  # ──── FedCM (browser-invoked; Chromium only) ────
+
+  /fedcm/config.json:
+    get:
+      operationId: fedcmConfig
+      tags: [Authentication]
+      summary: FedCM provider configuration
+      description: |
+        The provider manifest the browser fetches first. Not called by your code — the
+        browser requests it when a page calls `navigator.credentials.get()` with an
+        identity provider pointing at mgPass.
+      responses:
+        '200':
+          description: The provider manifest.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts_endpoint: { type: string, example: /fedcm/accounts }
+                  id_assertion_endpoint: { type: string, example: /fedcm/assertion }
+                  client_metadata_endpoint: { type: string, example: /fedcm/client-metadata }
+                  login_url: { type: string, example: /authorize }
+                  branding:
+                    type: object
+                    properties:
+                      background_color: { type: string }
+                      color: { type: string }
+                      icons:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            url: { type: string }
+                            size: { type: integer }
+
+  /fedcm/accounts:
+    get:
+      operationId: fedcmAccounts
+      tags: [Authentication]
+      summary: FedCM account list
+      description: |
+        The signed-in account, as the browser's account chooser needs it. Sent with
+        credentials and no `Origin` header, so the browser must supply
+        `Sec-Fetch-Dest: webidentity` — requests without it are rejected.
+
+        `approved_clients` lists the Applications this user has already consented to, read
+        from the durable consent record union'd with live refresh-token grants. The browser
+        uses it to decide whether to show a consent step.
+      parameters:
+        - name: Sec-Fetch-Dest
+          in: header
+          required: true
+          schema: { type: string, enum: [webidentity] }
+      responses:
+        '200':
+          description: The signed-in account.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        email: { type: string }
+                        picture: { type: string }
+                        approved_clients: { type: array, items: { type: string } }
+        '400':
+          description: '`invalid_request` — the `Sec-Fetch-Dest: webidentity` header was absent.'
+
+  /fedcm/assertion:
+    post:
+      operationId: fedcmAssertion
+      tags: [Authentication]
+      summary: FedCM ID assertion
+      description: |
+        Issues an ID token for the account the user picked in the browser's chooser. Sent
+        as a form body by the browser, which must supply `Sec-Fetch-Dest: webidentity`.
+        The session cookie must belong to `account_id`, and consent is recorded so the
+        Application shows as approved next time and silent SSO works for it.
+      parameters:
+        - name: Sec-Fetch-Dest
+          in: header
+          required: true
+          schema: { type: string, enum: [webidentity] }
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [account_id, client_id]
+              properties:
+                account_id: { type: string }
+                client_id:
+                  type: string
+                  description: The `application_id` of the relying party.
+      responses:
+        '200':
+          description: The ID token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: A signed ID token. }
+        '400':
+          description: The `Sec-Fetch-Dest` header, `account_id` or `client_id` was missing.
+
+  /fedcm/client-metadata:
+    get:
+      operationId: fedcmClientMetadata
+      tags: [Authentication]
+      summary: FedCM relying-party metadata
+      description: |
+        The terms and privacy links the browser shows in its consent UI, taken from the
+        Application's branding and falling back to the mgPass defaults. Requires
+        `Sec-Fetch-Dest: webidentity`. An empty object is returned when `client_id` is absent.
+      parameters:
+        - name: Sec-Fetch-Dest
+          in: header
+          required: true
+          schema: { type: string, enum: [webidentity] }
+        - { name: client_id, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: The relying party's terms and privacy URLs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  privacy_policy_url: { type: string }
+                  terms_of_service_url: { type: string }
+        '400':
+          description: '`invalid_request` — the `Sec-Fetch-Dest: webidentity` header was absent.'
+
 components:
   securitySchemes:
     adminBearer:
@@ -3428,16 +4182,26 @@ components:
       type: object
       properties:
         id: { type: string }
-        event_type: { type: string, description: 'snake_case `{entity}.{sub_entity?}.{action}`.' }
-        actor_id: { type: [string, "null"] }
-        actor_type: { type: string, enum: [admin, user, system, tenant] }
-        target_type: { type: [string, "null"] }
-        target_id: { type: [string, "null"] }
-        application_id: { type: [string, "null"] }
-        ip: { type: [string, "null"] }
-        metadata: { type: object, additionalProperties: true }
-        created_at: { type: string, format: date-time }
-
+        event_type: { type: string, example: role.assigned }
+        actor_type: { type: string, example: admin }
+        actor_id: { type: [string, 'null'] }
+        actor_name:
+          type: [string, 'null']
+          description: Resolved from `actor_id` where that record still exists.
+        target_type: { type: [string, 'null'], example: user }
+        target_id: { type: [string, 'null'] }
+        target_name:
+          type: [string, 'null']
+          description: Resolved from `target_id` where that record still exists.
+        client_id:
+          type: [string, 'null']
+          description: The `application_id` the action was taken through, when it was taken through one.
+        ip_address: { type: [string, 'null'] }
+        user_agent: { type: [string, 'null'] }
+        metadata:
+          type: [object, 'null']
+          additionalProperties: true
+        created_at: { type: integer }
     Application:
       type: object
       properties:
@@ -4203,17 +4967,36 @@ components:
 
     PointsLedgerEntry:
       type: object
+      description: One movement of points. The ledger is append-only and is the source of truth for a balance.
       properties:
-        id: { type: string }
-        user_id: { type: string }
-        application_id: { type: [string, "null"] }
-        delta: { type: integer, description: 'Positive for credits, negative for debits.' }
-        balance_after: { type: integer }
-        reason: { type: string }
-        event_type: { type: [string, "null"] }
-        metadata: { type: object, additionalProperties: true }
-        created_at: { type: string, format: date-time }
-
+        id: { type: string, example: pts_01HXR3M4K2 }
+        user_id: { type: string, example: usr_abc123 }
+        event_type:
+          type: string
+          description: What caused the movement, e.g. `purchase`, `cashback_redeem`, `cashback_refund`.
+          example: purchase
+        platform:
+          type: [string, 'null']
+          description: The Application the movement came from, by name.
+          example: 3news
+        points:
+          type: integer
+          description: Signed. Positive credits the user, negative debits them.
+          example: 150
+        rule_version: { type: [string, 'null'] }
+        reference_id:
+          type: [string, 'null']
+          description: The caller's own reference for the originating event, when one was sent.
+        metadata:
+          type: [object, 'null']
+          additionalProperties: true
+        created_at: { type: integer }
+        name:
+          type: [string, 'null']
+          description: The holder's name, joined in by the admin ledger search.
+        email:
+          type: [string, 'null']
+          description: The holder's email, joined in by the admin ledger search.
     Redemption:
       type: object
       properties:
@@ -4343,3 +5126,27 @@ components:
         already:
           type: boolean
           description: True when the call repeated a settlement already made.
+
+    ApiResource:
+      type: object
+      description: An audience access tokens can be issued for, with its own scopes and token lifetime.
+      properties:
+        id: { type: string, example: res_orders }
+        name: { type: string, example: Orders API }
+        identifier:
+          type: string
+          description: The audience value tokens carry. Conventionally a URI.
+          example: https://api.acme.com
+        token_ttl:
+          type: integer
+          description: Access-token lifetime in seconds for this audience.
+          example: 3600
+        is_active: { type: integer, description: '`1` when active.', example: 1 }
+
+    ApiScope:
+      type: object
+      properties:
+        id: { type: string, example: scp_orders_read }
+        api_resource_id: { type: string, example: res_orders }
+        name: { type: string, example: 'orders:read' }
+        description: { type: [string, 'null'] }

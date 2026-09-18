@@ -1,7 +1,7 @@
 ---
 title: "Cancel my subscription"
 description: "User-initiated cancel of one of their own subscriptions."
-api: "POST /api/account/subscriptions/:id/cancel"
+api: "POST /api/account/subscriptions/{id}/cancel"
 ---
 
 Cancels a subscription owned by the calling user. Defaults to cancel-at-period-end. Pass `immediate: true` to terminate access right now. Writes a `user.subscription_cancelled` audit row.

@@ -1,7 +1,7 @@
 ---
 title: "List seats"
 description: "Seats on a family/multi-seat subscription the calling user belongs to."
-api: "GET /api/account/subscriptions/:id/seats"
+api: "GET /api/account/subscriptions/{id}/seats"
 ---
 
 Returns the seats on a multi-seat subscription. Both the primary subscriber and active seat members can call this; non-members get `403`. The primary user sees the full view; non-primary members get a redacted view (invite emails and token hashes for **other** seats are stripped).

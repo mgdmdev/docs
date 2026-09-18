@@ -1,7 +1,7 @@
 ---
 title: "Invite seat"
 description: "Primary subscriber invites someone to a family/multi-seat subscription."
-api: "POST /api/account/subscriptions/:id/seats/invite"
+api: "POST /api/account/subscriptions/{id}/seats/invite"
 ---
 
 Creates a `pending` seat invite with a one-time accept token. Emails the invitee with an accept URL. Honors `plan.max_seats` — invites that would exceed capacity are rejected. Existing pending invites for the same email are surfaced (deduped) rather than creating a duplicate.

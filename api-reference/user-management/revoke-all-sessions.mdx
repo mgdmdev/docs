@@ -2,3 +2,72 @@
 title: "Revoke All Sessions"
 api: "POST /api/users/{id}/sessions/revoke-all"
 ---
+
+Signs a user out everywhere in one call: every session is revoked, every refresh token is revoked, and a back-channel logout is dispatched so the account and admin surfaces drop their local cookies immediately rather than on next request.
+
+Requires an admin bearer token.
+
+<Warning>
+  This is the account-compromise button. It is not reversible — the user must sign in again on every device. Rate limited to **5 requests per minute** per admin.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The user id.
+</ParamField>
+
+## Body
+
+The body is optional; send no body at all if you have nothing to record.
+
+<ParamField body="reason" type="string">
+  A note written to the audit record. Trimmed, and truncated at 500 characters. Worth sending — it is what tells a later reviewer why every token for this user disappeared at once.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once everything is revoked.
+</ResponseField>
+
+<ResponseField name="revoked_sessions" type="integer">
+  How many sessions were live and are now revoked.
+</ResponseField>
+
+<ResponseField name="revoked_refresh_tokens" type="integer">
+  How many refresh tokens were live and are now revoked.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 429 | `rate_limit_exceeded` | More than 5 requests in the current minute. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/users/usr_abc123/sessions/revoke-all" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "Credential compromise reported by the user" }'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/users/${userId}/sessions/revoke-all`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reason: "Credential compromise reported by the user" }),
+  },
+);
+const { revoked_sessions, revoked_refresh_tokens } = await res.json();
+```
+
+</CodeGroup>

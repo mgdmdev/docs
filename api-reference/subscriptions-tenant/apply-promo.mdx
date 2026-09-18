@@ -1,7 +1,7 @@
 ---
 title: "Apply promo code"
 description: "Redeem a promo code against an existing subscription."
-api: "POST /v1/subscriptions/:id/apply-promo"
+api: "POST /v1/subscriptions/{id}/apply-promo"
 ---
 
 Validates the promo code against the subscription's plan, computes the discount, and redeems it. Redemption is atomic — limits race-checked between validate and redeem; if the code's `max_redemptions` or `per_user_limit` was hit in the window, the response is `409 invalid_promo`.

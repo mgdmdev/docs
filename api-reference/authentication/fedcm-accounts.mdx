@@ -3,3 +3,51 @@ title: "FedCM Accounts List"
 api: "GET /fedcm/accounts"
 description: "Returns logged-in user accounts. Called by the browser with first-party cookies and Sec-Fetch-Dest webidentity header."
 ---
+
+The signed-in account, in the shape the browser's account chooser expects.
+
+<Note>
+  Called by the browser, not by your code. It is sent with credentials and without an `Origin` header, so the browser must supply `Sec-Fetch-Dest: webidentity` — a request without that header is rejected.
+</Note>
+
+## Headers
+
+<ParamField header="Sec-Fetch-Dest" type="string" required>
+  Must be `webidentity`. Set by the browser; it cannot be forged from script.
+</ParamField>
+
+## Response
+
+<ResponseField name="accounts" type="array">
+  One entry for the signed-in user.
+
+  <Expandable title="account">
+    <ResponseField name="id" type="string">
+      The mgPass user id.
+    </ResponseField>
+
+    <ResponseField name="name" type="string">
+      Display name, falling back to the email address.
+    </ResponseField>
+
+    <ResponseField name="email" type="string" />
+
+    <ResponseField name="picture" type="string">
+      Avatar URL, falling back to the mgPass mark.
+    </ResponseField>
+
+    <ResponseField name="approved_clients" type="array">
+      Application ids this user has already consented to. The browser reads it to decide whether to show a consent step or sign the user straight in. It is drawn from the durable consent record, so an Application that only ever does SSO — and therefore holds no refresh token — still counts as approved.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | The `Sec-Fetch-Dest: webidentity` header was absent. |
+
+<Warning>
+  The mgPass session cookie is `SameSite=None; Secure` because FedCM requires it. That is deliberate — if it is ever changed to `Lax`, the browser stops sending it here and one-tap silently stops working.
+</Warning>

@@ -2,3 +2,67 @@
 title: "Reconcile Balance"
 api: "POST /api/rewards/reconcile/{userId}"
 ---
+
+Sums the user's ledger and compares it with their cached balance. If the two differ, the cache is corrected to the ledger total and the correction is written to the audit log.
+
+Requires an admin bearer token.
+
+<Note>
+  The ledger is authoritative. This endpoint never adjusts the ledger to match the cache — it only ever moves the cache.
+</Note>
+
+## Path parameters
+
+<ParamField path="userId" type="string" required>
+  The user to reconcile.
+</ParamField>
+
+## Response
+
+<ResponseField name="cached" type="integer">
+  The balance as it stood before this call.
+</ResponseField>
+
+<ResponseField name="calculated" type="integer">
+  The sum of the user's ledger — what the balance should be.
+</ResponseField>
+
+<ResponseField name="drift" type="integer">
+  `cached` minus `calculated`. Zero when the two already agreed.
+</ResponseField>
+
+<ResponseField name="fixed" type="boolean">
+  `true` when the cached balance was corrected. `false` means there was nothing to do.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/rewards/reconcile/usr_abc123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/rewards/reconcile/${userId}`,
+  { method: "POST", headers: { Authorization: `Bearer ${adminToken}` } },
+);
+const { drift, fixed } = await res.json();
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "cached": 5200,
+  "calculated": 5000,
+  "drift": 200,
+  "fixed": true
+}
+```

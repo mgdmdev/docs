@@ -2,3 +2,59 @@
 title: "Get API Resource"
 api: "GET /api/api-resources/{id}"
 ---
+
+One API resource, with every scope defined on it.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The API resource id.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="identifier" type="string">
+  The audience value tokens carry in their `aud` claim.
+</ResponseField>
+
+<ResponseField name="token_ttl" type="integer">
+  Access-token lifetime in seconds for this audience.
+</ResponseField>
+
+<ResponseField name="is_active" type="integer">
+  `1` when active.
+</ResponseField>
+
+<ResponseField name="scopes" type="array">
+  Every scope on this resource — `id`, `api_resource_id`, `name`, `description`.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `invalid_request` | No API resource with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/api-resources/res_orders" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://auth.mgpass.net/api/api-resources/${resourceId}`,
+  { headers: { Authorization: `Bearer ${adminToken}` } },
+);
+const { scopes } = await res.json();
+```
+
+</CodeGroup>
