@@ -85,6 +85,7 @@
               "guides/awarding-points",
               "guides/cashback",
               "guides/catalog-redemption",
+              "guides/order-redemption",
               "guides/tiers-and-benefits"
             ]
           },
@@ -316,6 +317,16 @@
             "pages": [
               "api-reference/cashback/redeem-cashback",
               "api-reference/cashback/callback"
+            ]
+          },
+          {
+            "group": "Order Redemption",
+            "pages": [
+              "api-reference/order-redemption/quote",
+              "api-reference/order-redemption/reserve",
+              "api-reference/order-redemption/commit",
+              "api-reference/order-redemption/void",
+              "api-reference/order-redemption/get-by-order"
             ]
           },
           {

@@ -1,0 +1,237 @@
+---
+title: "Order Redemption"
+description: "Letting a user spend points on something you sell, inside your own checkout."
+---
+
+## Overview
+
+[Catalog redemption](/guides/catalog-redemption) and [cashback](/guides/cashback)
+both move points out of mgPass. **Order redemption** keeps them in: the user
+spends points against a purchase in your own product and sees a smaller amount
+to pay.
+
+You reserve the points, mgPass holds them and hands you an authorised cedi
+value, and then you tell mgPass whether the sale went through. That middle step
+matters — your payment happens after the discount is applied and can fail, so a
+single "redeem" call would leave the user short whenever a card was declined.
+
+A reservation is a **hold, not a debit**. If nobody commits or voids it by
+`expires_at` (30 minutes by default) the platform returns the points itself, so
+a crashed checkout or a buyer who closes the tab cannot strand a balance.
+
+<Warning>
+  Never compute a points discount yourself. The rate is per tier and set by
+  mgPass operators, so a number worked out in your app is a number your server
+  has no authority to charge. Quote it here, and show the user what comes back.
+</Warning>
+
+## Before you start
+
+Order redemption is part of an [Application's](/guides/applications) **Rewards
+capability**. Enable the capability in the
+[developer console](https://console.mgpass.net), then authenticate every call
+below with that capability's API key in the `X-API-Key` header — the same key
+you use to [publish events](/guides/partner-integration). See
+[Authentication](/guides/authentication) for how the key is issued and rotated.
+
+<Note>
+  These endpoints take money in **major units** — `500.00` means GH¢ 500.00, not
+  500 pesewas. That differs from the Subscriptions API, which is minor units
+  throughout. The `rate` is likewise cedis per point.
+</Note>
+
+## The flow
+
+<Steps>
+  <Step title="Quote">
+    Ask what the user's points are worth against the current cart total. Free of
+    side effects, so call it on every change.
+  </Step>
+  <Step title="Reserve">
+    Spend the points. You get a `redemption_id` and a `value` to subtract from
+    the amount you charge.
+  </Step>
+  <Step title="Commit or void">
+    Payment succeeded → commit. Payment failed, expired or was abandoned → void,
+    and the points go straight back.
+  </Step>
+</Steps>
+
+## Quote
+
+```bash
+curl -X POST https://auth.mgpass.net/api/partner/redemptions/quote \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "user_id": "usr_abc123", "order_amount": 500.00 }'
+```
+
+```json
+{
+  "tier": "gold",
+  "rate": 0.008,
+  "balance": 5000,
+  "min_points": 100,
+  "max_order_fraction": 1.0,
+  "max_points": 5000,
+  "max_value": 40.0,
+  "points": 5000,
+  "value": 40.0,
+  "eligible": true
+}
+```
+
+Pass `points` as well to ask about a specific amount rather than the maximum.
+
+`max_points` is the ceiling: the smaller of what the user holds and what the
+order can absorb. `eligible` is false when nothing can be spent, and `reason`
+then says which of `no_config`, `no_balance`, `below_minimum` or
+`order_too_small` applies. Show the reason — "you need 100 points to redeem"
+is a better screen than a disabled switch.
+
+## Reserve
+
+```bash
+curl -X POST https://auth.mgpass.net/api/partner/redemptions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "user_id": "usr_abc123",
+    "order_reference": "acme-ORD-4821",
+    "order_amount": 500.00,
+    "points": 5000
+  }'
+```
+
+```json
+{
+  "redemption_id": "rdm_xyz789",
+  "status": "pending",
+  "order_reference": "acme-ORD-4821",
+  "order_amount": 500.0,
+  "points_spent": 5000,
+  "value": 40.0,
+  "currency": "GHS",
+  "expires_at": 1789716652,
+  "replayed": false
+}
+```
+
+Charge `order_amount - value`. The points have already left the balance.
+
+`order_reference` is your own order id and is the idempotency key of record.
+Retry a reservation after a timeout and you get the original back with
+`replayed: true` rather than a second debit — no `Idempotency-Key` header
+needed, though one is honoured if you send it. Two first-time requests racing
+resolve the same way: the loser is handed the winner's reservation.
+
+`expires_at` is when the hold lapses and the points are returned. Send
+`ttl_seconds` to ask for a different window, between 5 minutes and 24 hours.
+
+Asking for more points than are spendable returns `400` with the current quote
+in `details.quote`. The amount is never quietly reduced, because a silent clamp
+is how a buyer ends up seeing one discount and being charged against another.
+
+## Commit
+
+```bash
+curl -X POST https://auth.mgpass.net/api/partner/redemptions/rdm_xyz789/commit \
+  -H "X-API-Key: YOUR_API_KEY"
+```
+
+Moves the redemption to `completed`. No points move — they left at reservation.
+Repeating it is safe and returns `already: true`.
+
+## Void
+
+```bash
+curl -X POST https://auth.mgpass.net/api/partner/redemptions/rdm_xyz789/void \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "reason": "payment_failed" }'
+```
+
+Returns the points and moves the redemption to `cancelled`. Safe to repeat: the
+refund is guarded on its own ledger entry, so a double void credits once.
+
+<Warning>
+  Void a reservation as soon as you know its payment will not complete, rather
+  than leaving it to lapse. The expiry is a backstop for crashes and closed
+  tabs, not the design — until it fires, the buyer's points are held and their
+  balance reads low.
+</Warning>
+
+Committing after the hold has lapsed returns `409 wrong_state`. The points are
+already back with the user at that point, so the order is no longer discounted:
+re-quote and charge the full amount, or reserve again.
+
+## Recovering a lost response
+
+If a reservation's response never reached you, look it up by your own reference
+instead of retrying blind:
+
+```bash
+curl https://auth.mgpass.net/api/partner/redemptions/by-order/acme-ORD-4821 \
+  -H "X-API-Key: YOUR_API_KEY"
+```
+
+## What a point is worth
+
+The rate is set per tier by mgPass operators, in cedis per point, separately
+from the [cashback](/guides/cashback) rate. Cashback pays out to mobile money
+and carries a processing fee; an order discount moves no money out, so it
+carries none and may be worth more. Defaults:
+
+| Tier | Cedis per point | 1,000 points |
+|---|---|---|
+| Bronze | 0.004 | GH¢ 4.00 |
+| Silver | 0.006 | GH¢ 6.00 |
+| Gold | 0.008 | GH¢ 8.00 |
+| Platinum | 0.010 | GH¢ 10.00 |
+
+`min_points` sets a floor per redemption and `max_order_fraction` caps how much
+of an order points may cover. Both are operator settings — read them from the
+quote rather than hard-coding the defaults above. See
+[Tiers and benefits](/guides/tiers-and-benefits) for how a user reaches a tier.
+
+To show a user what their balance is worth **outside a checkout** — a rewards
+screen, an account page — read `redemption` from
+[`GET /api/account/rewards`](/api-reference/user-rewards/get-balance) rather than
+quoting a fake order. It carries the same per-tier `rate`, the `min_points`
+floor, and the cedi `value` of the whole balance, and it is null when the tier
+has no active config.
+
+## Refunds
+
+Voiding is for a sale that never completed. When you refund a sale that *did*
+complete, also reverse the points the purchase earned with
+`POST /api/partner/events/reverse`. The two are separate ledgers: one is what
+the user spent, the other is what they earned. See
+[Awarding points](/guides/awarding-points) for how earning works.
+
+## Errors
+
+| Status | `error` | What to do |
+|---|---|---|
+| `400` | `invalid_request` | A required field is missing or malformed. |
+| `400` | `insufficient_points` | Re-quote; `details.quote` carries the current numbers. |
+| `400` | `not_eligible` | The order or tier does not permit this redemption. `details.quote` says why. |
+| `400` | `unsupported_currency` | Redemption settles in GHS only. Omit `currency` or send `"GHS"`. |
+| `401` | `unauthorized` | The `X-API-Key` header is missing, wrong, or the capability is disabled. |
+| `404` | `not_found` | No redemption with that id belongs to your Application. |
+| `409` | `wrong_state` | Already committed, already voided, or the hold has lapsed. |
+| `429` | `rate_limit_exceeded` | Back off and retry. |
+
+Errors use the standard envelope described in
+[API conventions](/guides/api-conventions).
+
+## Rate limits
+
+Per Application, per minute:
+
+| Endpoint | Limit |
+|---|---|
+| Quote | 1,000 |
+| Reserve | 300 |
+| Commit and void | 300 |
+| Look up by order reference | 600 |

@@ -108,6 +108,8 @@ tags:
     description: Cashback configuration and Paystack callback handling.
   - name: Partner Events
     description: Tenant ingestion of user events for the rewards engine.
+  - name: Order Redemption
+    description: Spending a user's points against an order in your own checkout.
   - name: Roles & Permissions
     description: Manage roles and scope assignments.
   - name: API Resources
@@ -2074,6 +2076,238 @@ paths:
                   event_id: { type: string }
                   points_awarded: { type: integer }
 
+  /api/partner/redemptions/quote:
+    post:
+      operationId: quoteOrderRedemption
+      tags: [Order Redemption]
+      summary: What a user's points are worth against an order
+      description: |
+        Read-only. Runs the same arithmetic the reservation will, so a quote and
+        the reservation that follows it cannot disagree. Call it on every cart
+        change. Never compute a points discount in your own client: the rate is
+        per tier and set by mgPass operators.
+      security:
+        - tenantApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, order_amount]
+              properties:
+                user_id:
+                  type: string
+                  example: usr_abc123def456
+                order_amount:
+                  type: number
+                  description: The order total before any points discount, in GHS.
+                  example: 500.00
+                points:
+                  type: integer
+                  description: Ask about a specific number of points instead of the maximum.
+                  example: 5000
+      responses:
+        '200':
+          description: The quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRedemptionQuote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/partner/redemptions:
+    post:
+      operationId: reserveOrderRedemption
+      tags: [Order Redemption]
+      summary: Spend points against an order
+      description: |
+        Holds the points and returns the cedi value the order may claim. Charge
+        `order_amount - value`.
+
+        The hold lapses at `expires_at` (30 minutes by default, `ttl_seconds` to
+        change it) and the platform returns the points itself, so a crashed
+        checkout cannot strand a buyer's balance. Settle it anyway.
+
+        `order_reference` is your own order id and is the idempotency key of
+        record: a retry returns the original reservation with `replayed: true`
+        rather than debiting twice.
+
+        Asking for more points than are spendable returns 400 with the current
+        quote in `details.quote`. The amount is never silently clamped.
+      security:
+        - tenantApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, order_reference, order_amount, points]
+              properties:
+                user_id:
+                  type: string
+                  example: usr_abc123def456
+                order_reference:
+                  type: string
+                  description: Your own order id. Unique per application.
+                  example: acme-ORD-4821
+                order_amount:
+                  type: number
+                  example: 500.00
+                points:
+                  type: integer
+                  example: 5000
+                currency:
+                  type: string
+                  description: GHS only — the redemption rate is configured in cedis.
+                  example: GHS
+                metadata:
+                  type: object
+                  description: Stored on the ledger entry for your own reconciliation.
+                ttl_seconds:
+                  type: integer
+                  description: >
+                    How long to hold the points before the platform returns them.
+                    Clamped to 300–86400. Defaults to 1800.
+                  example: 1800
+      responses:
+        '200':
+          description: Points reserved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OrderRedemption'
+                  - type: object
+                    properties:
+                      replayed:
+                        type: boolean
+                        description: True when this repeated an earlier reservation.
+        '400':
+          description: Not enough points, or not permitted for this order and tier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [insufficient_points, not_eligible, invalid_request, unsupported_currency]
+                  message:
+                    type: string
+                  details:
+                    type: object
+                    properties:
+                      quote:
+                        $ref: '#/components/schemas/OrderRedemptionQuote'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/partner/redemptions/{id}/commit:
+    post:
+      operationId: commitOrderRedemption
+      tags: [Order Redemption]
+      summary: The order was paid — settle the spend
+      description: |
+        Moves the redemption to `completed`. No points move; they left at
+        reservation. Safe to repeat — a second commit returns `already: true`.
+      security:
+        - tenantApiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: rdm_xyz789
+      responses:
+        '200':
+          description: Settled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRedemption'
+        '404':
+          description: No such redemption for this application
+        '409':
+          description: The redemption is already cancelled or otherwise unsettleable
+
+  /api/partner/redemptions/{id}/void:
+    post:
+      operationId: voidOrderRedemption
+      tags: [Order Redemption]
+      summary: The order failed — return the points
+      description: |
+        Restores the points and moves the redemption to `cancelled`. Safe to
+        repeat: the refund is guarded on its own ledger entry, so a double void
+        credits once.
+
+        You must call this for any reservation whose payment did not complete,
+        including abandoned carts. A reservation left `pending` holds the user's
+        points.
+      security:
+        - tenantApiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: rdm_xyz789
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: payment_failed
+      responses:
+        '200':
+          description: Points restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRedemption'
+        '404':
+          description: No such redemption for this application
+        '409':
+          description: The redemption is already committed
+
+  /api/partner/redemptions/by-order/{reference}:
+    get:
+      operationId: getOrderRedemptionByReference
+      tags: [Order Redemption]
+      summary: Look up a redemption by your own order reference
+      description: For recovering from a lost response without retrying blind.
+      security:
+        - tenantApiKey: []
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme-ORD-4821
+      responses:
+        '200':
+          description: The redemption
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderRedemption'
+        '404':
+          description: No redemption for that order reference
+
   /api/rewards/rules:
     get:
       operationId: listRewardsRules
@@ -2999,6 +3233,40 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: invalid_request }
+              message: { type: string }
+              details:
+                type: object
+                additionalProperties: true
+                description: Extra context for the code, when the endpoint provides any.
+
+    Unauthorized:
+      description: Missing or invalid authentication.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: unauthorized }
+              message: { type: string }
+
+    RateLimited:
+      description: Rate limit exceeded.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: rate_limit_exceeded }
+              message: { type: string }
 
   schemas:
     Error:
@@ -4005,3 +4273,74 @@ components:
         allowed_networks:
           type: array
           items: { type: string, enum: [MTN, VODAFONE, AIRTELTIGO] }
+
+    OrderRedemptionQuote:
+      type: object
+      properties:
+        tier: { type: string, example: gold }
+        rate:
+          type: number
+          description: Ghana cedis one point is worth, for this user's tier.
+          example: 0.008
+        balance: { type: integer, example: 5000 }
+        min_points:
+          type: integer
+          description: Smallest redemption this tier permits.
+          example: 100
+        max_order_fraction:
+          type: number
+          description: Largest share of the order points may cover.
+          example: 1.0
+        max_points:
+          type: integer
+          description: The smaller of what the user holds and what the order can absorb.
+          example: 5000
+        max_value: { type: number, example: 40.0 }
+        points:
+          type: integer
+          description: The points asked about, clamped to what is spendable.
+          example: 5000
+        value:
+          type: number
+          description: What `points` is worth — the discount the order would receive.
+          example: 40.0
+        eligible: { type: boolean, example: true }
+        reason:
+          type: string
+          description: Why nothing can be spent, when `eligible` is false.
+          enum: [no_config, no_balance, below_minimum, order_too_small]
+
+    OrderRedemption:
+      type: object
+      properties:
+        redemption_id: { type: string, example: rdm_xyz789 }
+        status:
+          type: string
+          enum: [pending, processing, completed, cancelled, failed]
+        user_id: { type: string, example: usr_abc123def456 }
+        order_reference: { type: string, example: acme-ORD-4821 }
+        order_amount: { type: number, example: 500.0 }
+        points_spent: { type: integer, example: 5000 }
+        value:
+          type: number
+          description: Subtract this from `order_amount` when you charge.
+          example: 40.0
+        currency: { type: string, example: GHS }
+        tier_at_redemption: { type: string, example: gold }
+        created_at: { type: integer, example: 1789714852 }
+        committed_at: { type: integer, nullable: true }
+        voided_at: { type: integer, nullable: true }
+        expires_at:
+          type: integer
+          nullable: true
+          description: >
+            When the hold lapses and the platform returns the points. A
+            reservation is a hold, not a plain debit.
+        replayed:
+          type: boolean
+          description: >
+            True when this reservation already existed for `order_reference`
+            and the original was returned instead of a second debit.
+        already:
+          type: boolean
+          description: True when the call repeated a settlement already made.
