@@ -1,12 +1,12 @@
 ---
 title: "Platform overview"
-description: "How mgPass is put together — services, the v3 Applications model, the three engines, and the auth methods that gate them."
+description: "How mgPass is put together — services, the v3 Applications model, the four engines, and the auth methods that gate them."
 sidebarTitle: "Overview"
 ---
 
 ## What mgPass is
 
-mgPass is the identity, loyalty, and recurring-revenue platform behind MG Digital. A single account record can authenticate with OAuth, accumulate reward points, and hold one or more subscriptions — all backed by a single management API and a single per-integration record called an **Application**.
+mgPass is the identity, payments, subscriptions, and rewards platform behind MG Digital. An [Application](/guides/applications) can sign users in, take a one-off payment, sell a subscription, and award points — all behind a single management API and a single per-integration record.
 
 ## Architecture
 
@@ -22,16 +22,16 @@ graph LR
     MGP --> CACHE[(Session Cache<br/>sessions + entitlements)]
     MGP --> ASSETS[(Asset Storage)]
     MGP --> COORD[(Coordination Service<br/>subscription state)]
-    AW -->|Outbound HMAC| Webhooks[Tenant webhook endpoints]
+    MGP -->|Outbound HMAC| Webhooks[Tenant webhook endpoints]
 ```
 
 ### Four surfaces
 
 | Service | Domain | Purpose |
 |---------|--------|---------|
-| **mgPass API** | `auth.mgpass.net` | Core API — OAuth, users, Applications, Subscriptions, Rewards, webhook delivery, SDK bundle, hosted checkout route |
+| **mgPass API** | `auth.mgpass.net` | Core API — OAuth, users, Applications, Payments, Subscriptions, Rewards, webhook delivery, SDK bundle, hosted checkout route |
 | **Hosted checkout** | `pay.mgpass.net` | Public `/checkout/:sessionId` page rendered by the mgPass service for redirect-style flows |
-| **developer console** | `console.mgpass.net` | Self-serve dashboard — register Applications, configure plans, subscriptions, webhooks, OAuth credentials, branding |
+| **developer console** | `console.mgpass.net` | Self-serve dashboard — register Applications, configure plans, subscriptions, payments, webhooks, OAuth credentials, branding |
 | **account portal** | `mgpass.net` | End-user self-service — profile, sessions, subscriptions, notifications, rewards |
 
 ### Infrastructure
@@ -41,19 +41,20 @@ graph LR
 - **A fast cache layer** for sessions, entitlement caches, and feature flags.
 - **Asset storage** for uploaded assets.
 - **A coordination service** for the per-subscription state machine that gates renewals.
-- **A job queue** for renewal scheduling and webhook delivery retries.
+- **Background retries** for webhook delivery and subscription renewals.
 
 ## Core concepts
 
 ### Applications (v3 unified model)
 
-Every integration — a web app, a partner storefront, a subscription tenant — is one row in the `applications` table. That row carries the integration's slug, name, branding, and organization. Capabilities are attached as separate rows:
+Every integration — a web app, a storefront, a billing product — is one [Application](/guides/applications). That record carries the integration's slug, name, branding, and organization. Capabilities are attached to it:
 
-- `application_oauth` — OAuth client (redirect URIs, scopes, token TTLs, refresh rotation, secret hash).
-- `application_rewards` — Rewards partner (event types, custom rules, points multiplier, API key hash).
-- `application_subscriptions` — Subscription tenant (billing email, JWT entitlement mode, allowed widget origins, API key hash).
+- **OAuth** — sign users in (redirect URIs, scopes, token lifetimes, refresh-token rotation).
+- **Payments** — charge an arbitrary amount once, and settle a share to a third party. Authenticated with `X-API-Key`.
+- **Subscriptions** — sell recurring plans (billing email, JWT entitlement mode, allowed widget origins). Authenticated with `X-API-Key`.
+- **Rewards** — award points for events you publish (event types, custom rules, points multiplier). Authenticated with `X-API-Key`.
 
-A capability is enabled by inserting its row and disabled by deleting it — there is no boolean. The legacy `oauth_clients`, `rewards_partners`, and `subscription_tenants` tables are gone. One `application_id` is the durable foreign key across the database, services, and API JSON.
+Enable a capability by attaching it; disable it by detaching it. There is no separate OAuth-client id, partner id, or tenant id — those are all an Application. One Application id identifies the integration everywhere in the API.
 
 ### Users, roles, scopes
 
@@ -65,7 +66,7 @@ Organizations represent tenants — partner companies, enterprise customers, or 
 
 ### Plans and Subscriptions
 
-A **Plan** is the price + interval + currency + features bundle defined per Application. A **Subscription** binds a user to a plan with a billing cycle, current period, and lifecycle state (trialing, active, past_due, unpaid, cancelled, expired). The Subscriptions Engine maintains state in a per-subscription coordination service, charges via Paystack, and emits webhooks at every transition.
+A **Plan** is the price + interval + currency + features bundle defined per Application. A **Subscription** binds a user to a plan with a billing cycle, current period, and lifecycle state (`trialing`, `active`, `past_due`, `unpaid`, `cancelled`, `expired`, `paused`). The Subscriptions Engine maintains state in a per-subscription coordination service, charges via the payment provider, and emits webhooks at every transition.
 
 ### Checkout sessions
 
@@ -73,27 +74,39 @@ A short-lived record (created via `POST /v1/checkout`) that captures the plan, c
 
 ### Sponsored subscriptions
 
-Admin-provisioned subs that skip Paystack entirely — used for comps, internal access, and partnership grants. Idempotent via a partial unique index, excluded from monetary aggregates, and tracked in the same lifecycle as paid subs.
+Admin-provisioned subs that skip the payment provider entirely — used for comps, internal access, and partnership grants. Idempotent, excluded from monetary aggregates, and tracked in the same lifecycle as paid subs.
 
 ### Notifications inbox
 
 Per-user record of every notification the platform sent (email, SMS, in-app) plus user preferences per category and per surface. The inbox lives in the account portal at `/notifications`.
 
-## The three engines
+## The four engines
 
 ### Identity & Auth
 
-OAuth 2.0 / OIDC authorization code, PKCE, client credentials, and refresh-token rotation. SMS OTP, social login (Google, Apple, Facebook), MFA (TOTP), SSO, and a One Tap SDK. JWKS, OIDC discovery, FedCM, and a hosted login UI. Configure via the `application_oauth` capability.
+OAuth 2.0 / OIDC authorization code, PKCE, client credentials, and refresh-token rotation. SMS OTP, social login (Google, Apple, Facebook), MFA (TOTP), SSO, and a One Tap SDK. JWKS, OIDC discovery, FedCM, and a hosted login UI. Configure via the OAuth capability.
+
+### Payments
+
+A capability on an Application, authenticated with `X-API-Key`. It does two things, and neither is a subscription.
+
+**Take a one-off payment.** A single charge for an amount you decide — a ticket, an order, a top-up. `POST /v1/payments` starts it. The buyer gets a payment page, or a prompt on their handset for mobile money when you supply the wallet details. `GET /v1/payments` lists charges, filterable by `status` and `reference`. Confirm with `GET /v1/payments/by-reference/{reference}` using your own reference — that is the recommended confirmation path.
+
+**Pay somebody else.** Money can settle to a third party rather than the platform balance. Register where it goes with `POST /v1/payout-destinations`. List destinations with `GET /v1/payout-destinations`, and look one up with `GET /v1/payout-destinations/by-reference/{reference}`. `PATCH` that path to correct or change the account, or to switch payouts on and off. `DELETE` it to stop payouts. `GET /v1/payout-destinations/resolve` checks whose account a number belongs to before you save it. `GET /v1/banks` lists the banks and mobile-money wallets that can receive settlement.
+
+Mobile money is first-class here, not a fallback. Most Ghanaian buyers pay that way.
+
+See [One-off payments](/guides/one-off-payments).
 
 ### Subscriptions Engine
 
-Plans, hosted and embedded checkout, Paystack card billing (GHS and USD on a merchant-multi-currency Paystack account), promo codes, trials, family / multi-seat plans, sponsored subs, upgrade proration, and a renewal queue driven by per-subscription coordination services. JWT entitlements are signed on demand and cached for sub-millisecond enforcement. Every state transition emits a webhook: `subscription.created`, `.activated`, `.renewed`, `.payment_failed`, `.unpaid`, `.cancelled`, `.expired`, `.trial_ending`, `.plan_changed`. The embed widget (`https://auth.mgpass.net/sdk/checkout.js`) ships with an SRI hash and origin-checks against `application_subscriptions.allowed_widget_origins`.
+Plans, hosted and embedded checkout, card billing in GHS and USD, promo codes, trials, family / multi-seat plans, sponsored subs, upgrade proration, and renewals driven by per-subscription coordination services. JWT entitlements are signed on demand. Every state transition emits a webhook: `subscription.created`, `.activated`, `.renewed`, `.payment_failed`, `.unpaid`, `.cancelled`, `.expired`, `.trial_ending`, `.plan_changed`. The embed widget (`https://auth.mgpass.net/sdk/checkout.js`) ships with an SRI hash and origin-checks against `allowed_widget_origins` on the Subscriptions capability.
 
-Annual plans are card-only. Hubtel MoMo repeat payments are deferred — document this capability gap with users on mobile-money-only flows.
+Annual plans are card-only. Mobile money cannot be used for them — document that gap with users on mobile-money-only flows.
 
 ### Rewards
 
-A points engine with configurable per-Application rules, awarded against partner-published events (`POST /api/partner/events`). Points accumulate toward tiers, can be redeemed against a catalog, or cashed out to mobile money. Configure via the `application_rewards` capability.
+A points engine with configurable per-Application rules, awarded against partner-published events (`POST /api/partner/events`). Points accumulate toward tiers, can be redeemed against a catalog, or cashed out to mobile money. Configure via the Rewards capability.
 
 ## API authentication
 
@@ -107,7 +120,7 @@ mgPass uses three authentication methods. Pick by who the caller is:
     A bearer token issued to admin users via the OAuth flow with the `mgpass:admin` scope. Required for the entire management API: `/api/applications/*`, `/api/users`, `/api/subscriptions/*`, `/api/rewards/*`, audit logs, and so on.
   </Accordion>
   <Accordion title="X-API-Key — tenant / partner servers">
-    Static API keys issued per Application capability. Sent in the `X-API-Key` header. Used by tenant-facing v1 endpoints (`/v1/checkout`, `/v1/plans`, `/v1/subscriptions`, `/v1/promo-codes`, `/v1/notifications`) and the rewards partner events endpoint (`/api/partner/events`).
+    Static API keys issued per Application capability. Sent in the `X-API-Key` header. Used by tenant-facing v1 endpoints (`/v1/checkout`, `/v1/plans`, `/v1/subscriptions`, `/v1/promo-codes`, `/v1/notifications`, `/v1/payments`, `/v1/payout-destinations`, `/v1/banks`) and the rewards partner events endpoint (`/api/partner/events`).
   </Accordion>
 </AccordionGroup>
 
@@ -116,7 +129,7 @@ mgPass uses three authentication methods. Pick by who the caller is:
 - **Money is in minor units** (pesewas for GHS, cents for USD) everywhere — request bodies, responses, webhooks.
 - **Currency** is always `GHS` or `USD` and travels alongside `amount` on every money-bearing field.
 - **Audit event types** follow `{entity}.{sub_entity?}.{action}` in snake_case.
-- **Secrets:** bcrypt-hashed columns end in `_secret_hash`; raw HMAC values (e.g. webhook signing) live in `*_secret`.
+- **Secrets** are returned once when you create or rotate them. They cannot be retrieved later.
 
 ## Base URLs
 
@@ -127,6 +140,9 @@ mgPass uses three authentication methods. Pick by who the caller is:
 ## Next steps
 
 <CardGroup cols={2}>
+  <Card title="One-off payments" icon="money-bill" href="/guides/one-off-payments">
+    Charge once, confirm by your own reference, pay a third party.
+  </Card>
   <Card title="Subscriptions overview" icon="repeat" href="/guides/subscriptions/overview">
     Tour the Subscriptions Engine end-to-end.
   </Card>
