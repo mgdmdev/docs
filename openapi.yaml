@@ -3976,7 +3976,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reference, amount, customer_email]
+              required: [reference, amount]
               properties:
                 reference:
                   type: string
@@ -3990,10 +3990,17 @@ paths:
                 customer_email:
                   type: string
                   format: email
-                  description: Required on every charge, including mobile money — Paystack requires it.
+                  description: >
+                    Either this or `customer_phone` is required. The payment provider
+                    needs an address on every charge, so when only a phone is given one
+                    is derived from it.
                 customer_phone:
                   type: string
-                  description: Required when `channel` is `mobile_money`.
+                  description: >
+                    Either this or `customer_email` is required, and always required for
+                    `mobile_money`. Any Ghanaian spelling is accepted — "024 123 4567",
+                    "+233241234567", "0241234567" — and canonicalised before it is
+                    stored or used, so one person is one customer.
                   example: '0244123456'
                 channel:
                   type: string
@@ -4044,9 +4051,10 @@ paths:
               schema: { $ref: '#/components/schemas/OneOffPayment' }
         '400':
           description: >
-            `invalid_request`, `invalid_amount`, `invalid_momo_provider`,
-            `unsupported_currency`, or `platform_fee_required` when a split is
-            requested without a flat fee.
+            `invalid_request` when neither `customer_email` nor `customer_phone` is
+            given, `invalid_phone` when the number cannot be read as Ghanaian,
+            `invalid_amount`, `invalid_momo_provider`, `unsupported_currency`, or
+            `platform_fee_required` when a split is requested without a flat fee.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: '`channel_not_allowed` — that channel is not enabled for this Application.'
@@ -5695,8 +5703,20 @@ components:
         channel: { type: [string, 'null'], enum: [card, mobile_money, bank, ussd, bank_transfer, null] }
         provider_reference: { type: [string, 'null'], description: 'The payment provider''s reference, for reconciliation.' }
         customer_email: { type: string, format: email }
-        customer_phone: { type: [string, 'null'] }
-        user_id: { type: [string, 'null'] }
+        customer_email_synthetic:
+          type: boolean
+          description: >
+            True when the address was derived from the phone because none was given.
+            It is undeliverable by construction — never send anything to it.
+        customer_phone:
+          type: [string, 'null']
+          description: Canonical E.164, whatever spelling was submitted.
+        user_id:
+          type: [string, 'null']
+          description: >
+            Resolved from the phone when you did not supply one and an account already
+            has that number. A guest payment stays null until the person proves they own
+            the number, at which point it is claimed onto their account.
         description: { type: [string, 'null'] }
         settled_amount:
           type: [integer, 'null']

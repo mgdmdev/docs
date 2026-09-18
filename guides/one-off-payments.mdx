@@ -84,6 +84,59 @@ curl -X POST "https://auth.mgpass.net/v1/payments" \
   }'
 ```
 
+## Guests without an email
+
+A guest checkout often has a phone and no email. For mobile money that is the common
+case, not an edge case — so send whichever you hold:
+
+```json
+{
+  "reference": "acme-ORD-4824",
+  "amount": 46000,
+  "customer_phone": "024 123 4567"
+}
+```
+
+The payment provider requires an address on every charge, so when only a phone is given
+one is derived from it:
+
+```json
+{
+  "customer_email": "233241234567@guest.mgpass.net",
+  "customer_email_synthetic": true,
+  "customer_phone": "+233241234567"
+}
+```
+
+<Warning>
+  **Never send anything to a synthesized address.** It is undeliverable by construction —
+  the domain exists to absorb the provider's receipts and nothing else. `customer_email_synthetic`
+  is on every payment view precisely so you never have to recognise the domain to know.
+</Warning>
+
+Any Ghanaian spelling works and is canonicalised before it is stored or used, so
+`024 123 4567`, `+233241234567` and `0241234567` are one customer rather than three. That
+matters more than it looks: without it the same person becomes several customers at the
+provider, their saved cards stop following them, and per-customer reporting quietly
+splits — none of which surfaces as an error.
+
+A number that cannot be read as Ghanaian is rejected with `invalid_phone` rather than
+turned into an address. A malformed address is worse than none: it looks real enough that
+somebody eventually tries to contact it.
+
+### The guest becomes an account
+
+Phone-only payments are not anonymous, they are just unclaimed.
+
+- If an mgPass account already has that number, the payment is attributed to them at
+  charge time — a guest who already has an account does not become a stranger for
+  checking out signed out.
+- If not, `user_id` stays null until that person proves they own the number by signing in
+  with it. Their earlier purchases are then claimed onto their account automatically.
+
+You do not have to do anything for this. Send `user_id` when you know it, the phone when
+you do not, and the linking happens underneath.
+
 ## Idempotency
 
 `reference` is your own order id and the idempotency key of record — the same contract

@@ -17,6 +17,10 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 </Warning>
 
 <Note>
+  Send **either** `customer_email` or `customer_phone`. Given only a phone, an undeliverable address is derived from it and flagged with `customer_email_synthetic` — never send anything to it. Any Ghanaian spelling is accepted and canonicalised, so one person is one customer however they typed it.
+</Note>
+
+<Note>
   `amount` is in minor units: `46000` is GH¢ 460.00. A decimal is refused rather than rounded, because sending cedis where pesewas are expected is a 100x error.
 </Note>
 
@@ -34,12 +38,12 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
   One of `GHS`, `USD`.
 </ParamField>
 
-<ParamField body="customer_email" type="string" required>
-  Required on every charge, including mobile money — Paystack requires it.
+<ParamField body="customer_email" type="string">
+  Either this or `customer_phone` is required. The payment provider needs an address on every charge, so when only a phone is given one is derived from it.
 </ParamField>
 
 <ParamField body="customer_phone" type="string">
-  Required when `channel` is `mobile_money`.
+  Either this or `customer_email` is required, and always required for `mobile_money`. Any Ghanaian spelling is accepted — "024 123 4567", "+233241234567", "0241234567" — and canonicalised before it is stored or used, so one person is one customer.
 </ParamField>
 
 <ParamField body="channel" type="string" default="card">
@@ -108,9 +112,17 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 
 <ResponseField name="customer_email" type="string" />
 
-<ResponseField name="customer_phone" type="string" />
+<ResponseField name="customer_email_synthetic" type="boolean">
+  True when the address was derived from the phone because none was given. It is undeliverable by construction — never send anything to it.
+</ResponseField>
 
-<ResponseField name="user_id" type="string" />
+<ResponseField name="customer_phone" type="string">
+  Canonical E.164, whatever spelling was submitted.
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  Resolved from the phone when you did not supply one and an account already has that number. A guest payment stays null until the person proves they own the number, at which point it is claimed onto their account.
+</ResponseField>
 
 <ResponseField name="description" type="string" />
 
@@ -158,7 +170,8 @@ Requires the `X-API-Key` header with a Payments capability key. See [One-off pay
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | `reference` or `customer_email` missing, or `customer_phone` missing on a mobile money charge. |
+| 400 | `invalid_request` | Neither `customer_email` nor `customer_phone` was given, or `reference` is missing. |
+| 400 | `invalid_phone` | `customer_phone` could not be read as a Ghanaian number. |
 | 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
 | 400 | `platform_fee_required` | A split was requested without a flat `platform_fee`. |
 | 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
