@@ -16,6 +16,14 @@ Requires the `X-API-Key` header with a Payments capability key.
   **`settlement_bank` and `account_number` move together.** Send both or neither — changing one without the other is refused rather than half-applied, because one without the other describes an account that does not exist.
 </Warning>
 
+<Warning>
+  **Changing the account resets verification.** If you change `settlement_bank` and `account_number`, the destination returns to `pending_verification` and its `account_name` is re-read from the new account.
+
+  A destination that had reached `active` earned that against the account it held before. Carrying that status across a change of account would let a verified state vouch for an account nobody has checked — which is exactly what the confirm-the-name step exists to prevent. Re-confirm with the payee and hold splits until it clears.
+
+  Renaming the business or changing `subaccount_percentage` does **not** reset it. Neither changes where the money lands.
+</Warning>
+
 <Note>
   `subaccount_percentage` is the share the **payee** receives, not the share you keep. A flat `platform_fee` on each payment overrides it.
 </Note>
@@ -51,6 +59,12 @@ All fields are optional. Omitted fields stay untouched, and empty strings count 
 <ParamField body="contact_name" type="string" />
 
 <ParamField body="description" type="string" />
+
+<ParamField body="active" type="boolean">
+  `false` switches payouts off, the same as [deactivating](/api-reference/payments/deactivate-payout-destination).
+
+  `true` brings a deactivated destination back. It returns to `pending_verification`, never straight to `active` — we cannot confirm the payment provider has cleared it, and saying `active` would be a claim we cannot back. Treat it as on-but-unconfirmed and hold splits until the payee reconfirms.
+</ParamField>
 
 ## Response
 

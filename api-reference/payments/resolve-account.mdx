@@ -42,6 +42,12 @@ Requires the `X-API-Key` header with a Payments capability key.
   The bank or wallet code you sent.
 </ResponseField>
 
+<ResponseField name="bank_name" type="string | null">
+  The bank's display name, so you do not have to join this against [`GET /v1/banks`](/api-reference/payments/list-banks) yourself.
+
+  `null` when it cannot be determined — never a guess. A payee confirming where their money goes is the last place to show a plausible-looking name we are not sure of.
+</ResponseField>
+
 ## Errors
 
 | Status | Code | When |

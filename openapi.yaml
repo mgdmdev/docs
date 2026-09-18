@@ -4208,13 +4208,18 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PayoutDestination' }
         '200':
-          description: This `reference` already had a destination; the original is returned with `replayed` true.
+          description: 'This `reference` already had an ACTIVE destination with the same account; the original is returned with `replayed` true. A DEACTIVATED destination is refused with 409 instead — see below.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PayoutDestination' }
         '400':
           description: '`invalid_request` for a missing field, or `wallet_not_settleable` when an AirtelTigo wallet is offered as a payout destination.'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: >-
+            `destination_inactive` — a destination exists for this reference but is
+            deactivated. Reactivate it with PATCH and `{"active": true}`; re-creating
+            it will not turn payouts back on.
         '502':
           description: '`provider_error` — the payment provider rejected the account details.'
     get:
@@ -4287,11 +4292,14 @@ paths:
                   settlement_bank:
                     type: string
                     description: 'The bank or wallet code you sent.'
+                  bank_name:
+                    type: [string, "null"]
+                    description: 'The bank''s display name, so you do not have to join this against `GET /v1/banks` yourself. Null when it cannot be determined — never a guess.'
         '400':
-          description: '`invalid_request` when either field is missing, or `wallet_not_settleable` when an AirtelTigo wallet is offered — a payer may still pay from one, the restriction is on payouts only.'
+          description: '`invalid_request` when either field is missing; `wallet_not_settleable` when an AirtelTigo wallet is offered (a payer may still pay from one, the restriction is on payouts only); `unresolvable_account` when the bank code or account number does not identify an account — the message carries what the provider said, and this is the payee''s to fix.'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '502':
-          description: '`provider_error` — the payment provider could not resolve the number.'
+          description: '`provider_error` — the payment provider is unreachable. Distinct from `unresolvable_account`: this one is not the payee''s fault and retrying later is the right response.'
 
   /v1/payout-destinations/by-reference/{reference}:
     get:
@@ -4352,6 +4360,14 @@ paths:
                 contact_email: { type: string, format: email }
                 contact_name: { type: string }
                 description: { type: string }
+                active:
+                  type: boolean
+                  description: >-
+                    `false` switches payouts off, the same as DELETE. `true` brings a
+                    deactivated destination back — to `pending_verification`, never
+                    straight to `active`, because we cannot confirm the provider has
+                    cleared it. Treat it as on-but-unconfirmed and hold splits until
+                    the payee reconfirms.
       responses:
         '200':
           description: The updated destination. `account_name` reflects the new account when the account changed.

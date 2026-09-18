@@ -121,7 +121,16 @@ Requires the `X-API-Key` header with a Payments capability key.
 | 400 | `invalid_request` | A required field is missing, or `subaccount_percentage` is outside 0–100. |
 | 400 | `wallet_not_settleable` | An AirtelTigo wallet was offered as a payout destination. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
+| 409 | `destination_inactive` | A destination exists for this reference but is deactivated. See below. |
 | 502 | `provider_error` | The payment provider rejected the account details. |
+
+<Warning>
+  **Re-creating will not turn payouts back on.** If a destination for this `reference` has been [deactivated](/api-reference/payments/deactivate-payout-destination), this endpoint refuses with `409 destination_inactive` rather than returning it.
+
+  That refusal is deliberate. Because `reference` is the idempotency key, a repeat create matching the same account would otherwise return the deactivated destination with `replayed: true` and HTTP 200 — a success carrying a real subaccount id, while payouts stayed switched off and nothing said so.
+
+  To start payouts again, use [`PATCH`](/api-reference/payments/update-payout-destination) with `{"active": true}`. Turning payouts back on is a money decision and is asked for explicitly, not inferred from a create that happens to repeat.
+</Warning>
 
 <CodeGroup>
 
