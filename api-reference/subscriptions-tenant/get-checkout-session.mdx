@@ -29,7 +29,7 @@ Requires the Subscriptions capability `X-API-Key` for the owning Application.
 <ResponseField name="promo_code_id" type="string">Promo code applied at creation time, or `null`.</ResponseField>
 <ResponseField name="payment_provider" type="string">`paystack` | `hubtel` | `null` (provider not yet selected).</ResponseField>
 <ResponseField name="subscription_id" type="string">
-  The resulting subscription id once `status === 'completed'`. `null` while pending or expired. Populated atomically when the Paystack callback completes the session.
+  The resulting subscription id once `status === 'completed'`. `null` while pending or expired. Populated atomically when the provider callback completes the session.
 </ResponseField>
 <ResponseField name="expires_at" type="number">Unix-seconds expiry. Sessions auto-expire 30 minutes after creation.</ResponseField>
 <ResponseField name="created_at" type="number">Unix-seconds creation time.</ResponseField>

@@ -39,7 +39,7 @@ Plans are scoped per Application — `pro_monthly` in App A is a different row f
 </ResponseField>
 
 <ResponseField name="currency" type="string">
-  `GHS` or `USD`. See [Multi-currency](/guides/subscriptions/currency) for the Paystack prerequisite.
+  `GHS` or `USD`. See [Multi-currency](/guides/subscriptions/currency) for the provider prerequisite.
 </ResponseField>
 
 <ResponseField name="trial_days" type="number">
@@ -55,7 +55,7 @@ Plans are scoped per Application — `pro_monthly` in App A is a different row f
 </ResponseField>
 
 <ResponseField name="paystack_plan_code" type="string">
-  Optional. Sync to a Paystack plan code if you want renewals managed in Paystack's own dashboard. mgPass works fine without this.
+  Optional. Sync to a provider plan code if you want renewals visible in the provider dashboard. mgPass works fine without this.
 </ResponseField>
 
 <ResponseField name="active" type="boolean">
@@ -72,14 +72,14 @@ The `slug` is what shows up everywhere downstream — JWT claims, webhook payloa
 
 The `slug` must be unique within an Application. Two Applications can both have `pro_monthly` without conflict.
 
-## Currencies and the annual + Hubtel gate
+## Currencies and the annual + mobile-money gate
 
 Plans price in `GHS` or `USD` and stay in that currency for their whole lifetime. The currency flows into every payment, invoice, email, SMS, and webhook payload — see [Multi-currency](/guides/subscriptions/currency).
 
 There's one hard-coded combo the engine rejects: `interval: "annual"` + `payment_provider: "hubtel"`. Annual plans require a card today because mobile money recurring is not yet automated. The rejection happens at `/v1/checkout` time with a 400.
 
 <Note>
-  This rule is in effect even though [Hubtel MoMo Repeat Payments](/guides/subscriptions/overview) is deferred — when it ships, the gate may relax.
+  This rule is in effect even though [mobile money repeat payments](/guides/subscriptions/overview) are deferred — when they ship, the gate may relax.
 </Note>
 
 ## Trials
@@ -88,7 +88,7 @@ Set `trial_days > 0` to give new subscribers free access before billing.
 
 <Steps>
   <Step title="Checkout">
-    The user fills in card details. Paystack tokenizes the card but does not charge.
+    The user fills in card details. The provider tokenizes the card but does not charge.
   </Step>
   <Step title="Trial period">
     Subscription is created with `status: "trialing"`. The user gets full feature access. Their JWT claim shows `status: "trialing"`.
@@ -131,9 +131,9 @@ Plans aren't immutable, but changes don't propagate retroactively. The engine tr
   </Accordion>
 </AccordionGroup>
 
-## Optional: Paystack plan sync
+## Optional: provider plan sync
 
-If you set `paystack_plan_code`, mgPass references that plan when authorizing payments, which lets the plan show up in your Paystack dashboard analytics. mgPass still owns the renewal schedule — Paystack's own subscription engine is not used.
+If you set `paystack_plan_code`, mgPass references that plan when authorizing payments, which lets the plan show up in your provider dashboard analytics. mgPass still owns the renewal schedule — the provider's own subscription engine is not used.
 
 You don't need this. Most operators leave `paystack_plan_code` null and let mgPass handle everything.
 

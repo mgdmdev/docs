@@ -1,17 +1,17 @@
 ---
 title: "SMS OTP Verification"
-description: "Configure and use SMS one-time passwords via Hubtel for user verification in mgPass."
+description: "Configure and use SMS one-time passwords for user verification in mgPass."
 ---
 
 ## Overview
 
-mgPass supports SMS-based one-time password (OTP) verification via Hubtel. This is used for phone number verification, passwordless sign-in, and as a second factor in MFA flows.
+mgPass supports SMS-based one-time password (OTP) verification. This is used for phone number verification, passwordless sign-in, and as a second factor in MFA flows.
 
 ## How OTP Works
 
 <Steps>
   <Step title="Request OTP">
-    The application requests an OTP for a phone number. mgPass generates a 6-digit code and sends it via Hubtel SMS.
+    The application requests an OTP for a phone number. mgPass generates a 6-digit code and sends it via SMS.
   </Step>
   <Step title="User receives SMS">
     The user receives an SMS with the code. The message includes the code and a note that it expires in 10 minutes.
@@ -23,12 +23,12 @@ mgPass supports SMS-based one-time password (OTP) verification via Hubtel. This 
 
 ## Configuration
 
-Configure the Hubtel SMS connector in the mgPass developer console:
+Configure the SMS connector in the mgPass developer console:
 
 | Field | Description |
 |-------|-------------|
-| `api_key` | Hubtel API key |
-| `client_id` | Hubtel client ID |
+| `api_key` | SMS provider API key |
+| `client_id` | SMS provider client ID |
 | `sender_id` | SMS sender name (e.g., "mgPass") |
 
 ## OTP Parameters

@@ -12,7 +12,7 @@ mgPass is the platform behind MG Digital's identity, loyalty, and recurring-reve
     OAuth 2.0 / OIDC, social login, SMS OTP, MFA, SSO, and One Tap for web, mobile, SPA, and machine-to-machine apps.
   </Card>
   <Card title="Subscriptions Engine" icon="repeat" href="/guides/subscriptions/overview">
-    Plans, hosted and embedded checkout, Paystack card billing in GHS and USD, JWT entitlements, and lifecycle webhooks.
+    Plans, hosted and embedded checkout, card billing in GHS and USD, JWT entitlements, and lifecycle webhooks.
   </Card>
   <Card title="Rewards" icon="star" href="/guides/introduction">
     A points engine with tier progression, catalog redemption, and mobile-money cashback.
@@ -56,9 +56,9 @@ All surfaces are backed by mgPass: a primary relational database for durable sta
 ## What's new in v3
 
 - **Unified Applications model.** Every integration is one `applications` row with capability rows (`application_oauth`, `application_rewards`, `application_subscriptions`) attached as you enable them. One `application_id` flows end-to-end. See [Applications](/guides/applications).
-- **Subscriptions Engine.** Plans, Paystack card billing, hosted + embedded checkout, promo codes, trials, seats, sponsored subs, multi-currency (GHS/USD), JWT entitlements, and a coordinated subscription state machine. See [Subscriptions overview](/guides/subscriptions/overview).
+- **Subscriptions Engine.** Plans, card billing, hosted + embedded checkout, promo codes, trials, seats, sponsored subs, multi-currency (GHS/USD), JWT entitlements, and a coordinated subscription state machine. See [Subscriptions overview](/guides/subscriptions/overview).
 - **In-app notifications.** A user-visible inbox with per-event-type, per-surface preferences. See [Notifications inbox](/guides/notifications-inbox).
 
 <Note>
-  Hubtel MoMo repeat payments are not yet supported for subscription renewals. Annual plans are card-only.
+  Mobile money repeat payments are not yet supported for subscription renewals. Annual plans are card-only.
 </Note>

@@ -76,7 +76,7 @@ Up to **60 requests per minute** per application id. Exceeding returns **429 `ra
 | Status | Code | When |
 |--------|------|------|
 | 400 | `invalid_request` | Missing `plan_id` or `success_url`, or `mode` is not `hosted`/`embedded`. |
-| 400 | `annual_requires_card` | `interval=annual` + `payment_provider=hubtel`. Annual plans are card-only until Hubtel MoMo Repeat Payments v1.2 ships. |
+| 400 | `annual_requires_card` | `interval=annual` + `payment_provider=hubtel`. Annual plans are card-only until mobile money recurring billing ships. |
 | 400 | `no_widget_origins` | `mode=embedded` but the subscriptions capability has no `allowed_widget_origins` configured. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 404 | `not_found` | Plan doesn't exist or belongs to a different application. |
@@ -130,5 +130,5 @@ mgpass.checkout.open(embed_session_id);
 </CodeGroup>
 
 <Note>
-**Hubtel MoMo Repeat Payments are deferred.** Card billing via Paystack is fully supported. Hubtel is reserved for the next iteration — `interval=annual` + `payment_provider=hubtel` is rejected at the gate.
+**Mobile money repeat payments are deferred.** Card billing is fully supported. Mobile money is reserved for the next iteration — `interval=annual` + `payment_provider=hubtel` is rejected at the gate.
 </Note>

@@ -1,6 +1,6 @@
 ---
 title: "Sponsored subscriptions"
-description: "Admin-granted, comped, and gifted access — no Paystack charge, no payment recorded, excluded from revenue."
+description: "Admin-granted, comped, and gifted access — no charge, no payment recorded, excluded from revenue."
 sidebarTitle: "Sponsored"
 ---
 
@@ -133,7 +133,7 @@ Content-Type: application/json
 
 | Concern | Behavior |
 |---|---|
-| Paystack | No call made. No `authorization_id`, no card, no charge. |
+| Payment provider | No call made. No `authorization_id`, no card, no charge. |
 | Payments table | No row inserted. |
 | Invoices | No invoice generated. |
 | Renewal queue | Not scheduled. The sub just expires at `current_period_end`. |
@@ -180,7 +180,7 @@ Immediate by default — sponsored subs aren't bound by a period the user paid f
   </Accordion>
 
   <Accordion title="Refund replacement">
-    Cancel the old paid sub, issue a refund through Paystack, then grant a sponsored sub for the equivalent remaining time.
+    Cancel the old paid sub, issue a refund through the payment provider, then grant a sponsored sub for the equivalent remaining time.
     ```json
     { "user_id": "usr_z", "plan_id": "pln_pro", "duration_days": 18, "reason": "Refund replacement for sub_old" }
     ```

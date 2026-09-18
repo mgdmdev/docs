@@ -30,7 +30,7 @@ Every artifact a subscription produces carries its currency:
 | Surface | Field |
 |---|---|
 | `POST /v1/checkout` response | `currency` |
-| Paystack charge | currency code sent on initialize |
+| Provider charge | currency code sent on initialize |
 | `payments` row | `currency` |
 | Invoice (PDF + JSON) | `currency`, all line items in minor units of that currency |
 | Email receipt | localized amount string (`GH₵ 50.00` vs `$5.00`) |
@@ -42,11 +42,11 @@ Every artifact a subscription produces carries its currency:
 
 Money-bearing webhook events (`subscription.activated`, `subscription.renewed`, `subscription.payment_failed`, `subscription.plan_changed`) **always** include both `amount` and `currency` — never one without the other. See [Subscription webhooks](/guides/subscriptions/webhooks).
 
-## Paystack prerequisite
+## Provider prerequisite
 
-Paystack lets merchants charge in their enabled currencies only. For USD plans, your Paystack merchant account must have **multi-currency mode enabled** with USD turned on — this is a Paystack-side setting they grant on request to verified merchants.
+The payment provider lets merchants charge in their enabled currencies only. For USD plans, your provider merchant account must have **multi-currency mode enabled** with USD turned on — this is a provider-side setting they grant on request to verified merchants.
 
-If your account doesn't have USD enabled and a user tries to check out on a USD plan, Paystack rejects the charge initialization with their own error and mgPass surfaces it as:
+If your account doesn't have USD enabled and a user tries to check out on a USD plan, the provider rejects the charge initialization with its own error and mgPass surfaces it as:
 
 ```json
 {
@@ -55,21 +55,21 @@ If your account doesn't have USD enabled and a user tries to check out on a USD 
 }
 ```
 
-Confirm currency support with Paystack before launching USD plans. The mgPass developer console shows a warning banner on the Subscriptions capability page if it detects no USD-enabled charges have ever succeeded.
+Confirm currency support with your payment provider before launching USD plans. The mgPass developer console shows a warning banner on the Subscriptions capability page if it detects no USD-enabled charges have ever succeeded.
 
-## The annual + Hubtel rejection
+## The annual + mobile-money rejection
 
 There's one hard-coded rule that interacts with currency choice:
 
 <Warning>
-  **Annual plans cannot be paid with Hubtel mobile money.** The engine rejects `POST /v1/checkout` with 400 `annual_requires_card` when `plan.interval === "annual"` and `payment_provider === "hubtel"`.
+  **Annual plans cannot be paid with mobile money.** The engine rejects `POST /v1/checkout` with 400 `annual_requires_card` when `plan.interval === "annual"` and `payment_provider === "hubtel"`.
 </Warning>
 
-Why: [Hubtel MoMo Repeat Payments](/guides/subscriptions/overview#billing-rails) is deferred, so the engine can't auto-renew a mobile-money charge. For monthly/weekly plans this just means renewal silently falls back to manual reactivation (which is annoying but recoverable); for annual plans the gap between charges is too long to be safe, so the combo is blocked outright.
+Why: [mobile money repeat payments](/guides/subscriptions/overview#billing-rails) are deferred, so the engine can't auto-renew a mobile-money charge. For monthly/weekly plans this just means renewal silently falls back to manual reactivation (which is annoying but recoverable); for annual plans the gap between charges is too long to be safe, so the combo is blocked outright.
 
-This rule is checked at session create time, not at plan create time — you can have an annual plan and a Hubtel-enabled checkout coexist; the user just can't pick Hubtel for that plan.
+This rule is checked at session create time, not at plan create time — you can have an annual plan and a mobile-money-enabled checkout coexist; the user just can't pick mobile money for that plan.
 
-When [Hubtel MoMo Repeat Payments](https://hubtel.com) v1.2 ships and is integrated, this gate may relax.
+When mobile money repeat payments ship and are integrated, this gate may relax.
 
 ## Currency in webhook payloads
 

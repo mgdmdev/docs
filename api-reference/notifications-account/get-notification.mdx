@@ -25,7 +25,7 @@ Requires an OAuth Bearer access token. The notification must belong to the calli
     <ResponseField name="notification_id" type="string">Parent notification ID.</ResponseField>
     <ResponseField name="surface" type="string">`email | sms | webhook | push`.</ResponseField>
     <ResponseField name="status" type="string">`pending | delivered | failed`.</ResponseField>
-    <ResponseField name="provider_reference" type="string">Upstream message ID from SES / Hubtel, or `null`.</ResponseField>
+    <ResponseField name="provider_reference" type="string">Upstream message ID from SES or the SMS provider, or `null`.</ResponseField>
     <ResponseField name="error_message" type="string">Failure reason if `status = failed`.</ResponseField>
     <ResponseField name="attempt_count" type="number">Number of attempts so far.</ResponseField>
     <ResponseField name="next_retry_at" type="number">Unix epoch seconds of the next scheduled retry, or `null`.</ResponseField>

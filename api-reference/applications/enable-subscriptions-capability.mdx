@@ -106,5 +106,5 @@ const { api_key } = await res.json();
 </CodeGroup>
 
 <Note>
-**Hubtel mobile-money note**: card billing via Paystack is fully supported, but Hubtel MoMo Repeat Payments are deferred to a future release. Plans on `interval=annual` must use a card payment method — `POST /v1/checkout` rejects `interval=annual` + `payment_provider=hubtel`.
+**Mobile-money note**: card billing is fully supported, but mobile money repeat payments are deferred to a future release. Plans on `interval=annual` must use a card payment method — `POST /v1/checkout` rejects `interval=annual` + `payment_provider=hubtel`.
 </Note>

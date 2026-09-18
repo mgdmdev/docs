@@ -95,7 +95,7 @@ tags:
   - name: Webhooks
     description: Outbound webhook configuration shared across all capabilities.
   - name: Sponsored Subscriptions
-    description: Admin-granted subscriptions that bypass Paystack.
+    description: Admin-granted subscriptions that bypass the payment provider.
   - name: Revenue Analytics
     description: Revenue, churn, ARPU, and top-plan analytics.
   - name: Rewards Rules
@@ -105,7 +105,7 @@ tags:
   - name: Rewards Benefits
     description: Manage tier benefits and tier-gated perks.
   - name: Cashback
-    description: Cashback configuration and Paystack callback handling.
+    description: Cashback configuration and provider callback handling.
   - name: Partner Events
     description: Tenant ingestion of user events for the rewards engine.
   - name: Order Redemption
@@ -125,7 +125,7 @@ tags:
   - name: Audit Logs
     description: Query the immutable audit log.
   - name: Connectors
-    description: Social and email/SMS connectors (Google, Facebook, SES, Hubtel).
+    description: Social sign-in, email and SMS delivery connectors.
   - name: Settings
     description: Global platform settings (sign-in, branding, password policy).
   - name: System Stats
@@ -1375,7 +1375,7 @@ paths:
     post:
       operationId: sponsorApplicationSubscription
       tags: [Sponsored Subscriptions]
-      summary: Admin-grant a sponsored subscription (bypasses Paystack)
+      summary: Admin-grant a sponsored subscription (bypasses the payment provider)
       description: |
         Idempotent — a partial unique index on `(application_id, user_id, plan_id, status='active')`
         prevents duplicates. Sponsored subscriptions are excluded from revenue aggregates.
@@ -1656,8 +1656,8 @@ paths:
       tags: [Subscriptions]
       summary: Issue a refund against a subscription payment
       description: |
-        Calls Paystack's refund API for Paystack-funded payments; falls back to
-        a local-only refund row for Hubtel or when no original payment is found.
+        Calls the provider's refund API for card-funded payments; falls back to
+        a local-only refund row for mobile money or when no original payment is found.
         Cancels the subscription immediately on success.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
@@ -1670,7 +1670,7 @@ paths:
               required: [amount]
               properties:
                 amount: { type: integer, description: 'Refund amount in minor units (pesewas/cents).' }
-                reason: { type: string, description: 'Free-form reason; passed to Paystack as merchant_note.' }
+                reason: { type: string, description: 'Free-form reason; passed to the provider as merchant_note.' }
                 payment_id: { type: string, description: 'Specific payment to refund. If omitted, the most recent succeeded payment is used.' }
       responses:
         '200':
@@ -1682,10 +1682,10 @@ paths:
                 properties:
                   success: { type: boolean }
                   provider: { type: string, enum: [paystack, hubtel, none] }
-                  paystack_refund_id: { type: string, description: 'Paystack refund id, when provider=paystack.' }
-                  auto_refund: { type: boolean, description: 'true when the provider was called; false for hubtel/manual.' }
+                  paystack_refund_id: { type: string, description: 'Provider refund id, when provider=paystack.' }
+                  auto_refund: { type: boolean, description: 'true when the provider was called; false for mobile-money/manual.' }
         '502':
-          description: Paystack rejected the refund. Subscription is NOT cancelled; no local row written.
+          description: The provider rejected the refund. Subscription is NOT cancelled; no local row written.
           content:
             application/json:
               schema:
@@ -2053,7 +2053,7 @@ paths:
         Returns either a hosted checkout URL (`pay.mgpass.net/checkout/:sessionId`)
         or an embeddable session ID for use with `mgpass.checkout.open(...)`.
 
-        Hubtel mobile-money cannot be paired with `interval=annual` plans — pass a card-capable
+        Mobile money cannot be paired with `interval=annual` plans — pass a card-capable
         provider for annual plans.
       requestBody:
         required: true
@@ -2754,11 +2754,11 @@ paths:
     post:
       operationId: cashbackPaystackCallback
       tags: [Cashback]
-      summary: Paystack transfer webhook (server-to-server)
+      summary: Provider transfer webhook (server-to-server)
       security: []
       description: |
-        Inbound webhook from Paystack reporting transfer status for cashback redemptions.
-        Verified with the Paystack signature header.
+        Inbound webhook from the payment provider reporting transfer status for cashback redemptions.
+        Verified with the provider signature header.
       requestBody:
         required: true
         content:
@@ -4059,10 +4059,10 @@ paths:
                   description: Where the payer returns after a hosted channel.
                 subaccount:
                   type: string
-                  description: Settle a share directly to this Paystack subaccount instead of the platform balance.
+                  description: Settle a share directly to this subaccount instead of the platform balance.
                 split_code:
                   type: string
-                  description: A pre-built Paystack split group, as an alternative to `subaccount`.
+                  description: A pre-built split group, as an alternative to `subaccount`.
                 platform_fee:
                   type: integer
                   description: >
@@ -5104,7 +5104,7 @@ components:
         plan_id: { type: string }
         trial_period_days: { type: [integer, "null"] }
         promo_code: { type: string }
-        payment_method_token: { type: string, description: 'Paystack reusable authorization code.' }
+        payment_method_token: { type: string, description: 'Reusable card authorization code.' }
         metadata: { type: object, additionalProperties: true }
         idempotency_key: { type: string }
 

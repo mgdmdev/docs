@@ -74,7 +74,7 @@ Every subscription moves through a fixed state machine. The engine schedules ren
 
 A coordination service owns each subscription's schedule. On creation (or trial conversion), it sets an alarm for `current_period_end`. When the alarm fires, the mgPass renewal service:
 
-1. Looks up the stored Paystack authorization for the user.
+1. Looks up the stored card authorization for the user.
 2. Charges `current_price` in `current_currency`.
 3. On success: advances `current_period_start` and `current_period_end` by one interval, writes a `payments` row, sends a `subscription.renewed` webhook, and resets the alarm for the new period end.
 4. On failure: flips status to `past_due`, schedules the first retry, and fires `subscription.payment_failed`.

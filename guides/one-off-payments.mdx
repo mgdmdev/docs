@@ -162,25 +162,25 @@ curl "https://auth.mgpass.net/v1/payments/by-reference/acme-ORD-4821" \
 
 ## If you already take payments directly
 
-If you have an existing integration that charges through Paystack directly and
-confirms payments by calling their verify endpoint with your own reference, read this
-before you route through us. Its absence has already cost one integrator real money.
+If you already take payments directly and confirm them by calling your provider's
+verify endpoint with your own reference, read this before you route through us. Its
+absence has already cost one integrator real money.
 
-When you create a payment here, it is registered with Paystack under **our own
+When you create a payment here, it is registered with the provider under **our own
 reference**, not yours. Your `reference` travels with it as metadata, but it is not
-the identifier Paystack knows the transaction by.
+the identifier the provider knows the transaction by.
 
 That means your existing verification call breaks the moment you switch over:
 
 ```typescript
-// BEFORE: verifying directly with Paystack. This worked while Paystack knew
-// your reference. Once you route through us, it does not.
-const res = await fetch(`https://api.paystack.co/transaction/verify/${orderReference}`, {
-  headers: { Authorization: `Bearer ${paystackSecret}` },
+// BEFORE: verifying directly with your provider. This worked while the provider
+// knew your reference. Once you route through us, it does not.
+const res = await fetch(`https://api.your-provider.com/transaction/verify/${orderReference}`, {
+  headers: { Authorization: `Bearer ${providerSecret}` },
 });
 ```
 
-Paystack has never seen your reference, so this is not a mismatch — it is an absence.
+The provider has never seen your reference, so this is not a mismatch — it is an absence.
 You get "transaction not found" for a payment that genuinely succeeded. The buyer has
 paid, your verification fails, and nothing is delivered. It is invisible until real
 money is in flight, because it only appears at the confirmation step.
@@ -204,8 +204,8 @@ Your `reference` is the identifier we key on. See
 do when the answer is still `pending`.
 
 <Note>
-  The payment view carries `provider_reference` — our reference, the one Paystack
-  knows. If you reconcile against the Paystack dashboard or a statement later, match
+  The payment view carries `provider_reference` — our reference, the one the provider
+  knows. If you reconcile against the provider dashboard or a statement later, match
   on that value, not yours.
 </Note>
 

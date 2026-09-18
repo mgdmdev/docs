@@ -6,7 +6,7 @@ sidebarTitle: "Overview"
 
 ## What the engine does
 
-The mgPass Subscriptions Engine turns any registered [Application](/guides/applications) into a recurring-revenue product. It handles plan management, hosted and embedded checkout, card billing through Paystack, dunning, multi-seat subscriptions, sponsored grants, and pushes every state change to your backend as a webhook and into your access tokens as a JWT claim.
+The mgPass Subscriptions Engine turns any registered [Application](/guides/applications) into a recurring-revenue product. It handles plan management, hosted and embedded checkout, card billing, dunning, multi-seat subscriptions, sponsored grants, and pushes every state change to your backend as a webhook and into your access tokens as a JWT claim.
 
 You configure plans and pricing once; the engine handles the recurring side end-to-end — first charge, scheduled renewals, retries, cancellations, and reactivations.
 
@@ -129,10 +129,10 @@ The claim refreshes on every token issue and on every `/oauth/token` refresh, so
 
 | Rail | Status | Notes |
 |---|---|---|
-| Paystack — card | Shipped | Recurring authorization via Paystack tokenization. Used for all monthly/annual card subscriptions. |
-| Paystack — bank | Shipped | One-off bank charges through Paystack checkout. |
-| Hubtel — mobile money (one-off) | Shipped | First charges only; recurring deferred. |
-| Hubtel — MoMo Repeat Payments | **Deferred** | Awaiting Hubtel v1.2 spec. Mobile money plans can't auto-renew yet — they fall back to manual reactivation. |
+| Card | Shipped | Recurring authorization via card tokenization. Used for all monthly/annual card subscriptions. |
+| Bank | Shipped | One-off bank charges through hosted checkout. |
+| Mobile money (one-off) | Shipped | First charges only; recurring deferred. |
+| Mobile money — repeat payments | **Deferred** | Awaiting provider support for repeat payments. Mobile money plans can't auto-renew yet — they fall back to manual reactivation. |
 
 The card-only rule has one hard-coded gate today: an `interval: "annual"` plan cannot be paid with `payment_provider: "hubtel"`. See [Currency & billing rails](/guides/subscriptions/currency) for the full matrix.
 

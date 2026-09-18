@@ -4,7 +4,7 @@ description: "Move a subscription to a different plan on the same application."
 api: "POST /v1/subscriptions/{id}/change-plan"
 ---
 
-Switches the subscription to `new_plan_id`. Both plans must belong to the same application. The charge is **prorated** against unused time on the current plan: `charge_amount = max(0, new_plan.price − credit_for_unused_time)`. If a Paystack authorization is on file and `charge_amount > 0`, the card is charged immediately.
+Switches the subscription to `new_plan_id`. Both plans must belong to the same application. The charge is **prorated** against unused time on the current plan: `charge_amount = max(0, new_plan.price − credit_for_unused_time)`. If a card authorization is on file and `charge_amount > 0`, the card is charged immediately.
 
 For a read-only quote of the credit + charge before committing, use [Preview upgrade](/api-reference/subscriptions-account/preview-upgrade) on the account-scoped API.
 

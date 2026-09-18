@@ -117,7 +117,7 @@ The scheduled renewal timer is rewritten to the new period end as part of the ch
 If `credit_minor > new_charge_minor` (e.g. downgrading mid-period), `net_charge_minor` is clamped to 0. **The leftover credit is forfeited** — no charge fires, but the user doesn't get a refund and the balance doesn't roll forward to the next renewal.
 
 <Warning>
-  This is a known limitation. There's no credit-bank or balance-carryforward in the engine today. Operators that need to refund the unused portion should issue a manual refund through Paystack against the most recent payment on the subscription.
+  This is a known limitation. There's no credit-bank or balance-carryforward in the engine today. Operators that need to refund the unused portion should issue a manual refund through the payment provider against the most recent payment on the subscription.
 
   A future iteration may add a credit-bank to carry forward — track the [PRD §14](https://docs.mgpass.net) for status.
 </Warning>
