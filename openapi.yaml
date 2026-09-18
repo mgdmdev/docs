@@ -3069,33 +3069,7 @@ paths:
             application/json:
               schema: { type: object, additionalProperties: true }
 
-  /api/audit-logs:
-    get:
-      operationId: queryAuditLogs
-      tags: [Audit Logs]
-      summary: Query audit log entries
-      parameters:
-        - { in: query, name: actor_id, schema: { type: string } }
-        - { in: query, name: target_id, schema: { type: string } }
-        - { in: query, name: event_type, schema: { type: string } }
-        - { in: query, name: from, schema: { type: string, format: date-time } }
-        - { in: query, name: to, schema: { type: string, format: date-time } }
-        - { in: query, name: limit, schema: { type: integer, default: 100, maximum: 500 } }
-        - { in: query, name: cursor, schema: { type: string } }
-      responses:
-        '200':
-          description: Audit log entries.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/AuditLogEntry' }
-                  next_cursor: { type: [string, "null"] }
-
-  /api/audit-logs/export:
+  /api/audit/export:
     get:
       operationId: exportAuditLogs
       tags: [Audit Logs]
@@ -3109,7 +3083,6 @@ paths:
           content:
             text/csv:
               schema: { type: string }
-
   /api/stats:
     get:
       operationId: getSystemStats
@@ -4495,15 +4468,30 @@ components:
   schemas:
     Error:
       type: object
+      description: >
+        The standard error envelope, flat rather than nested. This is what the
+        platform's single error helper emits across 347 call sites, and it
+        matches the contract in the API conventions guide. The FedCM endpoints
+        are the one exception: they return the nested shape their specification
+        mandates.
       required: [error]
       properties:
         error:
+          type: string
+          description: Stable snake_case code. Switch on this.
+          example: invalid_request
+        message:
+          type: string
+          description: >
+            Human-readable detail. Safe to surface to operators; do not show it
+            raw to end users, as it can name fields.
+          example: plan_id is required.
+        details:
           type: object
-          required: [code, message]
-          properties:
-            code: { type: string, example: 'invalid_request' }
-            message: { type: string, example: 'plan_id is required.' }
-            details: { type: object, additionalProperties: true }
+          additionalProperties: true
+          description: >
+            Extra context where the endpoint provides any — for example
+            `details.quote` on a rejected order redemption.
 
     TokenResponse:
       type: object
