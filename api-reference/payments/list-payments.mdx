@@ -20,6 +20,12 @@ Requires the `X-API-Key` header with a Payments capability key.
   One of `pending`, `succeeded`, `failed`, `abandoned`, `refunded`.
 </ParamField>
 
+<ParamField query="reference" type="string">
+  Your own reference, to look up a single payment.
+
+  Filtering to one reference **also reconciles it** — if the payment is still `pending`, we check with the payment provider before answering, exactly as [`GET /v1/payments/by-reference/{reference}`](/api-reference/payments/get-payment-by-reference) does. You do not have to know which of the two endpoints refreshes a stale row.
+</ParamField>
+
 ## Response
 
 <ResponseField name="results" type="array">
@@ -110,8 +116,15 @@ Requires the `X-API-Key` header with a Payments capability key.
 
 | Status | Code | When |
 |--------|------|------|
+| 400 | `unknown_parameter` | A query parameter this endpoint does not recognise. The message names it. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 429 | `rate_limit_exceeded` | More than 600 reads in the current minute. |
+
+<Warning>
+  **Unrecognised query parameters are refused, not ignored.** Supported: `page`, `limit`, `status`, `reference`. Anything else is a `400` naming the offender.
+
+  A parameter that is silently dropped is indistinguishable from one that works. `reference` used to be ignored here, so filtering by it returned the whole collection — which looks exactly like a filter that matched everything, and stays convincing until the account has more payments than one page.
+</Warning>
 
 <CodeGroup>
 

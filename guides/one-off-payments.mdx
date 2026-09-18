@@ -232,6 +232,16 @@ while, reading it makes us check with the provider before answering, so a confir
 that never reached us is recovered by the act of asking. You do not opt into this and
 do not need to do anything. Poll every few minutes, not every second.
 
+<Note>
+  **Use one of these two, not the list.** `GET /v1/payments/by-reference/{reference}`
+  and `GET /v1/payments?reference=...` both reconcile a stale pending payment. Fetching
+  the whole list and picking your payment out of it client-side does **not** — a plain
+  browse stays a plain read, so a payment waiting on a confirmation that never arrived
+  will read `pending` for as long as you keep looking at it that way.
+
+  Prefer the `by-reference` form: it returns one payment and says what it does.
+</Note>
+
 ### Webhooks: sooner, but not surer
 
 Webhooks remain available and are still useful as a latency optimisation — they tell

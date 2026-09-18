@@ -4113,6 +4113,14 @@ paths:
         - name: status
           in: query
           schema: { type: string, enum: [pending, succeeded, failed, abandoned, refunded] }
+        - name: reference
+          in: query
+          schema: { type: string }
+          description: >-
+            Your own reference, to look up a single payment. Filtering to one
+            reference ALSO reconciles it against the payment provider when it is
+            still pending — the same self-healing read as
+            `GET /v1/payments/by-reference/{reference}`.
       responses:
         '200':
           description: Matching payments.
@@ -4123,6 +4131,12 @@ paths:
                 properties:
                   results: { type: array, items: { $ref: '#/components/schemas/OneOffPayment' } }
                   total: { type: integer, description: 'Payments matching the filter, ignoring paging.' }
+        '400':
+          description: >-
+            `unknown_parameter` — a query parameter this endpoint does not recognise
+            was sent, and is named in the message. Unrecognised parameters are refused
+            rather than ignored: one that is silently dropped is indistinguishable from
+            one that works.
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/payments/by-reference/{reference}:
