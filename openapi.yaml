@@ -4264,6 +4264,153 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '502': { description: '`provider_error` — the provider could not be reached.' }
 
+  /api/applications/{id}/capabilities/payments:
+    post:
+      operationId: enablePaymentsCapability
+      tags: [Applications]
+      security: [{ adminBearer: [] }]
+      summary: Enable the Payments capability
+      description: |
+        Adds one-off payments to an Application and issues its API key. The key is
+        returned once and never again.
+
+        `settlement_mode` is required. There is no default, because the only possible
+        default is "the platform balance" — and an Application whose money we hold
+        because a field was omitted is the situation splits exist to prevent.
+
+        With `destination`, the payout destination is created in the same call, so the
+        Application cannot end up in that mode pointing at nothing.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, example: app_acme }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settlement_mode]
+              properties:
+                settlement_mode:
+                  type: string
+                  enum: [destination, per_payment, platform]
+                  description: '`destination` — all money to one payout destination. `per_payment` — a subaccount supplied on each charge. `platform` — money stays in the platform balance; only correct when the platform is the payee.'
+                default_payout:
+                  type: object
+                  description: Required when `settlement_mode` is `destination`. The destination is created with the payment provider as part of this call.
+                  required: [business_name, settlement_bank, account_number]
+                  properties:
+                    reference: { type: string, description: 'Defaults to the Application slug plus `-default`.' }
+                    business_name: { type: string }
+                    destination_type: { type: string, enum: [bank, mobile_money], default: bank }
+                    settlement_bank: { type: string, description: A bank or wallet code. AirtelTigo is refused — it cannot receive settlements. }
+                    account_number: { type: string, description: Only the last four digits are retained. }
+                    platform_percentage: { type: number, default: 0 }
+                default_platform_fee:
+                  type: [integer, 'null']
+                  description: Flat fee in minor units retained on each split payment, when the charge does not specify one.
+                allowed_channels:
+                  type: [array, 'null']
+                  items: { type: string, enum: [card, mobile_money, bank, ussd, bank_transfer] }
+                  description: Null means all. An Application that only wants mobile money can say so once here.
+                statement_descriptor: { type: [string, 'null'], description: What the payer sees on their statement or prompt. }
+                is_active: { type: boolean, default: true }
+      responses:
+        '201':
+          description: Enabled. `api_key` is shown once; `notice` explains the settlement consequence of the mode chosen.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  application_id: { type: string }
+                  settlement_mode: { type: string, enum: [destination, per_payment, platform] }
+                  default_subaccount: { type: [string, 'null'] }
+                  default_platform_fee: { type: [integer, 'null'] }
+                  allowed_channels: { type: [string, 'null'] }
+                  statement_descriptor: { type: [string, 'null'] }
+                  is_active: { type: integer }
+                  created_at: { type: integer }
+                  api_key: { type: string, description: Returned once. Store it now — it cannot be retrieved later. }
+                  notice: { type: [string, 'null'] }
+        '400':
+          description: '`settlement_mode_required` when absent or invalid, `payout_destination_required` when `destination` is chosen without one, `wallet_not_settleable` for an AirtelTigo payout wallet.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No Application with that id. }
+        '409': { description: '`capability_exists` — already enabled. Use PATCH.' }
+        '502': { description: '`provider_error` — the payout destination could not be created.' }
+    patch:
+      operationId: updatePaymentsCapability
+      tags: [Applications]
+      security: [{ adminBearer: [] }]
+      summary: Update the Payments capability
+      description: |
+        Changing to `settlement_mode: destination` is refused unless a default
+        destination already exists or `default_payout` is supplied alongside — the pair
+        has to move together, or the Application is left charging with nowhere to settle.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                settlement_mode: { type: string, enum: [destination, per_payment, platform] }
+                default_platform_fee: { type: [integer, 'null'] }
+                allowed_channels: { type: [array, 'null'], items: { type: string } }
+                statement_descriptor: { type: [string, 'null'] }
+                is_active: { type: boolean }
+      responses:
+        '200': { description: The updated capability. }
+        '400': { description: '`no_fields` or `payout_destination_required`.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Capability not enabled for this Application. }
+    delete:
+      operationId: disablePaymentsCapability
+      tags: [Applications]
+      security: [{ adminBearer: [] }]
+      summary: Disable the Payments capability
+      description: |
+        Removes the capability row, which revokes the API key immediately — capability
+        presence is the row existing. Payments already recorded are not deleted.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Disabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Capability not enabled for this Application. }
+
+  /api/applications/{id}/capabilities/payments/rotate-key:
+    post:
+      operationId: rotatePaymentsKey
+      tags: [Applications]
+      security: [{ adminBearer: [] }]
+      summary: Rotate the Payments API key
+      description: |
+        Issues a new key and invalidates the old one immediately. There is no overlap
+        window, so deploy the new key before rotating.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The new key, shown once.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Capability not enabled for this Application. }
+
 components:
   securitySchemes:
     adminBearer:

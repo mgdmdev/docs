@@ -1,0 +1,161 @@
+---
+title: "Enable payments capability"
+description: "Add one-off payments to an application, choose how it settles, and issue its api_key."
+api: "POST /api/applications/{id}/capabilities/payments"
+---
+
+Adds one-off payments to an Application and issues its API key. The Application can then charge arbitrary amounts through [`POST /v1/payments`](/api-reference/payments/create-payment).
+
+Requires an admin bearer token.
+
+<Warning>
+  **`settlement_mode` is required and has no default.** The only possible default would be "the platform balance", and an Application whose money the platform holds because a field was omitted is exactly the situation splits exist to prevent. Choose deliberately.
+</Warning>
+
+<Note>
+  `api_key` is returned once and cannot be retrieved again. Store it when you read this response; if it is lost, rotate rather than re-enable.
+</Note>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Body
+
+<ParamField body="settlement_mode" type="string" required>
+  `destination` — all money to one payout destination. `per_payment` — a subaccount supplied on each charge. `platform` — money stays in the platform balance; only correct when the platform is the payee. One of `destination`, `per_payment`, `platform`.
+</ParamField>
+
+<ParamField body="default_payout" type="object">
+  Required when `settlement_mode` is `destination`. The destination is created with the payment provider as part of this call.
+
+  <Expandable title="default_payout">
+    <ResponseField name="reference" type="string">
+      Defaults to the Application slug plus `-default`.
+    </ResponseField>
+
+    <ResponseField name="business_name" type="string" required />
+
+    <ResponseField name="destination_type" type="string" default="bank">
+      One of `bank`, `mobile_money`.
+    </ResponseField>
+
+    <ResponseField name="settlement_bank" type="string" required>
+      A bank or wallet code. AirtelTigo is refused — it cannot receive settlements.
+    </ResponseField>
+
+    <ResponseField name="account_number" type="string" required>
+      Only the last four digits are retained.
+    </ResponseField>
+
+    <ResponseField name="platform_percentage" type="number" default="0" />
+  </Expandable>
+</ParamField>
+
+<ParamField body="default_platform_fee" type="integer">
+  Flat fee in minor units retained on each split payment, when the charge does not specify one.
+</ParamField>
+
+<ParamField body="allowed_channels" type="array">
+  Null means all. An Application that only wants mobile money can say so once here.
+</ParamField>
+
+<ParamField body="statement_descriptor" type="string">
+  What the payer sees on their statement or prompt.
+</ParamField>
+
+<ParamField body="is_active" type="boolean" default="True" />
+
+## Response
+
+<ResponseField name="application_id" type="string" />
+
+<ResponseField name="settlement_mode" type="string">
+  One of `destination`, `per_payment`, `platform`.
+</ResponseField>
+
+<ResponseField name="default_subaccount" type="string" />
+
+<ResponseField name="default_platform_fee" type="integer" />
+
+<ResponseField name="allowed_channels" type="string" />
+
+<ResponseField name="statement_descriptor" type="string" />
+
+<ResponseField name="is_active" type="integer" />
+
+<ResponseField name="created_at" type="integer" />
+
+<ResponseField name="api_key" type="string">
+  Returned once. Store it now — it cannot be retrieved later.
+</ResponseField>
+
+<ResponseField name="notice" type="string" />
+
+<Tip>
+  Choosing `destination` creates the payout destination with the provider in this same call, so the Application cannot end up in that mode pointing at nothing. First payouts to it are held until verification — tell the payee before their first sale.
+</Tip>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `settlement_mode_required` | Absent, or not one of the three values. |
+| 400 | `payout_destination_required` | `destination` was chosen without a `default_payout`. |
+| 400 | `wallet_not_settleable` | An AirtelTigo wallet was given as the payout destination. It can be charged, not settled to. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No Application with that id. |
+| 409 | `capability_exists` | Already enabled — use PATCH. |
+| 502 | `provider_error` | The payment provider rejected the payout account details. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "settlement_mode": "destination",
+  "default_payout": {
+    "reference": "<string>",
+    "business_name": "<string>",
+    "destination_type": "bank",
+    "settlement_bank": "<string>",
+    "account_number": "<string>",
+    "platform_percentage": 1.0
+  },
+  "default_platform_fee": 123,
+  "allowed_channels": [
+    "card"
+  ],
+  "statement_descriptor": "<string>",
+  "is_active": true
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${adminToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "settlement_mode": "destination",
+    "default_payout": {
+      "reference": "<string>",
+      "business_name": "<string>",
+      "destination_type": "bank",
+      "settlement_bank": "<string>",
+      "account_number": "<string>",
+      "platform_percentage": 1.0
+    },
+    "default_platform_fee": 123,
+    "allowed_channels": [
+      "card"
+    ],
+    "statement_descriptor": "<string>",
+    "is_active": true
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

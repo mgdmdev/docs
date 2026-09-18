@@ -1,0 +1,45 @@
+---
+title: "Rotate payments key"
+description: "Issue a new Payments api_key and invalidate the old one."
+api: "POST /api/applications/{id}/capabilities/payments/rotate-key"
+---
+
+Issues a new Payments API key and invalidates the old one.
+
+Requires an admin bearer token.
+
+<Warning>
+  There is no overlap window. The old key stops working the moment this returns, so deploy the new key to the calling service before rotating, not after.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="api_key" type="string" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | Payments capability not enabled for this Application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments/rotate-key" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments/rotate-key", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

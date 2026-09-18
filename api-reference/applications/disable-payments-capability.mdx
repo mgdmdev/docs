@@ -1,0 +1,45 @@
+---
+title: "Disable payments capability"
+description: "Remove the payments capability and revoke its api_key."
+api: "DELETE /api/applications/{id}/capabilities/payments"
+---
+
+Removes the Payments capability. Capability presence is the row existing, so this revokes the API key immediately.
+
+Requires an admin bearer token.
+
+<Note>
+  Payments already recorded are not deleted, and payout destinations survive. Re-enabling issues a new key; it does not restore the old one.
+</Note>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="success" type="boolean" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | Payments capability not enabled for this Application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/applications/usr_abc123/capabilities/payments", {
+  method: "DELETE",
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>
