@@ -1,0 +1,44 @@
+---
+title: "Delete Connector"
+api: "DELETE /api/connectors/{id}"
+---
+
+Deletes an existing connector configuration.
+
+Requires an admin bearer token. Deleting a connector removes its credentials and associated provider settings from the system.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The connector id.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the connector has been deleted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/connectors/con_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/connectors/${connectorId}`, {
+  method: "DELETE",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+```
+
+</CodeGroup>

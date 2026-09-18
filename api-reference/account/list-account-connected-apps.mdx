@@ -1,0 +1,54 @@
+---
+title: "List Connected Apps"
+api: "GET /api/account/apps"
+---
+
+Lists third-party applications the signed-in user has authorized, resolved from active, non-expired refresh tokens.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+An array of connected application objects:
+
+<ResponseField name="application_id" type="string">
+  The unique identifier of the authorized application.
+</ResponseField>
+
+<ResponseField name="application_name" type="string">
+  Human-readable name of the application.
+</ResponseField>
+
+<ResponseField name="application_description" type="string">
+  Description of the application, or `null`.
+</ResponseField>
+
+<ResponseField name="application_logo_url" type="string">
+  URL pointing to the application's logo image, or `null`.
+</ResponseField>
+
+<ResponseField name="last_used" type="integer">
+  Unix timestamp indicating when an authorization token was last issued or refreshed for this app.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid user token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/apps" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/apps", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const apps = await res.json();
+```
+
+</CodeGroup>

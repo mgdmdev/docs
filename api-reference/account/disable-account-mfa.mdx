@@ -1,0 +1,56 @@
+---
+title: "Disable MFA"
+api: "DELETE /api/account/mfa"
+---
+
+Disables multi-factor authentication (TOTP) on the signed-in account and removes stored recovery codes.
+
+Requires identity confirmation using a one-time verification code sent to the account's verified email or phone. When disabled, an advisory email is dispatched to the user.
+
+Requires an OAuth access token for the user.
+
+## Body
+
+<ParamField body="otp_code" type="string" required>
+  The one-time verification code sent to the user's verified contact method.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once MFA has been disabled.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_verification` | No verified email or phone number associated with the account. |
+| 400 | `otp_expired` | The verification code has expired or was not found. |
+| 400 | `otp_invalid` | The verification code is incorrect. |
+| 400 | `otp_max_attempts` | Too many incorrect attempts for this code. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/account/mfa" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "otp_code": "654321" }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/mfa", {
+  method: "DELETE",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ otp_code: "654321" }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

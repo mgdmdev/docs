@@ -1,0 +1,27 @@
+---
+title: "Get Checkout SDK"
+api: "GET /sdk/checkout.js"
+---
+
+Serves the embeddable Checkout SDK JavaScript bundle. When loaded via a `<script>` tag, it exposes `window.mgpass.checkout.open(options)` to render an in-page modal or checkout flow.
+
+Served with open CORS (`Access-Control-Allow-Origin: *`), cached for 1 hour at the edge, and emits `X-SRI` and `X-Bundle-Version` response headers. Use `GET /sdk/checkout.js.sri` to retrieve the current hash for subresource integrity pinning.
+
+Public endpoint. No authentication required.
+
+## Response
+
+Returns the compiled JavaScript bundle (`application/javascript; charset=utf-8`).
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/sdk/checkout.js"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/sdk/checkout.js");
+const scriptText = await res.text();
+```
+
+</CodeGroup>

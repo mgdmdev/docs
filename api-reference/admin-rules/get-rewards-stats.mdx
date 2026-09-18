@@ -1,0 +1,45 @@
+---
+title: "Get Rewards Stats"
+api: "GET /api/rewards/stats"
+---
+
+Returns platform-wide rewards statistics aggregated across the points ledger. Provides total points issued alongside platform and event-type breakdowns.
+
+Requires an admin bearer token.
+
+## Response
+
+<ResponseField name="total_points_issued" type="integer">
+  Cumulative points issued across the platform.
+</ResponseField>
+
+<ResponseField name="by_platform" type="array">
+  Points issued grouped by platform. Each item includes `platform` and `total`.
+</ResponseField>
+
+<ResponseField name="by_event_type" type="array">
+  Points issued grouped by event type. Each item includes `event_type` and `total`.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 403 | `insufficient_scope` | Token lacks `mgpass:admin` scope. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/stats" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/stats", {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const stats = await res.json();
+```
+
+</CodeGroup>

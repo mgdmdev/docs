@@ -1,0 +1,113 @@
+---
+title: "Create Rewards Catalog Item"
+api: "POST /api/rewards/catalog"
+---
+
+Creates a new redeemable reward item in the rewards catalog.
+
+Requires an admin bearer token. Both `name` and `points_cost` are required fields.
+
+## Body
+
+<ParamField body="name" type="string" required>
+  The catalog item name.
+</ParamField>
+
+<ParamField body="points_cost" type="number" required>
+  Number of points required to redeem this item.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Detailed description of the reward item.
+</ParamField>
+
+<ParamField body="image_url" type="string">
+  URL pointing to an image of the reward.
+</ParamField>
+
+<ParamField body="reward_type" type="string">
+  Reward category or classification, e.g. `voucher`, `merchandise`, `discount`.
+</ParamField>
+
+<ParamField body="reward_data" type="string">
+  Provider-specific metadata, payload, or integration configuration.
+</ParamField>
+
+<ParamField body="eligible_tiers" type="string">
+  Tiers eligible to redeem the item.
+</ParamField>
+
+<ParamField body="available_qty" type="number">
+  Total stock quantity available.
+</ParamField>
+
+<ParamField body="is_active" type="number">
+  Activation flag (`1` for active, `0` for inactive).
+</ParamField>
+
+<ParamField body="valid_from" type="number">
+  Unix timestamp when the reward becomes available for redemption.
+</ParamField>
+
+<ParamField body="valid_until" type="number">
+  Unix timestamp after which the reward can no longer be redeemed.
+</ParamField>
+
+<ParamField body="fulfillment_type" type="string">
+  Fulfillment method, e.g. `instant` or `manual`.
+</ParamField>
+
+<ParamField body="redemption_instructions" type="string">
+  Instructions displayed to the user after redeeming the item.
+</ParamField>
+
+<ParamField body="max_per_user" type="number">
+  Maximum redemptions allowed per individual user.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the catalog item is created. Returned with **201**.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `name` or `points_cost` is missing. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/rewards/catalog" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Coffee Voucher",
+    "points_cost": 500,
+    "reward_type": "voucher",
+    "available_qty": 100,
+    "is_active": 1
+  }'
+```
+
+```typescript TypeScript
+await fetch("https://auth.mgpass.net/api/rewards/catalog", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Coffee Voucher",
+    points_cost: 500,
+    reward_type: "voucher",
+    available_qty: 100,
+    is_active: 1,
+  }),
+});
+```
+
+</CodeGroup>

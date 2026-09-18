@@ -1,0 +1,93 @@
+---
+title: "Update Connector"
+api: "PATCH /api/connectors/{id}"
+---
+
+Updates the configuration or enabled status of an existing connector.
+
+Requires an admin bearer token. At least one field (`config` or `is_enabled`) must be provided. Configuration secrets are stored securely and masked in the response.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The connector id.
+</ParamField>
+
+## Body
+
+<ParamField body="config" type="object">
+  Provider-specific configuration object containing updated credentials or settings.
+</ParamField>
+
+<ParamField body="is_enabled" type="boolean">
+  Enable (`true`) or disable (`false`) the connector.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  The connector id.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Connector type.
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  Provider identifier.
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Provider configuration with secret values masked.
+</ResponseField>
+
+<ResponseField name="is_enabled" type="integer">
+  Whether the connector is enabled (`1`) or disabled (`0`).
+</ResponseField>
+
+<ResponseField name="last_tested_at" type="integer">
+  Unix timestamp when connectivity was last tested, or `null`.
+</ResponseField>
+
+<ResponseField name="last_success_at" type="integer">
+  Unix timestamp of the last successful operation, or `null`.
+</ResponseField>
+
+<ResponseField name="last_error" type="string">
+  Error message from the last failure, or `null`.
+</ResponseField>
+
+<ResponseField name="error_count" type="integer">
+  Consecutive error count.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | Neither `config` nor `is_enabled` was provided in the body. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No connector found with the specified id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/connectors/con_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "is_enabled": true }'
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/connectors/${connectorId}`, {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ is_enabled: true }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

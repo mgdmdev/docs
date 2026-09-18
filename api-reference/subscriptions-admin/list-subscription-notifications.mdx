@@ -1,0 +1,71 @@
+---
+title: "List Subscription Notifications"
+api: "GET /api/subscriptions/notifications"
+---
+
+Lists notification records across subscription and account events with administrative filtering.
+
+Requires an admin bearer token. Supports filtering by user, application, delivery status, and category with pagination.
+
+## Query parameters
+
+<ParamField query="user_id" type="string">
+  Filter notifications by target user ID.
+</ParamField>
+
+<ParamField query="application_id" type="string">
+  Filter notifications by application ID.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter notifications by delivery status (e.g. `pending`, `sent`, `failed`).
+</ParamField>
+
+<ParamField query="category" type="string">
+  Filter notifications by category.
+</ParamField>
+
+<ParamField query="page" type="integer">
+  Page number for pagination. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of records per page. Defaults to `20` (maximum `100`).
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array" required>
+  Array of notification records matching the filter criteria.
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total count of matching notification records.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/subscriptions/notifications?status=sent&page=1&limit=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  "https://auth.mgpass.net/api/subscriptions/notifications?status=sent&page=1&limit=20",
+  {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  }
+);
+const data = await res.json();
+```
+
+</CodeGroup>

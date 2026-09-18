@@ -1,0 +1,101 @@
+---
+title: "Get Rewards Catalog Item"
+api: "GET /api/rewards/catalog/{id}"
+---
+
+Retrieves details of a single item in the rewards catalog.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The catalog item id.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  The catalog item id.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The item name.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Item description.
+</ResponseField>
+
+<ResponseField name="image_url" type="string">
+  URL pointing to the item image.
+</ResponseField>
+
+<ResponseField name="points_cost" type="integer">
+  Points required to redeem this item.
+</ResponseField>
+
+<ResponseField name="reward_type" type="string">
+  Type of reward (e.g. `voucher`, `merchandise`).
+</ResponseField>
+
+<ResponseField name="reward_data" type="string">
+  Provider-specific reward fulfillment data.
+</ResponseField>
+
+<ResponseField name="eligible_tiers" type="string">
+  Eligible user tiers.
+</ResponseField>
+
+<ResponseField name="available_qty" type="integer">
+  Remaining stock quantity.
+</ResponseField>
+
+<ResponseField name="is_active" type="integer">
+  Activation flag (`1` for active, `0` for inactive).
+</ResponseField>
+
+<ResponseField name="valid_from" type="integer">
+  Unix timestamp when the item becomes available.
+</ResponseField>
+
+<ResponseField name="valid_until" type="integer">
+  Unix timestamp when the item expires.
+</ResponseField>
+
+<ResponseField name="fulfillment_type" type="string">
+  Fulfillment method (`instant`, `manual`).
+</ResponseField>
+
+<ResponseField name="redemption_instructions" type="string">
+  Instructions displayed to the user after redemption.
+</ResponseField>
+
+<ResponseField name="max_per_user" type="integer">
+  Maximum redemptions allowed per user.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No catalog item found with the specified id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/catalog/cat_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/rewards/catalog/${itemId}`, {
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

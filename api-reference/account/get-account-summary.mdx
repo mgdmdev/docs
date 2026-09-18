@@ -1,0 +1,81 @@
+---
+title: "Get Account Summary"
+api: "GET /api/account/summary"
+---
+
+Returns a dashboard summary for the signed-in user's account. Combines essential profile status, verification flags, security posture (MFA status, session count, password last changed), and up to 5 recent sign-in entries.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+<ResponseField name="name" type="string">
+  User's full name, or `null`.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Primary email address.
+</ResponseField>
+
+<ResponseField name="email_verified" type="boolean">
+  `true` if the email address has been verified.
+</ResponseField>
+
+<ResponseField name="email_undeliverable" type="boolean">
+  `true` if emails to this address are suppressed due to bounces or delivery errors.
+</ResponseField>
+
+<ResponseField name="avatar_url" type="string">
+  Avatar image URL, or `null`.
+</ResponseField>
+
+<ResponseField name="phone" type="string">
+  Primary phone number, or `null`.
+</ResponseField>
+
+<ResponseField name="phone_verified" type="boolean">
+  `true` if the phone number has been verified.
+</ResponseField>
+
+<ResponseField name="has_mfa" type="boolean">
+  `true` if TOTP MFA is configured and verified.
+</ResponseField>
+
+<ResponseField name="session_count" type="integer">
+  Number of active sessions currently authenticated on the account.
+</ResponseField>
+
+<ResponseField name="password_last_changed" type="integer">
+  Unix timestamp of the most recent password update, or `null`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp when the account was registered.
+</ResponseField>
+
+<ResponseField name="recent_sign_ins" type="array">
+  Up to 5 recent sign-in records (`event_type`, `ip_address`, `user_agent`, `metadata`, `created_at`).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/summary" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/summary", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const summary = await res.json();
+```
+
+</CodeGroup>

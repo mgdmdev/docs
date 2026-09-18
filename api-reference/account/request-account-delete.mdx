@@ -1,0 +1,49 @@
+---
+title: "Request Account Deletion"
+api: "POST /api/account/delete"
+---
+
+Initiates account deletion by creating and delivering a one-time verification code (`account_delete`).
+
+The code is delivered to the account's verified email address, falling back to verified phone if email is unavailable or unverified. Pass the returned code to `POST /api/account/delete/confirm` to permanently delete the account.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the verification code is dispatched.
+</ResponseField>
+
+<ResponseField name="channel" type="string">
+  The communication channel used to deliver the code (`email` or `sms`).
+</ResponseField>
+
+<ResponseField name="destination" type="string">
+  Masked recipient address or phone number where the code was delivered.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_verification` | No verified email or phone number associated with the account. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/delete" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/delete", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

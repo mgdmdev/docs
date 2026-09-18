@@ -1,0 +1,89 @@
+---
+title: "Update Cashback Config"
+api: "PATCH /api/rewards/cashback-config/{id}"
+---
+
+Updates conversion rates, fees, thresholds, or velocity limits for an existing tier cashback configuration. Only fields provided in the body are updated.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The cashback configuration ID (e.g. `cb_bronze`).
+</ParamField>
+
+## Body
+
+<ParamField body="rate" type="number">
+  Currency value awarded per redeemed point.
+</ParamField>
+
+<ParamField body="processing_fee_rate" type="number">
+  Fractional fee applied to redemptions (e.g. `0.0195` for 1.95%).
+</ParamField>
+
+<ParamField body="min_points" type="integer">
+  Minimum points balance required to initiate a redemption.
+</ParamField>
+
+<ParamField body="max_daily_amount" type="number">
+  Maximum daily cash payout per user in local currency.
+</ParamField>
+
+<ParamField body="max_daily_redemptions" type="integer">
+  Maximum number of redemptions allowed per user per day.
+</ParamField>
+
+<ParamField body="cooldown_minutes" type="integer">
+  Minimum minutes required between consecutive redemptions.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Set `true` to enable redemptions for this tier, or `false` to pause them.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the configuration has been updated.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | The request body contained no fields to update. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 403 | `insufficient_scope` | Token lacks `mgpass:admin` scope. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/rewards/cashback-config/cb_bronze" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rate": 0.005,
+    "min_points": 300,
+    "max_daily_amount": 600.0
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/rewards/cashback-config/${id}`, {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    rate: 0.005,
+    min_points: 300,
+    max_daily_amount: 600.0,
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

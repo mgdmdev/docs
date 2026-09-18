@@ -1,0 +1,77 @@
+---
+title: "Get Connector"
+api: "GET /api/connectors/{id}"
+---
+
+Retrieves a single connector configuration by identifier.
+
+Requires an admin bearer token. Sensitive configuration secrets (keys, passwords, tokens) are returned masked.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The connector id.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  The connector id.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Connector type, such as `email` or `sms`.
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  Provider identifier, such as `ses` or `hubtel`.
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Provider configuration dictionary with secret values masked.
+</ResponseField>
+
+<ResponseField name="is_enabled" type="integer">
+  Whether the connector is enabled (`1`) or disabled (`0`).
+</ResponseField>
+
+<ResponseField name="last_tested_at" type="integer">
+  Unix timestamp when connectivity was last probed, or `null`.
+</ResponseField>
+
+<ResponseField name="last_success_at" type="integer">
+  Unix timestamp of the last successful operation, or `null`.
+</ResponseField>
+
+<ResponseField name="last_error" type="string">
+  Error message from the most recent failure, or `null`.
+</ResponseField>
+
+<ResponseField name="error_count" type="integer">
+  Consecutive error count recorded for this connector.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No connector found with the specified id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/connectors/con_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/connectors/${connectorId}`, {
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

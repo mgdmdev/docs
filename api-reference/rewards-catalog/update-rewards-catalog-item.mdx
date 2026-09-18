@@ -1,0 +1,107 @@
+---
+title: "Update Rewards Catalog Item"
+api: "PATCH /api/rewards/catalog/{id}"
+---
+
+Updates fields of an existing item in the rewards catalog.
+
+Requires an admin bearer token. At least one valid field must be included in the update payload.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The catalog item id.
+</ParamField>
+
+## Body
+
+<ParamField body="name" type="string">
+  Updated item name.
+</ParamField>
+
+<ParamField body="points_cost" type="number">
+  Updated cost in points.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated item description.
+</ParamField>
+
+<ParamField body="image_url" type="string">
+  Updated image URL.
+</ParamField>
+
+<ParamField body="reward_type" type="string">
+  Updated reward category/type.
+</ParamField>
+
+<ParamField body="reward_data" type="string">
+  Updated metadata or fulfillment payload string.
+</ParamField>
+
+<ParamField body="eligible_tiers" type="string">
+  Updated list of eligible customer tiers.
+</ParamField>
+
+<ParamField body="available_qty" type="number">
+  Updated available stock quantity.
+</ParamField>
+
+<ParamField body="is_active" type="number">
+  Updated activation flag (`1` for active, `0` for inactive).
+</ParamField>
+
+<ParamField body="valid_from" type="number">
+  Unix timestamp when the reward becomes available.
+</ParamField>
+
+<ParamField body="valid_until" type="number">
+  Unix timestamp when the reward expires.
+</ParamField>
+
+<ParamField body="fulfillment_type" type="string">
+  Updated fulfillment method (`instant`, `manual`).
+</ParamField>
+
+<ParamField body="redemption_instructions" type="string">
+  Updated redemption instructions.
+</ParamField>
+
+<ParamField body="max_per_user" type="number">
+  Updated maximum redemptions per user.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` upon successful update.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_fields` | No valid fields to update were provided in the request body. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/rewards/catalog/cat_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "points_cost": 450, "available_qty": 50 }'
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/rewards/catalog/${itemId}`, {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ points_cost: 450, available_qty: 50 }),
+});
+```
+
+</CodeGroup>

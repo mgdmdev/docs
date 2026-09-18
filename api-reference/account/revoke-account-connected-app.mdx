@@ -1,0 +1,62 @@
+---
+title: "Revoke Connected App"
+api: "POST /api/account/apps/{clientId}/revoke"
+---
+
+Revokes all active refresh tokens and user sessions for a specific connected application.
+
+Requires step-up verification using a one-time verification code dispatched to the account's verified contact method.
+
+Requires an OAuth access token for the user.
+
+## Path parameters
+
+<ParamField path="clientId" type="string" required>
+  The application identifier to revoke.
+</ParamField>
+
+## Body
+
+<ParamField body="otp_code" type="string" required>
+  The one-time verification code sent to the user's verified contact method.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once all authorization tokens and sessions for this app have been revoked.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_verification` | No verified email or phone number associated with the account. |
+| 400 | `otp_expired` | The verification code has expired or was not found. |
+| 400 | `otp_invalid` | The verification code is incorrect. |
+| 400 | `otp_max_attempts` | Too many incorrect attempts for this code. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/apps/app_sample123/revoke" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "otp_code": "123456" }'
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/account/apps/${clientId}/revoke`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ otp_code: "123456" }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

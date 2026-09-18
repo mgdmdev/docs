@@ -1,0 +1,58 @@
+---
+title: "Get System Stats"
+api: "GET /api/stats"
+---
+
+Retrieves platform-wide usage metrics and dashboard statistics.
+
+Requires an admin bearer token. Computes 30-day daily registrations, breakdown of authentication providers, daily and monthly active users, active session counts, and recent failed logins.
+
+## Response
+
+<ResponseField name="registrations_per_day" type="array" required>
+  Daily registration counts for the last 30 days. Each object contains `day` (YYYY-MM-DD string) and `count` (integer).
+</ResponseField>
+
+<ResponseField name="auth_method_breakdown" type="array" required>
+  Breakdown of authentication methods configured across users. Each object contains `method` (string) and `count` (integer).
+</ResponseField>
+
+<ResponseField name="dau" type="integer" required>
+  Daily active users (distinct actor count recorded today).
+</ResponseField>
+
+<ResponseField name="mau" type="integer" required>
+  Monthly active users (distinct actor count recorded over the last 30 days).
+</ResponseField>
+
+<ResponseField name="active_sessions" type="integer" required>
+  Total count of active, unrevoked user sessions.
+</ResponseField>
+
+<ResponseField name="failed_logins_24h" type="integer" required>
+  Number of failed login attempts recorded today.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/stats" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/stats", {
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

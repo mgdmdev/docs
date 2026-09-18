@@ -128,7 +128,12 @@
               "api-reference/authentication/fedcm-config",
               "api-reference/authentication/fedcm-accounts",
               "api-reference/authentication/fedcm-assertion",
-              "api-reference/authentication/fedcm-client-metadata"
+              "api-reference/authentication/fedcm-client-metadata",
+              "api-reference/authentication/get-checkout-sdk-sri",
+              "api-reference/authentication/get-checkout-sdk",
+              "api-reference/authentication/get-userinfo",
+              "api-reference/authentication/introspect-token",
+              "api-reference/authentication/revoke-token"
             ]
           },
           {
@@ -138,7 +143,19 @@
               "api-reference/account/update-profile",
               "api-reference/account/list-sessions",
               "api-reference/account/revoke-session",
-              "api-reference/account/list-identities"
+              "api-reference/account/list-identities",
+              "api-reference/account/change-account-password",
+              "api-reference/account/confirm-account-delete",
+              "api-reference/account/disable-account-mfa",
+              "api-reference/account/export-account-data",
+              "api-reference/account/get-account-activity",
+              "api-reference/account/get-account-summary",
+              "api-reference/account/list-account-connected-apps",
+              "api-reference/account/request-account-delete",
+              "api-reference/account/revoke-account-connected-app",
+              "api-reference/account/setup-account-mfa",
+              "api-reference/account/unlink-account-identity",
+              "api-reference/account/verify-account-mfa"
             ]
           },
           {
@@ -243,7 +260,8 @@
               "api-reference/subscriptions-admin/create-promo-code",
               "api-reference/subscriptions-admin/update-promo-code",
               "api-reference/subscriptions-admin/delete-promo-code",
-              "api-reference/subscriptions-admin/get-stats"
+              "api-reference/subscriptions-admin/get-stats",
+              "api-reference/subscriptions-admin/list-subscription-notifications"
             ]
           },
           {
@@ -305,13 +323,32 @@
               "api-reference/organizations/list-orgs",
               "api-reference/organizations/create-org",
               "api-reference/organizations/get-org",
-              "api-reference/organizations/add-member"
+              "api-reference/organizations/add-member",
+              "api-reference/organizations/delete-organization",
+              "api-reference/organizations/update-organization"
+            ]
+          },
+          {
+            "group": "Connectors",
+            "pages": [
+              "api-reference/connectors/create-connector",
+              "api-reference/connectors/delete-connector",
+              "api-reference/connectors/get-connector",
+              "api-reference/connectors/list-connectors",
+              "api-reference/connectors/update-connector"
             ]
           },
           {
             "group": "Audit Logs",
             "pages": [
-              "api-reference/audit/list-audit-logs"
+              "api-reference/audit/list-audit-logs",
+              "api-reference/audit/export-audit-logs"
+            ]
+          },
+          {
+            "group": "System Stats",
+            "pages": [
+              "api-reference/stats/get-system-stats"
             ]
           },
           {
@@ -354,14 +391,17 @@
               "api-reference/admin-rules/get-rule",
               "api-reference/admin-rules/update-rule",
               "api-reference/admin-rules/delete-rule",
-              "api-reference/admin-rules/list-event-types"
+              "api-reference/admin-rules/list-event-types",
+              "api-reference/admin-rules/get-rewards-stats"
             ]
           },
           {
             "group": "Admin - Redemptions",
             "pages": [
               "api-reference/admin-redemptions/list-redemptions",
-              "api-reference/admin-redemptions/approve-reject"
+              "api-reference/admin-redemptions/approve-reject",
+              "api-reference/admin-redemptions/list-cashback-configs",
+              "api-reference/admin-redemptions/update-cashback-config"
             ]
           },
           {
@@ -381,6 +421,16 @@
               "api-reference/admin-benefits/get-benefit",
               "api-reference/admin-benefits/update-benefit",
               "api-reference/admin-benefits/delete-benefit"
+            ]
+          },
+          {
+            "group": "Admin - Catalog",
+            "pages": [
+              "api-reference/rewards-catalog/create-rewards-catalog-item",
+              "api-reference/rewards-catalog/delete-rewards-catalog-item",
+              "api-reference/rewards-catalog/get-rewards-catalog-item",
+              "api-reference/rewards-catalog/list-rewards-catalog",
+              "api-reference/rewards-catalog/update-rewards-catalog-item"
             ]
           },
           {

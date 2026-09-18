@@ -1,0 +1,55 @@
+---
+title: "Export Audit Logs"
+api: "GET /api/audit/export"
+---
+
+Exports platform audit log records for offline analysis or compliance reporting. By default downloads a CSV file (`Content-Disposition: attachment; filename="audit-log-export.csv"`), but also supports JSON output via query parameter. Up to 10,000 entries are returned.
+
+Requires an admin bearer token.
+
+## Query parameters
+
+<ParamField query="format" type="string" default="csv">
+  Output format: `csv` (default) or `json`.
+</ParamField>
+
+<ParamField query="event_type" type="string">
+  Filter by exact event type (e.g. `role.assigned`, `user.sessions.revoked_all`).
+</ParamField>
+
+<ParamField query="from" type="integer">
+  Start timestamp in Unix epoch seconds (inclusive).
+</ParamField>
+
+<ParamField query="to" type="integer">
+  End timestamp in Unix epoch seconds (inclusive).
+</ParamField>
+
+## Response
+
+When `format=csv`, returns a CSV file stream with headers `id,event_type,actor_type,actor_id,target_type,target_id,client_id,ip_address,user_agent,metadata,created_at`.
+
+When `format=json`, returns an array of matching audit log row objects.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 403 | `insufficient_scope` | Token lacks `mgpass:admin` scope. |
+
+<CodeGroup>
+
+```bash curl
+curl -OJ "https://auth.mgpass.net/api/audit/export?format=csv&from=1704067200" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/audit/export?format=csv&from=1704067200", {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const csvData = await res.text();
+```
+
+</CodeGroup>

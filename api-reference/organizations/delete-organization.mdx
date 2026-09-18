@@ -1,0 +1,45 @@
+---
+title: "Delete Organization"
+api: "DELETE /api/organizations/{id}"
+---
+
+Deletes an organization and its configuration.
+
+Requires an admin bearer token. The organization must exist in the database.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The organization id.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the organization has been deleted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No organization exists with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/organizations/org_acme" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/organizations/${orgId}`, {
+  method: "DELETE",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+```
+
+</CodeGroup>

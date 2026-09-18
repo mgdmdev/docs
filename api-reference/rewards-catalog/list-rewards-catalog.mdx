@@ -1,0 +1,52 @@
+---
+title: "List Rewards Catalog"
+api: "GET /api/rewards/catalog"
+---
+
+Lists paginated items from the rewards catalog.
+
+Requires an admin bearer token. Results are ordered alphabetically by name.
+
+## Query parameters
+
+<ParamField query="page" type="integer">
+  Page number for pagination. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of items per page. Defaults to `20` (maximum `100`).
+</ParamField>
+
+## Response
+
+<ResponseField name="results" type="array" required>
+  Array of catalog item records.
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total count of items in the rewards catalog.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/catalog?page=1&limit=20" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/catalog?page=1&limit=20", {
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

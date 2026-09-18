@@ -1,0 +1,44 @@
+---
+title: "Delete Rewards Catalog Item"
+api: "DELETE /api/rewards/catalog/{id}"
+---
+
+Deletes an item from the rewards catalog.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The catalog item id.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the catalog item has been deleted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/rewards/catalog/cat_123" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/rewards/catalog/${itemId}`, {
+  method: "DELETE",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+```
+
+</CodeGroup>

@@ -1,0 +1,45 @@
+---
+title: "Setup MFA"
+api: "POST /api/account/mfa/setup"
+---
+
+Initiates TOTP multi-factor authentication enrollment by generating a shared secret and authenticator provisioning URI.
+
+The secret must be stored in an authenticator app and confirmed using `POST /api/account/mfa/verify`. If MFA is already configured and verified on the account, this endpoint refuses to overwrite it.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+<ResponseField name="secret" type="string">
+  The base32-encoded secret key.
+</ResponseField>
+
+<ResponseField name="otpauth_uri" type="string">
+  Standard `otpauth://totp/...` provisioning URI for QR code generation and authenticator import.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `already_enabled` | MFA is already enabled and verified on this account. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/mfa/setup" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/mfa/setup", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const { secret, otpauth_uri } = await res.json();
+```
+
+</CodeGroup>

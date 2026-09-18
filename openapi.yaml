@@ -254,18 +254,23 @@ paths:
                 token_type_hint: { type: string, enum: [access_token, refresh_token] }
       responses:
         '200':
-          description: Introspection result.
+          description: >-
+            Always 200, per RFC 7662. An unknown, expired or revoked token is reported
+            as `{ "active": false }` with no other fields.
           content:
             application/json:
               schema:
                 type: object
+                required: [active]
                 properties:
                   active: { type: boolean }
-                  scope: { type: string }
+                  sub: { type: string, description: 'The user the token was issued to.' }
+                  scope: { type: string, description: 'Space-delimited. Re-gated against the holder''s current roles, so it can be narrower than the scope originally granted.' }
                   client_id: { type: string }
-                  username: { type: string }
                   exp: { type: integer }
-
+                  iat: { type: integer }
+                  iss: { type: string }
+                  token_type: { type: string, enum: [Bearer, refresh_token] }
   /token/revoke:
     post:
       operationId: revokeToken
@@ -331,14 +336,6 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Session' }
-    delete:
-      operationId: revokeAllAccountSessions
-      tags: [Account Self-Service]
-      security: [{ userBearer: [] }]
-      summary: Revoke all of my sessions except the current one
-      responses:
-        '204': { description: Sessions revoked. }
-
   /api/account/sessions/{sessionId}:
     delete:
       operationId: revokeAccountSession
@@ -365,17 +362,38 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/Identity' }
 
-  /api/account/identities/{provider}/unlink:
+  /api/account/identities/{identityId}/unlink:
     post:
       operationId: unlinkAccountIdentity
       tags: [Account Self-Service]
       security: [{ userBearer: [] }]
       summary: Unlink a social identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp_code]
+              properties:
+                otp_code: { type: string, description: 'One-time code for the `unlink_account` purpose.' }
       parameters:
-        - { in: path, name: provider, required: true, schema: { type: string } }
+        - in: path
+          name: identityId
+          required: true
+          schema: { type: string }
+          description: 'The identity''s own id, from `GET /api/account/identities` — not the provider name.'
       responses:
-        '204': { description: Identity unlinked. }
-
+        '200':
+          description: Identity unlinked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`last_method` — this is your only sign-in method; `no_verification` — no verified email or phone to send the code to; or `otp_expired` / `otp_invalid` / `otp_max_attempts` — the one-time code was not accepted.' }
+        '404': { description: '`not_found` — no such identity on this account.' }
   /api/account/password:
     post:
       operationId: changeAccountPassword
@@ -393,8 +411,14 @@ paths:
                 current_password: { type: string }
                 new_password: { type: string }
       responses:
-        '204': { description: Password changed. }
-
+        '200':
+          description: Password changed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
   /api/account/apps:
     get:
       operationId: listAccountConnectedApps
@@ -403,24 +427,46 @@ paths:
       summary: List third-party apps I have authorized
       responses:
         '200':
-          description: Connected apps.
+          description: Applications holding a live refresh token for you.
           content:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/ConnectedApp' }
-
+                items:
+                  type: object
+                  properties:
+                    application_id: { type: string }
+                    application_name: { type: string }
+                    application_description: { type: [string, "null"] }
+                    application_logo_url: { type: [string, "null"] }
+                    last_used: { type: [integer, "null"] }
   /api/account/apps/{clientId}/revoke:
     post:
       operationId: revokeAccountConnectedApp
       tags: [Account Self-Service]
       security: [{ userBearer: [] }]
       summary: Revoke a connected app's tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp_code]
+              properties:
+                otp_code: { type: string, description: 'One-time code for the `revoke_app` purpose.' }
       parameters:
         - { in: path, name: clientId, required: true, schema: { type: string } }
       responses:
-        '204': { description: App revoked. }
-
+        '200':
+          description: Access revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`otp_expired`, `otp_invalid` or `otp_max_attempts` — the one-time code was not accepted.' }
   /api/account/mfa/setup:
     post:
       operationId: setupAccountMfa
@@ -429,16 +475,14 @@ paths:
       summary: Start TOTP MFA enrollment
       responses:
         '200':
-          description: Provisioning URI and secret.
+          description: A new TOTP secret. Not active until confirmed via the verify call.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  secret: { type: string }
-                  otpauth_url: { type: string }
-                  qr_code_data_url: { type: string }
-
+                  secret: { type: string, description: 'Base32 shared secret.' }
+                  otpauth_uri: { type: string, description: 'otpauth:// URI to render as a QR code. No image is returned — render it yourself.' }
   /api/account/mfa/verify:
     post:
       operationId: verifyAccountMfa
@@ -456,16 +500,14 @@ paths:
                 code: { type: string }
       responses:
         '200':
-          description: Backup codes.
+          description: MFA enabled. The recovery codes are shown once and never again.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  backup_codes:
-                    type: array
-                    items: { type: string }
-
+                  success: { type: boolean }
+                  recovery_codes: { type: array, items: { type: string } }
   /api/account/mfa:
     delete:
       operationId: disableAccountMfa
@@ -478,12 +520,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [password]
+              required: [otp_code]
               properties:
-                password: { type: string }
+                otp_code: { type: string, description: 'One-time code for the `disable_mfa` purpose — not your password.' }
       responses:
-        '204': { description: MFA disabled. }
-
+        '200':
+          description: MFA disabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`otp_expired`, `otp_invalid` or `otp_max_attempts` — the one-time code was not accepted.' }
   /api/account/rewards:
     get:
       operationId: getAccountRewardsSummary
@@ -939,8 +988,16 @@ paths:
       security: [{ userBearer: [] }]
       summary: Request account deletion (sends confirmation email)
       responses:
-        '202': { description: Confirmation email sent. }
-
+        '200':
+          description: A one-time code has been sent. The response says where.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  channel: { type: string, enum: [email, sms] }
+                  destination: { type: string, description: 'The masked address or number the code went to.' }
   /api/account/delete/confirm:
     post:
       operationId: confirmAccountDelete
@@ -953,12 +1010,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [token]
+              required: [otp_code]
               properties:
-                token: { type: string }
+                otp_code: { type: string, description: 'The code from the request step.' }
       responses:
-        '204': { description: Account scheduled for deletion. }
-
+        '200':
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+        '400': { description: '`otp_expired`, `otp_invalid` or `otp_max_attempts` — the one-time code was not accepted.' }
   /api/account/summary:
     get:
       operationId: getAccountSummary
@@ -967,26 +1032,46 @@ paths:
       summary: Composite summary (profile + rewards + active subs)
       responses:
         '200':
-          description: Summary.
+          description: Profile, verification state and security posture in one call.
           content:
             application/json:
-              schema: { type: object, additionalProperties: true }
-
+              schema:
+                type: object
+                properties:
+                  name: { type: [string, "null"] }
+                  email: { type: [string, "null"] }
+                  email_verified: { type: boolean }
+                  email_undeliverable: { type: boolean, description: 'True when mail to this address has hard-bounced and is suppressed.' }
+                  avatar_url: { type: [string, "null"] }
+                  phone: { type: [string, "null"] }
+                  phone_verified: { type: boolean }
+                  has_mfa: { type: boolean }
+                  session_count: { type: integer }
+                  password_last_changed: { type: [integer, "null"] }
+                  created_at: { type: integer }
+                  recent_sign_ins: { type: array, maxItems: 5, items: { type: object, additionalProperties: true } }
   /api/account/activity:
     get:
       operationId: getAccountActivity
       tags: [Account Self-Service]
       security: [{ userBearer: [] }]
       summary: Recent activity log for my account
+      parameters:
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
       responses:
         '200':
-          description: Activity entries.
+          description: Your own audit trail, newest first.
           content:
             application/json:
               schema:
-                type: array
-                items: { type: object, additionalProperties: true }
-
+                type: object
+                properties:
+                  data: { type: array, items: { type: object, additionalProperties: true } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  has_more: { type: boolean }
   /api/account/export:
     get:
       operationId: exportAccountData
@@ -995,11 +1080,21 @@ paths:
       summary: GDPR-style data export
       responses:
         '200':
-          description: Export bundle.
+          description: >-
+            The full GDPR archive. Served as a download — the response carries
+            `Content-Disposition: attachment; filename="mgpass-data-<userId>.json"`.
           content:
             application/json:
-              schema: { type: object, additionalProperties: true }
-
+              schema:
+                type: object
+                properties:
+                  exported_at: { type: integer }
+                  user: { type: object, additionalProperties: true }
+                  identities: { type: array, items: { type: object, additionalProperties: true } }
+                  active_sessions: { type: array, items: { type: object, additionalProperties: true } }
+                  connected_apps: { type: array, items: { type: object, additionalProperties: true } }
+                  rewards: { type: object, additionalProperties: true }
+                  activity_log: { type: array, items: { type: object, additionalProperties: true } }
   # ─────────────────────────────────────────────────────────────────────────────
   # Applications (spine + capabilities)
   # ─────────────────────────────────────────────────────────────────────────────
@@ -1742,17 +1837,22 @@ paths:
       tags: [Subscriptions]
       summary: List subscription notification records (admin)
       parameters:
-        - { in: query, name: subscription_id, schema: { type: string } }
-        - { in: query, name: event_type, schema: { type: string } }
+        - { in: query, name: user_id, schema: { type: string } }
+        - { in: query, name: application_id, schema: { type: string } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: category, schema: { type: string } }
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 200 } }
       responses:
         '200':
-          description: Notification records.
+          description: Notification records, newest first.
           content:
             application/json:
               schema:
-                type: array
-                items: { type: object, additionalProperties: true }
-
+                type: object
+                properties:
+                  results: { type: array, items: { type: object, additionalProperties: true } }
+                  total: { type: integer }
   # ─────────────────────────────────────────────────────────────────────────────
   # Tenant v1 API
   # ─────────────────────────────────────────────────────────────────────────────
@@ -1788,19 +1888,6 @@ paths:
               schema: { $ref: '#/components/schemas/Plan' }
 
   /v1/plans/{id}:
-    get:
-      operationId: tenantGetPlan
-      tags: [Subscription Plans]
-      security: [{ tenantApiKey: [] }]
-      summary: Tenant — get a plan
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '200':
-          description: Plan.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Plan' }
     patch:
       operationId: tenantUpdatePlan
       tags: [Subscription Plans]
@@ -1981,23 +2068,6 @@ paths:
               schema: { $ref: '#/components/schemas/CheckoutSession' }
         '400':
           $ref: '#/components/responses/Error'
-    get:
-      operationId: tenantListCheckoutSessions
-      tags: [Checkout]
-      security: [{ tenantApiKey: [] }]
-      summary: List checkout sessions
-      parameters:
-        - { in: query, name: status, schema: { type: string, enum: [pending, completed, expired, failed] } }
-        - { in: query, name: user_id, schema: { type: string } }
-      responses:
-        '200':
-          description: Checkout sessions.
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/CheckoutSession' }
-
   /v1/checkout/{sessionId}:
     get:
       operationId: tenantGetCheckoutSession
@@ -2433,14 +2503,19 @@ paths:
       operationId: listRewardsCatalog
       tags: [Rewards Catalog]
       summary: List catalog items
+      parameters:
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
       responses:
         '200':
           description: Catalog items.
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/CatalogItem' }
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+                  total: { type: integer }
     post:
       operationId: createRewardsCatalogItem
       tags: [Rewards Catalog]
@@ -2452,11 +2527,14 @@ paths:
             schema: { $ref: '#/components/schemas/CatalogItem' }
       responses:
         '201':
-          description: Catalog item created.
+          description: Item created.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CatalogItem' }
-
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`invalid_request` — `name` and `points_cost` are both required.' }
   /api/rewards/catalog/{id}:
     get:
       operationId: getRewardsCatalogItem
@@ -2483,10 +2561,15 @@ paths:
             schema: { $ref: '#/components/schemas/CatalogItem' }
       responses:
         '200':
-          description: Updated item.
+          description: Item updated.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CatalogItem' }
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`no_fields` — no recognised field to update.' }
+        '404': { description: '`not_found` — no catalog item with that id.' }
     delete:
       operationId: deleteRewardsCatalogItem
       tags: [Rewards Catalog]
@@ -2494,8 +2577,15 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
       responses:
-        '204': { description: Deleted. }
-
+        '200':
+          description: Item deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404': { description: '`not_found` — no catalog item with that id.' }
   /api/rewards/credit:
     post:
       operationId: adminCreditPoints
@@ -2594,11 +2684,15 @@ paths:
       summary: Rewards stats (admin)
       responses:
         '200':
-          description: Rewards stats.
+          description: Points issuance totals.
           content:
             application/json:
-              schema: { type: object, additionalProperties: true }
-
+              schema:
+                type: object
+                properties:
+                  total_points_issued: { type: integer }
+                  by_platform: { type: array, items: { type: object, additionalProperties: true } }
+                  by_event_type: { type: array, items: { type: object, additionalProperties: true } }
   /api/rewards/cashback-config:
     get:
       operationId: listCashbackConfigs
@@ -2606,13 +2700,24 @@ paths:
       summary: List cashback configurations
       responses:
         '200':
-          description: Cashback configs.
+          description: Cashback settings, one row per tier. Global, not per-application.
           content:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/CashbackConfig' }
-
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    tier: { type: string }
+                    rate: { type: number }
+                    processing_fee_rate: { type: number }
+                    min_points: { type: integer }
+                    max_daily_amount: { type: number }
+                    max_daily_redemptions: { type: integer }
+                    cooldown_minutes: { type: integer }
+                    is_active: { type: boolean }
+                    updated_at: { type: integer }
   /api/rewards/cashback-config/{id}:
     patch:
       operationId: updateCashbackConfig
@@ -2624,14 +2729,27 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CashbackConfig' }
+            schema:
+              type: object
+              description: At least one field must be present.
+              properties:
+                rate: { type: number }
+                processing_fee_rate: { type: number }
+                min_points: { type: integer }
+                max_daily_amount: { type: number }
+                max_daily_redemptions: { type: integer }
+                cooldown_minutes: { type: integer }
+                is_active: { type: boolean }
       responses:
         '200':
-          description: Updated config.
+          description: Tier updated.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/CashbackConfig' }
-
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: '`no_fields` — no recognised field to update.' }
   /api/cashback/callback:
     post:
       operationId: cashbackPaystackCallback
@@ -2746,30 +2864,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
 
-  /api/users/{id}/reactivate:
-    post:
-      operationId: reactivateUser
-      tags: [User Management]
-      summary: Reactivate a suspended user
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '200':
-          description: User reactivated.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/User' }
-
-  /api/users/{id}/reset-password:
-    post:
-      operationId: adminResetUserPassword
-      tags: [User Management]
-      summary: Send password-reset email to a user
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '202': { description: Reset email queued. }
-
   /api/organizations:
     get:
       operationId: listOrganizations
@@ -2822,13 +2916,22 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Organization' }
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: [string, "null"] }
+                custom_data: { type: [string, "null"], description: 'Opaque JSON string, stored verbatim.' }
       responses:
         '200':
-          description: Updated organization.
+          description: Organization updated.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Organization' }
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404': { description: '`not_found` — no organization with that id.' }
     delete:
       operationId: deleteOrganization
       tags: [Organizations]
@@ -2836,8 +2939,15 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
       responses:
-        '204': { description: Deleted. }
-
+        '200':
+          description: Organization deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404': { description: '`not_found` — no organization with that id.' }
   /api/roles:
     get:
       operationId: listRoles
@@ -2906,74 +3016,6 @@ paths:
       responses:
         '204': { description: Deleted. }
 
-  /api/resources:
-    get:
-      operationId: listResources
-      tags: [API Resources]
-      summary: List API resources
-      responses:
-        '200':
-          description: Resources.
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/Resource' }
-    post:
-      operationId: createResource
-      tags: [API Resources]
-      summary: Create an API resource
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/Resource' }
-      responses:
-        '201':
-          description: Resource created.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Resource' }
-
-  /api/resources/{id}:
-    get:
-      operationId: getResource
-      tags: [API Resources]
-      summary: Get an API resource
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '200':
-          description: Resource.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Resource' }
-    patch:
-      operationId: updateResource
-      tags: [API Resources]
-      summary: Update an API resource
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/Resource' }
-      responses:
-        '200':
-          description: Updated resource.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Resource' }
-    delete:
-      operationId: deleteResource
-      tags: [API Resources]
-      summary: Delete an API resource
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '204': { description: Deleted. }
-
   /api/connectors:
     get:
       operationId: listConnectors
@@ -2981,12 +3023,14 @@ paths:
       summary: List configured connectors
       responses:
         '200':
-          description: Connectors.
+          description: Connectors. Secrets inside `config` are masked.
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: '#/components/schemas/Connector' }
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/Connector' } }
+                  total: { type: integer }
     post:
       operationId: createConnector
       tags: [Connectors]
@@ -2995,7 +3039,13 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Connector' }
+            schema:
+              type: object
+              required: [type, provider]
+              properties:
+                type: { type: string, enum: [social, sms, email] }
+                provider: { type: string, description: 'Vendor key, e.g. `google`, `hubtel`, `ses`.' }
+                config: { type: object, additionalProperties: true, description: 'Provider-specific settings. Secrets are masked on read.' }
       responses:
         '201':
           description: Connector created.
@@ -3026,13 +3076,20 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Connector' }
+            schema:
+              type: object
+              description: At least one field must be present.
+              properties:
+                config: { type: object, additionalProperties: true }
+                is_enabled: { type: boolean }
       responses:
         '200':
-          description: Updated connector.
+          description: The updated connector, with `config` masked.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Connector' }
+        '400': { description: '`no_fields` — neither `config` nor `is_enabled` was supplied.' }
+        '404': { description: '`not_found` — no connector with that id.' }
     delete:
       operationId: deleteConnector
       tags: [Connectors]
@@ -3040,43 +3097,25 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
       responses:
-        '204': { description: Deleted. }
-
-  /api/settings:
-    get:
-      operationId: getSettings
-      tags: [Settings]
-      summary: Get platform settings
-      responses:
         '200':
-          description: Settings.
+          description: Connector deleted.
           content:
             application/json:
-              schema: { type: object, additionalProperties: true }
-    patch:
-      operationId: updateSettings
-      tags: [Settings]
-      summary: Update platform settings
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: true }
-      responses:
-        '200':
-          description: Updated settings.
-          content:
-            application/json:
-              schema: { type: object, additionalProperties: true }
-
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '404': { description: '`not_found` — no connector with that id.' }
   /api/audit/export:
     get:
       operationId: exportAuditLogs
       tags: [Audit Logs]
       summary: Export audit logs as CSV
       parameters:
-        - { in: query, name: from, schema: { type: string, format: date-time } }
-        - { in: query, name: to, schema: { type: string, format: date-time } }
+        - { in: query, name: from, schema: { type: integer }, description: 'Unix epoch SECONDS, not an ISO date. An ISO string is silently truncated by `parseInt` and will not filter as you expect.' }
+        - { in: query, name: to, schema: { type: integer }, description: 'Unix epoch seconds.' }
+        - { in: query, name: event_type, schema: { type: string } }
+        - { in: query, name: format, schema: { type: string, enum: [csv, json], default: csv } }
       responses:
         '200':
           description: CSV export.
@@ -3090,11 +3129,18 @@ paths:
       summary: Platform-wide usage stats
       responses:
         '200':
-          description: Stats.
+          description: Dashboard counters.
           content:
             application/json:
-              schema: { type: object, additionalProperties: true }
-
+              schema:
+                type: object
+                properties:
+                  registrations_per_day: { type: array, items: { type: object, additionalProperties: true } }
+                  auth_method_breakdown: { type: object, additionalProperties: true }
+                  dau: { type: integer, description: 'Distinct users active in the last 24 hours.' }
+                  mau: { type: integer, description: 'Distinct users active in the last 30 days.' }
+                  active_sessions: { type: integer }
+                  failed_logins_24h: { type: integer }
   /api/templates:
     get:
       operationId: listNotificationTemplates
@@ -3111,22 +3157,6 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/NotificationTemplate' }
-    post:
-      operationId: createNotificationTemplate
-      tags: [Notification Templates (Admin)]
-      summary: Create a notification template
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/NotificationTemplate' }
-      responses:
-        '201':
-          description: Template created.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/NotificationTemplate' }
-
   /api/templates/{id}:
     get:
       operationId: getNotificationTemplate
@@ -3157,15 +3187,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/NotificationTemplate' }
-    delete:
-      operationId: deleteNotificationTemplate
-      tags: [Notification Templates (Admin)]
-      summary: Delete a notification template
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        '204': { description: Deleted. }
-
   # ─────────────────────────────────────────────────────────────────────────────
   # SDKs
   # ─────────────────────────────────────────────────────────────────────────────
@@ -4663,12 +4684,19 @@ components:
 
     Connector:
       type: object
+      description: >-
+        A configured integration. `type` is the KIND of connector; the vendor is
+        in `provider` — e.g. type `social`, provider `google`.
       properties:
         id: { type: string }
-        type: { type: string, enum: [google, facebook, apple, microsoft, github, twitter, ses, hubtel] }
-        name: { type: string }
-        is_active: { type: boolean }
+        type: { type: string, enum: [social, sms, email] }
+        provider: { type: string, description: 'Vendor key, e.g. `google`, `apple`, `hubtel`, `ses`.' }
         config: { type: object, additionalProperties: true, description: 'Provider-specific configuration. Secrets are returned masked.' }
+        is_enabled: { type: boolean }
+        last_tested_at: { type: [integer, "null"] }
+        last_success_at: { type: [integer, "null"] }
+        last_error: { type: [string, "null"] }
+        error_count: { type: integer }
 
     AuditLogEntry:
       type: object

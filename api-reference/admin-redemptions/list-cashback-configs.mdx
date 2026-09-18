@@ -1,0 +1,77 @@
+---
+title: "List Cashback Configs"
+api: "GET /api/rewards/cashback-config"
+---
+
+Lists all cashback tier configurations across the platform, ordered by tier.
+
+Each record specifies conversion rates, transaction fees, redemption thresholds, velocity limits, and cooldown intervals for a customer tier.
+
+Requires an admin bearer token.
+
+## Response
+
+An array of tier configurations:
+
+<ResponseField name="id" type="string">
+  Configuration identifier (e.g. `cb_bronze`).
+</ResponseField>
+
+<ResponseField name="tier" type="string">
+  Loyalty tier (`bronze`, `silver`, `gold`).
+</ResponseField>
+
+<ResponseField name="rate" type="number">
+  Currency value awarded per redeemed point (e.g. `0.004`).
+</ResponseField>
+
+<ResponseField name="processing_fee_rate" type="number">
+  Fee fraction deducted on redemptions (e.g. `0.0195` for 1.95%).
+</ResponseField>
+
+<ResponseField name="min_points" type="integer">
+  Minimum points threshold required to redeem.
+</ResponseField>
+
+<ResponseField name="max_daily_amount" type="number">
+  Maximum daily cash redemption total per user in local currency.
+</ResponseField>
+
+<ResponseField name="max_daily_redemptions" type="integer">
+  Maximum number of cashback redemptions a user may submit per day.
+</ResponseField>
+
+<ResponseField name="cooldown_minutes" type="integer">
+  Required wait time between redemptions in minutes.
+</ResponseField>
+
+<ResponseField name="is_active" type="integer">
+  `1` if cashback is enabled for this tier, `0` if paused.
+</ResponseField>
+
+<ResponseField name="updated_at" type="integer">
+  Unix timestamp when this configuration was last modified.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 403 | `insufficient_scope` | Token lacks `mgpass:admin` scope. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/cashback-config" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/cashback-config", {
+  headers: { Authorization: `Bearer ${adminToken}` },
+});
+const configs = await res.json();
+```
+
+</CodeGroup>

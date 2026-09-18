@@ -1,0 +1,62 @@
+---
+title: "Get Userinfo"
+api: "GET /userinfo"
+---
+
+Retrieves OpenID Connect claims for the authenticated user based on the scopes granted in the access token.
+
+Requires a user bearer token. The claims returned vary depending on the token's granted scopes: `email` includes `email` and `email_verified`; `profile` includes `name` and `picture`; and `phone` includes `phone_number` and `phone_number_verified`. If the client application has the appropriate verification tier, sensitive KYC profile claims are also included.
+
+## Response
+
+<ResponseField name="sub" type="string" required>
+  Unique subject identifier for the authenticated user.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address. Returned when the `email` scope is granted.
+</ResponseField>
+
+<ResponseField name="email_verified" type="boolean">
+  Whether the user's email address has been verified. Returned when the `email` scope is granted.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's full display name. Returned when the `profile` scope is granted.
+</ResponseField>
+
+<ResponseField name="picture" type="string">
+  URL pointing to the user's avatar image. Returned when the `profile` scope is granted.
+</ResponseField>
+
+<ResponseField name="phone_number" type="string">
+  User's phone number. Returned when the `phone` scope is granted.
+</ResponseField>
+
+<ResponseField name="phone_number_verified" type="boolean">
+  Whether the user's phone number has been verified. Returned when the `phone` scope is granted.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `invalid_token` | Missing, invalid, or expired authorization header, or revoked session. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/userinfo" \
+  -H "Authorization: Bearer $USER_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/userinfo", {
+  headers: {
+    Authorization: `Bearer ${userToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

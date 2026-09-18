@@ -1,0 +1,33 @@
+---
+title: "Get Checkout SDK SRI"
+api: "GET /sdk/checkout.js.sri"
+---
+
+Returns the Subresource Integrity (SRI) hash and bundle version for the embeddable Checkout SDK (`/sdk/checkout.js`).
+
+Automated deployment pipelines and monitors can use this endpoint to fetch the current integrity hash without downloading the entire bundle.
+
+Public endpoint. No authentication required.
+
+## Response
+
+<ResponseField name="integrity" type="string">
+  The Subresource Integrity string for `<script integrity="...">`, e.g. `sha384-...`.
+</ResponseField>
+
+<ResponseField name="bundle_version" type="string">
+  An 8-character hex string identifying the compiled bundle version.
+</ResponseField>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/sdk/checkout.js.sri"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/sdk/checkout.js.sri");
+const { integrity, bundle_version } = await res.json();
+```
+
+</CodeGroup>

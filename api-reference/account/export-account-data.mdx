@@ -1,0 +1,63 @@
+---
+title: "Export Account Data"
+api: "GET /api/account/export"
+---
+
+Generates a complete GDPR-style JSON archive of the signed-in user's data. Returned as an attachment with `Content-Disposition: attachment; filename="mgpass-data-{userId}.json"`.
+
+The export includes profile and contact details, linked OAuth identities, connected applications, rewards balances and redemptions, and recent audit logs.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+<ResponseField name="exported_at" type="string">
+  ISO-8601 timestamp when the export archive was generated.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Full user profile record including identification, verification statuses, address, and account timestamps.
+</ResponseField>
+
+<ResponseField name="identities" type="array">
+  Linked third-party social identities (`provider`, `provider_user_id`, `created_at`).
+</ResponseField>
+
+<ResponseField name="active_sessions" type="integer">
+  Number of active sessions on the account.
+</ResponseField>
+
+<ResponseField name="connected_apps" type="array">
+  Third-party applications currently authorized by the user.
+</ResponseField>
+
+<ResponseField name="rewards" type="object">
+  Points balance, points history, and redemptions, or `null` if rewards data is unavailable.
+</ResponseField>
+
+<ResponseField name="activity_log" type="array">
+  Up to 100 recent audit log entries (`event_type`, `created_at`, `metadata`).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -OJ "https://auth.mgpass.net/api/account/export" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/export", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const exportData = await res.json();
+```
+
+</CodeGroup>

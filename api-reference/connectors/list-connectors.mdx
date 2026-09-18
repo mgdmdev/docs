@@ -1,0 +1,42 @@
+---
+title: "List Connectors"
+api: "GET /api/connectors"
+---
+
+Lists all configured communications and identity connectors.
+
+Requires an admin bearer token. All sensitive configuration secrets across listed connectors are returned masked.
+
+## Response
+
+<ResponseField name="results" type="array" required>
+  Array of connector objects with sensitive configuration values masked.
+</ResponseField>
+
+<ResponseField name="total" type="integer" required>
+  Total number of configured connectors.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/connectors" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/connectors", {
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

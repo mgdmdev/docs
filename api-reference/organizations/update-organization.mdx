@@ -1,0 +1,66 @@
+---
+title: "Update Organization"
+api: "PATCH /api/organizations/{id}"
+---
+
+Updates an organization's details such as name, description, or custom metadata.
+
+Requires an admin bearer token. The target organization must already exist.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  The organization id.
+</ParamField>
+
+## Body
+
+<ParamField body="name" type="string">
+  The updated organization name.
+</ParamField>
+
+<ParamField body="description" type="string">
+  The updated organization description.
+</ParamField>
+
+<ParamField body="custom_data" type="string">
+  Optional custom metadata or JSON string stored alongside the organization.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` upon successful update.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No organization exists with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/organizations/org_acme" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Acme Global", "description": "Global enterprise division" }'
+```
+
+```typescript TypeScript
+await fetch(`https://auth.mgpass.net/api/organizations/${orgId}`, {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Acme Global",
+    description: "Global enterprise division",
+  }),
+});
+```
+
+</CodeGroup>

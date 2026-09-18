@@ -1,0 +1,60 @@
+---
+title: "Revoke Token"
+api: "POST /token/revoke"
+---
+
+Implements RFC 7009 token revocation to revoke a refresh token.
+
+Requires client authentication via HTTP Basic Auth (`client_id:client_secret`) or form body parameters. Confidential clients (`web`, `m2m`) must provide valid client credentials. Per RFC 7009, this endpoint returns HTTP 200 with an empty body even if the token does not exist, has already been revoked, or is missing.
+
+## Body
+
+<ParamField body="token" type="string">
+  The token to revoke. Per RFC 7009, omitting this parameter returns 200 without error.
+</ParamField>
+
+<ParamField body="token_type_hint" type="string">
+  Optional hint indicating the token type (`refresh_token` or `access_token`).
+</ParamField>
+
+<ParamField body="client_id" type="string">
+  The client identifier. Required if client credentials are not passed in the `Authorization` header.
+</ParamField>
+
+<ParamField body="client_secret" type="string">
+  The client secret. Required for confidential clients if credentials are not passed in the `Authorization` header.
+</ParamField>
+
+## Response
+
+Returns an empty body with HTTP **200** when revocation succeeds or if the token is already invalid.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `invalid_client` | Missing client_id, unknown client, inactive client, or invalid client credentials. |
+| 401 | `unauthorized_client` | OAuth is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/token/revoke" \
+  -u "$CLIENT_ID:$CLIENT_SECRET" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "token=mgt_sample_refresh_token"
+```
+
+```typescript TypeScript
+const credentials = btoa(`${clientId}:${clientSecret}`);
+await fetch("https://auth.mgpass.net/token/revoke", {
+  method: "POST",
+  headers: {
+    Authorization: `Basic ${credentials}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  },
+  body: new URLSearchParams({ token: refreshToken }),
+});
+```
+
+</CodeGroup>

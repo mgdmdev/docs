@@ -1,0 +1,92 @@
+---
+title: "Introspect Token"
+api: "POST /token/introspect"
+---
+
+Implements RFC 7662 token introspection to query the active state and metadata of an access token or refresh token.
+
+Requires client authentication via HTTP Basic Auth (`client_id:client_secret`) or form body parameters. Confidential clients (`web`, `m2m`) must present valid client credentials matching their stored secret hash. Even if a JWT access token signature verifies, the token is reported as inactive if its backing session has been revoked or expired.
+
+## Body
+
+<ParamField body="token" type="string" required>
+  The token string to inspect.
+</ParamField>
+
+<ParamField body="token_type_hint" type="string">
+  Optional hint indicating the token type (`access_token` or `refresh_token`).
+</ParamField>
+
+<ParamField body="client_id" type="string">
+  The client identifier. Required if client credentials are not passed in the `Authorization` header.
+</ParamField>
+
+<ParamField body="client_secret" type="string">
+  The client secret. Required for confidential clients if credentials are not passed in the `Authorization` header.
+</ParamField>
+
+## Response
+
+<ResponseField name="active" type="boolean" required>
+  `true` if the token is currently active and valid; `false` if expired, revoked, invalid, or tied to a terminated session.
+</ResponseField>
+
+<ResponseField name="sub" type="string">
+  Subject identifier (user ID) associated with the token.
+</ResponseField>
+
+<ResponseField name="scope" type="string">
+  Space-separated list of scopes granted to the token.
+</ResponseField>
+
+<ResponseField name="client_id" type="string">
+  Identifier of the client application that requested the token.
+</ResponseField>
+
+<ResponseField name="exp" type="integer">
+  Unix timestamp (in seconds) when the access token expires.
+</ResponseField>
+
+<ResponseField name="iat" type="integer">
+  Unix timestamp (in seconds) when the access token was issued.
+</ResponseField>
+
+<ResponseField name="iss" type="string">
+  Issuer URL of the token.
+</ResponseField>
+
+<ResponseField name="token_type" type="string">
+  Token type (`Bearer` for access tokens, `refresh_token` for refresh tokens).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `token` parameter is missing. |
+| 401 | `invalid_client` | Missing client_id, unknown client, inactive client, or invalid client credentials. |
+| 401 | `unauthorized_client` | OAuth is not enabled for this application. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/token/introspect" \
+  -u "$CLIENT_ID:$CLIENT_SECRET" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "token=mgt_sample_token_value"
+```
+
+```typescript TypeScript
+const credentials = btoa(`${clientId}:${clientSecret}`);
+const res = await fetch("https://auth.mgpass.net/token/introspect", {
+  method: "POST",
+  headers: {
+    Authorization: `Basic ${credentials}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  },
+  body: new URLSearchParams({ token: tokenValue }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

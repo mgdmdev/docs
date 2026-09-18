@@ -1,0 +1,63 @@
+---
+title: "Unlink Account Identity"
+api: "POST /api/account/identities/{identityId}/unlink"
+---
+
+Unlinks an external social identity (such as Google or Apple) from the signed-in account.
+
+Requires an identity verification code sent to the user's verified email or phone. The operation will fail if the identity is the only remaining sign-in mechanism on an account without a password.
+
+Requires an OAuth access token for the user.
+
+## Path parameters
+
+<ParamField path="identityId" type="string" required>
+  The identity record ID from `GET /api/account/identities` (not the provider name).
+</ParamField>
+
+## Body
+
+<ParamField body="otp_code" type="string" required>
+  The one-time verification code sent for the `unlink_account` purpose.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the identity has been unlinked.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `last_method` | This is your only sign-in method and no password is set. Set a password first. |
+| 400 | `no_verification` | No verified email or phone number associated with the account. |
+| 400 | `otp_expired` | The verification code has expired or was not found. |
+| 400 | `otp_invalid` | The verification code is incorrect. |
+| 400 | `otp_max_attempts` | Too many incorrect attempts for this code. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `not_found` | No identity with that ID exists on this account. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/identities/idn_google_123/unlink" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "otp_code": "123456" }'
+```
+
+```typescript TypeScript
+const res = await fetch(`https://auth.mgpass.net/api/account/identities/${identityId}/unlink`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ otp_code: "123456" }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

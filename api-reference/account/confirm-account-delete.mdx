@@ -1,0 +1,60 @@
+---
+title: "Confirm Account Deletion"
+api: "POST /api/account/delete/confirm"
+---
+
+Confirms deletion of the signed-in account using a one-time verification code requested from `POST /api/account/delete`.
+
+Upon verification, the pre-deletion cascade immediately cancels any subscriptions owned by the user, vacates any seats held on shared subscriptions, marks the account deleted, revokes all active sessions across devices, and revokes all refresh tokens.
+
+Requires an OAuth access token for the user.
+
+## Body
+
+<ParamField body="otp_code" type="string" required>
+  The one-time verification code sent to the account's verified email or phone.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` once the account has been deleted.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status confirmation message (`Account has been deleted`).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `no_verification` | No verified email or phone number associated with the account. |
+| 400 | `otp_expired` | The verification code has expired or was not found. |
+| 400 | `otp_invalid` | The verification code is incorrect. |
+| 400 | `otp_max_attempts` | Too many incorrect attempts for this code. |
+| 401 | `unauthorized` | Missing or invalid user token. |
+| 404 | `user_not_found` | No user found for the provided access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/delete/confirm" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "otp_code": "123456" }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/delete/confirm", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ otp_code: "123456" }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

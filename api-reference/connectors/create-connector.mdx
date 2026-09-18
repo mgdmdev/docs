@@ -1,0 +1,89 @@
+---
+title: "Create Connector"
+api: "POST /api/connectors"
+---
+
+Creates a new communications or identity connector configuration.
+
+Requires an admin bearer token. Sensitive configuration secrets (keys, passwords, tokens) are stored securely and returned masked in the response.
+
+## Body
+
+<ParamField body="type" type="string" required>
+  Connector type, such as `email`, `sms`, or `oauth`.
+</ParamField>
+
+<ParamField body="provider" type="string" required>
+  Provider identifier, such as `ses`, `hubtel`, or `google`.
+</ParamField>
+
+<ParamField body="config" type="object">
+  Provider-specific configuration object containing credentials, endpoints, or regional settings.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  The generated connector identifier (`con_...`). Returned with **201**.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Connector type.
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  Provider identifier.
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Provider configuration with secret values masked.
+</ResponseField>
+
+<ResponseField name="is_enabled" type="integer">
+  Whether the connector is enabled (`1`) or disabled (`0`).
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/connectors" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "email",
+    "provider": "ses",
+    "config": {
+      "region": "eu-west-1",
+      "access_key_id": "AKIAEXAMPLE",
+      "secret_access_key": "secret_value"
+    }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/connectors", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${adminToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    type: "email",
+    provider: "ses",
+    config: {
+      region: "eu-west-1",
+      access_key_id: "AKIAEXAMPLE",
+      secret_access_key: "secret_value",
+    },
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>
