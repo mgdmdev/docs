@@ -2,3 +2,148 @@
 title: "Create Rule"
 api: "POST /api/rewards/rules"
 ---
+
+Defines how an event earns points. `points_type: flat` awards `points` once per event; `per_unit` multiplies `points` by the metadata field named in `unit_field`.
+
+Requires an admin bearer token.
+
+<Warning>
+  A `per_unit` rule with no `unit_field`, or naming a field the event does not carry, awards nothing. Publish a test event and check the ledger before relying on it.
+</Warning>
+
+<Note>
+  Leaving `platform` null applies the rule to every Application. That is rarely what you want for a purchase rule — one Application's definition of `amount` is not another's.
+</Note>
+
+## Body
+
+<ParamField body="id" type="string" />
+
+<ParamField body="platform" type="string">
+  The Application the rule applies to, by name. Null matches every Application.
+</ParamField>
+
+<ParamField body="event_type" type="string" />
+
+<ParamField body="tier" type="string">
+  Restrict the rule to one tier. Null applies it to all.
+</ParamField>
+
+<ParamField body="points" type="integer">
+  Points awarded
+</ParamField>
+
+<ParamField body="points_type" type="string">
+  One of `flat`, `per_unit`.
+</ParamField>
+
+<ParamField body="unit_field" type="string">
+  The metadata field multiplied by `points` when `points_type` is `per_unit`, e.g. `amount`.
+</ParamField>
+
+<ParamField body="daily_cap" type="integer" />
+
+<ParamField body="monthly_cap" type="integer" />
+
+<ParamField body="is_active" type="boolean" />
+
+<ParamField body="version" type="string">
+  Stamped onto every ledger entry the rule produces.
+</ParamField>
+
+<ParamField body="created_at" type="integer">
+  Unix epoch seconds.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="platform" type="string">
+  The Application the rule applies to, by name. Null matches every Application.
+</ResponseField>
+
+<ResponseField name="event_type" type="string" />
+
+<ResponseField name="tier" type="string">
+  Restrict the rule to one tier. Null applies it to all.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  Points awarded
+</ResponseField>
+
+<ResponseField name="points_type" type="string">
+  One of `flat`, `per_unit`.
+</ResponseField>
+
+<ResponseField name="unit_field" type="string">
+  The metadata field multiplied by `points` when `points_type` is `per_unit`, e.g. `amount`.
+</ResponseField>
+
+<ResponseField name="daily_cap" type="integer" />
+
+<ResponseField name="monthly_cap" type="integer" />
+
+<ResponseField name="is_active" type="boolean" />
+
+<ResponseField name="version" type="string">
+  Stamped onto every ledger entry the rule produces.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | A required field is missing. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/rewards/rules" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{
+  "id": "<string>",
+  "platform": "<string>",
+  "event_type": "purchase",
+  "tier": "<string>",
+  "points": 123,
+  "points_type": "flat",
+  "unit_field": "<string>",
+  "daily_cap": 123,
+  "monthly_cap": 123,
+  "is_active": true,
+  "version": "<string>",
+  "created_at": 123
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/rules", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "id": "<string>",
+    "platform": "<string>",
+    "event_type": "purchase",
+    "tier": "<string>",
+    "points": 123,
+    "points_type": "flat",
+    "unit_field": "<string>",
+    "daily_cap": 123,
+    "monthly_cap": 123,
+    "is_active": true,
+    "version": "<string>",
+    "created_at": 123
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

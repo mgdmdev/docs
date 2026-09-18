@@ -2,3 +2,74 @@
 title: "Get Rule"
 api: "GET /api/rewards/rules/{id}"
 ---
+
+One points rule.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="platform" type="string">
+  The Application the rule applies to, by name. Null matches every Application.
+</ResponseField>
+
+<ResponseField name="event_type" type="string" />
+
+<ResponseField name="tier" type="string">
+  Restrict the rule to one tier. Null applies it to all.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  Points awarded
+</ResponseField>
+
+<ResponseField name="points_type" type="string">
+  One of `flat`, `per_unit`.
+</ResponseField>
+
+<ResponseField name="unit_field" type="string">
+  The metadata field multiplied by `points` when `points_type` is `per_unit`, e.g. `amount`.
+</ResponseField>
+
+<ResponseField name="daily_cap" type="integer" />
+
+<ResponseField name="monthly_cap" type="integer" />
+
+<ResponseField name="is_active" type="boolean" />
+
+<ResponseField name="version" type="string">
+  Stamped onto every ledger entry the rule produces.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No rule with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/rules/usr_abc123" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/rules/usr_abc123", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

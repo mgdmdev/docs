@@ -3,3 +3,35 @@ title: "One Tap JavaScript SDK"
 api: "GET /sdk/onetap.js"
 description: "Self-contained One Tap SDK. On Chromium it runs the native FedCM account chooser; on other browsers it shows a 'Continue with mgPass' card that redirects to your login URL. Embed via script tag on any partner site."
 ---
+
+The One Tap bundle, served ready to embed. On Chromium it drives the native FedCM account chooser; everywhere else it renders a "Continue with mgPass" card that redirects to your login URL, so the same script tag works in every browser.
+
+Public. Served with CORS open and cached at the edge.
+
+<Note>
+  Serve it from `auth.mgpass.net` rather than copying the file. It is versioned in place, and a vendored copy will not pick up fixes to the FedCM path.
+</Note>
+
+## Response
+
+
+
+<Tip>
+  See [the One Tap guide](/guides/onetap-sdk) for the embed snippet and the callback contract.
+</Tip>
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/sdk/onetap.js" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/sdk/onetap.js", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

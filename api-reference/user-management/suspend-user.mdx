@@ -2,3 +2,76 @@
 title: "Suspend User"
 api: "POST /api/users/{id}/suspend"
 ---
+
+Blocks a user from signing in and records why. Lift it with [unsuspend](/api-reference/user-management/unsuspend-user).
+
+Requires an admin bearer token.
+
+<Note>
+  Suspension stops new sign-ins. Tokens already issued keep working until they expire — [revoke every session](/api-reference/user-management/revoke-all-sessions) as well if the block has to take effect now.
+</Note>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="email" type="string" />
+
+<ResponseField name="email_verified" type="boolean" />
+
+<ResponseField name="phone" type="string" />
+
+<ResponseField name="phone_verified" type="boolean" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="avatar_url" type="string" />
+
+<ResponseField name="custom_data" type="object">
+  Arbitrary JSON you store against the user, returned parsed. An empty object when none was set.
+</ResponseField>
+
+<ResponseField name="is_suspended" type="boolean" />
+
+<ResponseField name="suspension_reason" type="string" />
+
+<ResponseField name="created_at" type="string">
+  ISO 8601. This endpoint returns timestamps as strings, not the epoch seconds used elsewhere in the API.
+</ResponseField>
+
+<ResponseField name="last_sign_in_at" type="string">
+  ISO 8601. Derived from the most recent session when the column was never stamped.
+</ResponseField>
+
+<ResponseField name="deleted_at" type="string" />
+
+<ResponseField name="roles" type="array">
+  Returned by the single-user endpoint, not by the list.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/users/usr_abc123/suspend" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/users/usr_abc123/suspend", {
+  method: "POST",
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

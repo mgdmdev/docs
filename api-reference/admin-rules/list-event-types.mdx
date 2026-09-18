@@ -2,3 +2,35 @@
 title: "List Event Types"
 api: "GET /api/rewards/event-types"
 ---
+
+The event types the rewards engine recognises. Use it to populate a picker rather than hard-coding a list that will drift.
+
+Requires an admin bearer token.
+
+## Response
+
+An array of items.
+
+
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/event-types" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/event-types", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

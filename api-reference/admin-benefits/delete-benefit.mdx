@@ -2,3 +2,39 @@
 title: "Delete Benefit"
 api: "DELETE /api/rewards/benefits/{id}"
 ---
+
+Deletes a tier benefit.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+Deleted.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No benefit with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/rewards/benefits/usr_abc123" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/benefits/usr_abc123", {
+  method: "DELETE",
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

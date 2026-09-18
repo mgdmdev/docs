@@ -2,3 +2,57 @@
 title: "Get Own Profile"
 api: "GET /api/account/profile"
 ---
+
+The signed-in user's own profile. This is the account portal's read; `/userinfo` is the OIDC equivalent and returns standard claims instead.
+
+Requires an OAuth access token for the user.
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="email" type="string" />
+
+<ResponseField name="email_verified" type="boolean" />
+
+<ResponseField name="phone" type="string" />
+
+<ResponseField name="phone_verified" type="boolean" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="given_name" type="string" />
+
+<ResponseField name="family_name" type="string" />
+
+<ResponseField name="picture" type="string" />
+
+<ResponseField name="locale" type="string" />
+
+<ResponseField name="mfa_enabled" type="boolean" />
+
+<ResponseField name="created_at" type="string" />
+
+<ResponseField name="updated_at" type="string" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/profile" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/profile", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

@@ -2,3 +2,46 @@
 title: "Get Organization"
 api: "GET /api/organizations/{id}"
 ---
+
+One organization.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="slug" type="string" />
+
+<ResponseField name="logo_url" type="string" />
+
+<ResponseField name="created_at" type="string" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `not_found` | No organization with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/organizations/usr_abc123" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/organizations/usr_abc123", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

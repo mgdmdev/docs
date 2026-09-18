@@ -2,3 +2,132 @@
 title: "Redeem Catalog Item"
 api: "POST /api/account/rewards/redeem"
 ---
+
+Spends the signed-in user's points on a catalog item. The points leave the balance immediately; `status` tells you whether the redemption was auto-approved or queued for review.
+
+Requires an OAuth access token for the user.
+
+<Note>
+  A high-value or unusually frequent redemption comes back `pending` instead of `completed`. The points are deducted either way — `status` is the review queue's state, not whether the user was charged.
+</Note>
+
+## Body
+
+<ParamField body="reward_id" type="string" required>
+  The catalog item to redeem. Must be active, inside its availability window, and open to the user's tier.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="user_id" type="string" />
+
+<ResponseField name="redemption_type" type="string">
+  Which fields below carry values depends on this. One of `catalog`, `cashback`, `partner_order`.
+</ResponseField>
+
+<ResponseField name="reward_id" type="string">
+  The catalog item. Set on `catalog` redemptions only.
+</ResponseField>
+
+<ResponseField name="points_cost" type="integer">
+  Points taken from the balance.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  One of `pending`, `processing`, `completed`, `failed`, `cancelled`.
+</ResponseField>
+
+<ResponseField name="tier_at_redemption" type="string">
+  The tier whose rate applied, recorded so a later tier change cannot rewrite history.
+</ResponseField>
+
+<ResponseField name="cashback_amount" type="number">
+  Cedis paid out. `cashback` only.
+</ResponseField>
+
+<ResponseField name="phone_number" type="string">
+  Mobile money number. `cashback` only.
+</ResponseField>
+
+<ResponseField name="network" type="string">
+  Mobile money network. `cashback` only.
+</ResponseField>
+
+<ResponseField name="fee_amount" type="number">
+  Processing fee in cedis. `cashback` only.
+</ResponseField>
+
+<ResponseField name="application_id" type="string">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="order_reference" type="string">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="order_amount" type="number">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="value_amount" type="number">
+  The discount granted. `partner_order` only.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="updated_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="committed_at" type="integer" />
+
+<ResponseField name="voided_at" type="integer" />
+
+<ResponseField name="expires_at" type="integer">
+  When an unsettled hold lapses. `partner_order` only.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `reward_id` is missing. |
+| 400 | `not_available` | The reward is not yet in its availability window. |
+| 400 | `expired` | The reward has passed its availability window. |
+| 400 | `insufficient_points` | The balance is below the item cost. |
+| 400 | `sold_out` | The reward has no stock left. |
+| 401 | `unauthorized` | Missing or invalid access token. |
+| 403 | `ineligible_tier` | The user's tier is not eligible for this reward. |
+| 404 | `not_found` | No active reward with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/rewards/redeem" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "reward_id": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/rewards/redeem", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "reward_id": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

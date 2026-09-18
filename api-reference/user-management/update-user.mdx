@@ -2,3 +2,100 @@
 title: "Update User"
 api: "PATCH /api/users/{id}"
 ---
+
+Updates a user's fields. Only the fields you send are changed; omit a field to leave it alone.
+
+Requires an admin bearer token.
+
+<Warning>
+  Setting `email_verified` or `phone_verified` to true marks the contact verified without any check having happened. Only do it when you have verified by another route.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Body
+
+<ParamField body="email" type="string" required />
+
+<ParamField body="password" type="string" required />
+
+<ParamField body="name" type="string" />
+
+<ParamField body="phone" type="string" />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="email" type="string" />
+
+<ResponseField name="email_verified" type="boolean" />
+
+<ResponseField name="phone" type="string" />
+
+<ResponseField name="phone_verified" type="boolean" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="avatar_url" type="string" />
+
+<ResponseField name="custom_data" type="object">
+  Arbitrary JSON you store against the user, returned parsed. An empty object when none was set.
+</ResponseField>
+
+<ResponseField name="is_suspended" type="boolean" />
+
+<ResponseField name="suspension_reason" type="string" />
+
+<ResponseField name="created_at" type="string">
+  ISO 8601. This endpoint returns timestamps as strings, not the epoch seconds used elsewhere in the API.
+</ResponseField>
+
+<ResponseField name="last_sign_in_at" type="string">
+  ISO 8601. Derived from the most recent session when the column was never stamped.
+</ResponseField>
+
+<ResponseField name="deleted_at" type="string" />
+
+<ResponseField name="roles" type="array">
+  Returned by the single-user endpoint, not by the list.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | No updatable fields were sent, or one failed validation. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/users/usr_abc123" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{
+  "email": "<string>",
+  "password": "<string>",
+  "name": "<string>",
+  "phone": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/users/usr_abc123", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "email": "<string>",
+    "password": "<string>",
+    "name": "<string>",
+    "phone": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

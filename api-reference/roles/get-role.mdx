@@ -2,3 +2,56 @@
 title: "Get Role"
 api: "GET /api/roles/{id}"
 ---
+
+One role and the scopes it grants.
+
+Requires an admin bearer token.
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="description" type="string" />
+
+<ResponseField name="type" type="string">
+  `user` roles are assigned to people; `m2m` roles to machine clients. One of `user`, `m2m`.
+</ResponseField>
+
+<ResponseField name="is_default" type="boolean">
+  True when the role is granted automatically to new users.
+</ResponseField>
+
+<ResponseField name="scopes" type="array" />
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+| 404 | `invalid_request` | No role with that id. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/roles/usr_abc123" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/roles/usr_abc123", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

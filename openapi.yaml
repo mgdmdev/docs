@@ -512,10 +512,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  items:
+                  results:
                     type: array
                     items: { $ref: '#/components/schemas/PointsLedgerEntry' }
-                  next_cursor: { type: [string, "null"] }
+                  total: { type: integer, description: Entries in total, ignoring paging. }
 
   /api/account/rewards/redemptions:
     get:
@@ -544,10 +544,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [item_id]
+              required: [reward_id]
               properties:
-                item_id: { type: string }
-                quantity: { type: integer, default: 1 }
+                reward_id:
+                  type: string
+                  description: The catalog item to redeem. Must be active, inside its availability window, and open to the user's tier.
       responses:
         '201':
           description: Redemption created.
@@ -567,22 +568,34 @@ paths:
           application/json:
             schema:
               type: object
-              required: [amount, currency, msisdn, mobile_network]
+              required: [points, phone_number, network]
               properties:
-                amount: { type: integer, description: 'Amount in minor units (pesewas for GHS).' }
-                currency: { type: string, enum: [GHS] }
-                msisdn: { type: string }
-                mobile_network: { type: string, enum: [MTN, VODAFONE, AIRTELTIGO] }
+                points:
+                  type: integer
+                  minimum: 250
+                  description: Points to convert. The platform minimum is 250; a tier may set a higher one.
+                phone_number: { type: string, example: '0244123456' }
+                network:
+                  type: string
+                  enum: [mtn, telecel, airteltigo]
+                  description: Lowercase. Any other value is rejected.
       responses:
-        '202':
-          description: Cashback transfer queued.
+        '201':
+          description: The redemption was created and queued for payout.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  transfer_id: { type: string }
+                  redemption_id: { type: string }
                   status: { type: string, enum: [pending] }
+                  points: { type: integer, description: Points taken from the balance. }
+                  tier: { type: string }
+                  rate: { type: number, description: Cedis per point at this tier. }
+                  gross_amount: { type: number, description: '`points` x `rate`, in cedis.' }
+                  fee_rate: { type: number, description: Processing fee as a fraction of the gross. }
+                  fee_amount: { type: number, description: The fee in cedis. }
+                  net_amount: { type: number, description: What reaches the wallet, in cedis. }
 
   /api/account/subscriptions:
     get:
@@ -2088,15 +2101,16 @@ paths:
                 metadata: { type: object, additionalProperties: true }
                 idempotency_key: { type: string }
       responses:
-        '202':
-          description: Event accepted.
+        '200':
+          description: Event accepted and recorded.
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  accepted: { type: boolean, example: true }
+                  points_awarded: { type: integer, description: Points credited after the tier and Application multipliers. }
                   event_id: { type: string }
-                  points_awarded: { type: integer }
 
   /api/partner/redemptions/quote:
     post:
@@ -2654,10 +2668,13 @@ paths:
               schema:
                 type: object
                 properties:
-                  items:
+                  data:
                     type: array
                     items: { $ref: '#/components/schemas/User' }
-                  next_cursor: { type: [string, "null"] }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  has_more: { type: boolean }
     post:
       operationId: createUser
       tags: [User Management]
@@ -4076,20 +4093,31 @@ components:
       type: object
       properties:
         id: { type: string }
-        user_agent: { type: string }
-        ip: { type: string }
-        location: { type: [string, "null"] }
-        created_at: { type: string, format: date-time }
-        last_active_at: { type: string, format: date-time }
-        is_current: { type: boolean }
+        device_info:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Device details recorded at sign-in, returned parsed.
+        ip_address: { type: [string, 'null'] }
+        client_name:
+          type: string
+          description: Display name of the Application the session belongs to.
+        client_logo_url: { type: [string, 'null'] }
+        last_active_at: { type: integer, description: Unix epoch seconds. }
+        created_at: { type: integer, description: Unix epoch seconds. }
 
     Identity:
       type: object
       properties:
+        id: { type: string }
         provider: { type: string, example: google }
-        provider_user_id: { type: string }
-        email: { type: [string, "null"], format: email }
-        linked_at: { type: string, format: date-time }
+        provider_user_id:
+          type: string
+          description: The user's id at that provider. Stable across sign-ins.
+        profile_data:
+          type: object
+          additionalProperties: true
+          description: The provider profile captured at link time, returned parsed. An empty object when none was stored.
+        created_at: { type: integer, description: Unix epoch seconds. }
 
     ConnectedApp:
       type: object
@@ -4108,32 +4136,40 @@ components:
       type: object
       properties:
         id: { type: string }
-        email: { type: string, format: email }
+        email: { type: [string, 'null'], format: email }
         email_verified: { type: boolean }
-        phone: { type: [string, "null"] }
-        name: { type: [string, "null"] }
-        organization_id: { type: [string, "null"] }
+        phone: { type: [string, 'null'] }
+        phone_verified: { type: boolean }
+        name: { type: [string, 'null'] }
+        avatar_url: { type: [string, 'null'] }
+        custom_data:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON you store against the user, returned parsed. An empty object when none was set.
         is_suspended: { type: boolean }
-        is_admin: { type: boolean }
+        suspension_reason: { type: [string, 'null'] }
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601. This endpoint returns timestamps as strings, not the epoch seconds used elsewhere in the API.
+        last_sign_in_at:
+          type: [string, 'null']
+          format: date-time
+          description: ISO 8601. Derived from the most recent session when the column was never stamped.
+        deleted_at: { type: [string, 'null'], format: date-time }
         roles:
           type: array
           items: { type: string }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+          description: Returned by the single-user endpoint, not by the list.
 
     UserCreate:
       type: object
-      required: [email]
+      required: [email, password]
       properties:
         email: { type: string, format: email }
+        password: { type: string }
         name: { type: string }
         phone: { type: string }
-        organization_id: { type: string }
-        password: { type: string, description: 'Optional — if omitted, user receives an invite email.' }
-        is_admin: { type: boolean, default: false }
-        roles:
-          type: array
-          items: { type: string }
 
     Organization:
       type: object
@@ -4149,11 +4185,18 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        description: { type: [string, "null"] }
+        description: { type: [string, 'null'] }
+        type:
+          type: string
+          enum: [user, m2m]
+          description: '`user` roles are assigned to people; `m2m` roles to machine clients.'
+        is_default:
+          type: boolean
+          description: True when the role is granted automatically to new users.
         scopes:
           type: array
           items: { type: string }
-        is_built_in: { type: boolean }
+        created_at: { type: integer, description: Unix epoch seconds. }
 
     Resource:
       type: object
@@ -4953,16 +4996,30 @@ components:
     RewardsSummary:
       type: object
       properties:
-        user_id: { type: string }
-        balance: { type: integer, description: 'Available points.' }
-        lifetime_points: { type: integer }
-        tier: { type: string }
-        tier_progress: { type: number }
-        next_tier: { type: [string, "null"] }
-        cashback_balance:
-          type: object
+        total_points: { type: integer, description: Points available to spend now. }
+        lifetime_earned:
+          type: integer
+          description: Points earned over the account's life. Tier is calculated from this, not from the spendable balance.
+        tier: { type: string, enum: [bronze, silver, gold, platinum] }
+        tier_details:
+          type: [object, 'null']
+          description: The tier's own configuration, or null when the tier has none.
+          additionalProperties: true
+        next_tier:
+          type: [object, 'null']
+          description: The tier above, and the gap to it. Null at the top tier.
           properties:
-            amount: { type: integer, description: 'In minor units.' }
+            points_needed:
+              type: integer
+              description: '`min_points` of the next tier minus `lifetime_earned`.'
+          additionalProperties: true
+        redemption:
+          type: [object, 'null']
+          description: What the balance is worth against a purchase, at this tier. Null when the tier has no active configuration.
+          properties:
+            rate: { type: number, description: Cedis one point is worth. }
+            min_points: { type: integer, description: Smallest redemption this tier permits. }
+            value: { type: number, description: The whole balance in cedis, rounded down to the pesewa. }
             currency: { type: string, enum: [GHS] }
 
     PointsLedgerEntry:
@@ -5002,25 +5059,54 @@ components:
       properties:
         id: { type: string }
         user_id: { type: string }
-        item_id: { type: string }
-        item_name: { type: string }
-        points_spent: { type: integer }
-        status: { type: string, enum: [pending, fulfilled, cancelled, refunded] }
-        fulfilled_at: { type: [string, "null"], format: date-time }
-        created_at: { type: string, format: date-time }
+        redemption_type:
+          type: string
+          enum: [catalog, cashback, partner_order]
+          description: Which fields below carry values depends on this.
+        reward_id:
+          type: [string, 'null']
+          description: The catalog item. Set on `catalog` redemptions only.
+        points_cost: { type: integer, description: Points taken from the balance. }
+        status: { type: string, enum: [pending, processing, completed, failed, cancelled] }
+        tier_at_redemption:
+          type: [string, 'null']
+          description: The tier whose rate applied, recorded so a later tier change cannot rewrite history.
+        cashback_amount: { type: [number, 'null'], description: Cedis paid out. `cashback` only. }
+        phone_number: { type: [string, 'null'], description: Mobile money number. `cashback` only. }
+        network: { type: [string, 'null'], description: Mobile money network. `cashback` only. }
+        fee_amount: { type: [number, 'null'], description: Processing fee in cedis. `cashback` only. }
+        application_id: { type: [string, 'null'], description: '`partner_order` only.' }
+        order_reference: { type: [string, 'null'], description: '`partner_order` only.' }
+        order_amount: { type: [number, 'null'], description: '`partner_order` only.' }
+        value_amount: { type: [number, 'null'], description: The discount granted. `partner_order` only. }
+        currency: { type: [string, 'null'], enum: [GHS, null] }
+        created_at: { type: integer, description: Unix epoch seconds. }
+        updated_at: { type: integer, description: Unix epoch seconds. }
+        committed_at: { type: [integer, 'null'] }
+        voided_at: { type: [integer, 'null'] }
+        expires_at: { type: [integer, 'null'], description: When an unsettled hold lapses. `partner_order` only. }
 
     RewardsRule:
       type: object
       properties:
         id: { type: string }
-        application_id: { type: [string, "null"] }
-        event_type: { type: string }
-        points: { type: integer }
-        per_unit_field: { type: [string, "null"] }
-        daily_cap: { type: [integer, "null"] }
-        monthly_cap: { type: [integer, "null"] }
-        conditions: { type: [object, "null"], additionalProperties: true }
-        is_active: { type: boolean }
+        platform:
+          type: [string, 'null']
+          description: The Application the rule applies to, by name. Null matches every Application.
+        event_type: { type: string, example: purchase }
+        tier:
+          type: [string, 'null']
+          description: Restrict the rule to one tier. Null applies it to all.
+        points: { type: integer, description: Points awarded, or points per unit when `points_type` is `per_unit`. }
+        points_type: { type: string, enum: [flat, per_unit] }
+        unit_field:
+          type: [string, 'null']
+          description: The metadata field multiplied by `points` when `points_type` is `per_unit`, e.g. `amount`.
+        daily_cap: { type: [integer, 'null'] }
+        monthly_cap: { type: [integer, 'null'] }
+        is_active: { type: integer, description: '`1` when the rule is evaluated.' }
+        version: { type: [string, 'null'], description: Stamped onto every ledger entry the rule produces. }
+        created_at: { type: integer, description: Unix epoch seconds. }
 
     CatalogItem:
       type: object

@@ -3,3 +3,31 @@ title: "FedCM Provider Discovery"
 api: "GET /.well-known/web-identity"
 description: "Returns the list of FedCM provider config URLs. Called by the browser to discover FedCM-capable identity providers."
 ---
+
+Lists the FedCM provider config URLs mgPass serves. The browser reads it to confirm mgPass is a FedCM-capable identity provider before fetching [the provider manifest](/api-reference/authentication/fedcm-config).
+
+Public. Called by the browser, not by your code.
+
+<Note>
+  FedCM is Chromium-only. Treat one-tap as an enhancement over the [standard OAuth flow](/guides/oauth-flows), never as the only way in.
+</Note>
+
+## Response
+
+
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/.well-known/web-identity" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/.well-known/web-identity", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

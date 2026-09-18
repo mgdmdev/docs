@@ -2,3 +2,43 @@
 title: "List Organizations"
 api: "GET /api/organizations"
 ---
+
+Every organization on the platform. An organization groups Applications and users under one owner.
+
+Requires an admin bearer token.
+
+## Response
+
+An array of items.
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="slug" type="string" />
+
+<ResponseField name="logo_url" type="string" />
+
+<ResponseField name="created_at" type="string" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/organizations" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/organizations", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

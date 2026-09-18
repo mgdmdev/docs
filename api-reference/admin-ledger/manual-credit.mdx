@@ -2,3 +2,94 @@
 title: "Manual Credit"
 api: "POST /api/rewards/credit"
 ---
+
+Writes a points adjustment straight to the ledger, bypassing the rules engine. This is the goodwill-gesture and fix-a-mistake path.
+
+Requires an admin bearer token.
+
+<Warning>
+  `points` is signed — a negative value debits the user. There is no confirmation step and no undo; the correction for a bad adjustment is another adjustment.
+</Warning>
+
+<Note>
+  Put the reason in `metadata`. A bare adjustment with no explanation is indistinguishable from a bug when someone reads the ledger back in six months.
+</Note>
+
+## Body
+
+<ParamField body="user_id" type="string" required />
+
+<ParamField body="points" type="integer" required />
+
+<ParamField body="reason" type="string" required />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="user_id" type="string" />
+
+<ResponseField name="event_type" type="string">
+  What caused the movement, e.g. `purchase`, `cashback_redeem`, `cashback_refund`.
+</ResponseField>
+
+<ResponseField name="platform" type="string">
+  The Application the movement came from, by name.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  Signed. Positive credits the user, negative debits them.
+</ResponseField>
+
+<ResponseField name="rule_version" type="string" />
+
+<ResponseField name="reference_id" type="string">
+  The caller's own reference for the originating event, when one was sent.
+</ResponseField>
+
+<ResponseField name="metadata" type="object" />
+
+<ResponseField name="created_at" type="integer" />
+
+<ResponseField name="name" type="string">
+  The holder's name, joined in by the admin ledger search.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  The holder's email, joined in by the admin ledger search.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `user_id` or `points` is missing. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/rewards/credit" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{
+  "user_id": "<string>",
+  "points": 123,
+  "reason": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/credit", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "user_id": "<string>",
+    "points": 123,
+    "reason": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

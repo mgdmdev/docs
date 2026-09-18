@@ -2,3 +2,104 @@
 title: "Redeem Cashback"
 api: "POST /api/account/cashback/redeem"
 ---
+
+Converts the signed-in user's points into a mobile money payout. The points leave the balance on this call and the transfer is queued; the response breaks down exactly what the user gets after the processing fee.
+
+Requires an OAuth access token for the user.
+
+<Warning>
+  `net_amount` is what reaches the wallet — `gross_amount` minus `fee_amount`. Show the net figure before the user confirms, not the gross.
+</Warning>
+
+<Note>
+  `network` is lowercase: `mtn`, `telecel`, `airteltigo`. Anything else is rejected.
+</Note>
+
+## Body
+
+<ParamField body="points" type="integer" required>
+  Points to convert. The platform minimum is 250; a tier may set a higher one.
+</ParamField>
+
+<ParamField body="phone_number" type="string" required />
+
+<ParamField body="network" type="string" required>
+  Lowercase. Any other value is rejected. One of `mtn`, `telecel`, `airteltigo`.
+</ParamField>
+
+## Response
+
+<ResponseField name="redemption_id" type="string" />
+
+<ResponseField name="status" type="string">
+  One of `pending`.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  Points taken from the balance.
+</ResponseField>
+
+<ResponseField name="tier" type="string" />
+
+<ResponseField name="rate" type="number">
+  Cedis per point at this tier.
+</ResponseField>
+
+<ResponseField name="gross_amount" type="number">
+  `points` x `rate`, in cedis.
+</ResponseField>
+
+<ResponseField name="fee_rate" type="number">
+  Processing fee as a fraction of the gross.
+</ResponseField>
+
+<ResponseField name="fee_amount" type="number">
+  The fee in cedis.
+</ResponseField>
+
+<ResponseField name="net_amount" type="number">
+  What reaches the wallet
+</ResponseField>
+
+<Tip>
+  Cashback carries a processing fee; an [order redemption](/guides/order-redemption) does not, because no money leaves the group. Points are often worth more spent in a checkout than cashed out.
+</Tip>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `minimum_points` | Below the 250-point floor. |
+| 400 | `invalid_request` | `phone_number` or `network` is missing. |
+| 400 | `invalid_network` | `network` is not one of the three accepted values. |
+| 400 | `insufficient_points` | The balance is below the points requested. |
+| 400 | `tier_ineligible` | Cashback is not available at this tier. |
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/cashback/redeem" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "points": 123,
+  "phone_number": "0244123456",
+  "network": "mtn"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/cashback/redeem", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "points": 123,
+    "phone_number": "0244123456",
+    "network": "mtn"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

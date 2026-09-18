@@ -2,3 +2,87 @@
 title: "Get Balance & Tier"
 api: "GET /api/account/rewards"
 ---
+
+The signed-in user's points, tier, and what the balance is worth. One call for a rewards screen: it carries the spendable balance, the lifetime total that drives tier, how far the next tier is, and the cedi value of the points at this tier.
+
+Requires an OAuth access token for the user.
+
+<Warning>
+  Read `redemption.value` rather than multiplying points by a rate of your own. The rate is per tier and set by mgPass operators — three mgTix clients each invented a different one before this field existed, and none of them matched.
+</Warning>
+
+## Response
+
+<ResponseField name="total_points" type="integer">
+  Points available to spend now.
+</ResponseField>
+
+<ResponseField name="lifetime_earned" type="integer">
+  Points earned over the account's life. Tier is calculated from this, not from the spendable balance.
+</ResponseField>
+
+<ResponseField name="tier" type="string">
+  One of `bronze`, `silver`, `gold`, `platinum`.
+</ResponseField>
+
+<ResponseField name="tier_details" type="object">
+  The tier's own configuration, or null when the tier has none.
+</ResponseField>
+
+<ResponseField name="next_tier" type="object">
+  The tier above, and the gap to it. Null at the top tier.
+
+  <Expandable title="next_tier">
+    <ResponseField name="points_needed" type="integer">
+      `min_points` of the next tier minus `lifetime_earned`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="redemption" type="object">
+  What the balance is worth against a purchase, at this tier. Null when the tier has no active configuration.
+
+  <Expandable title="redemption">
+    <ResponseField name="rate" type="number">
+      Cedis one point is worth.
+    </ResponseField>
+
+    <ResponseField name="min_points" type="integer">
+      Smallest redemption this tier permits.
+    </ResponseField>
+
+    <ResponseField name="value" type="number">
+      The whole balance in cedis
+    </ResponseField>
+
+    <ResponseField name="currency" type="string">
+      One of `GHS`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  `tier` is calculated from `lifetime_earned`, not from `total_points`. Spending points never demotes a user.
+</Note>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/rewards" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/rewards", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

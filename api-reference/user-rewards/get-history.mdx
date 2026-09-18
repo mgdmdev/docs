@@ -2,3 +2,81 @@
 title: "Get Points History"
 api: "GET /api/account/rewards/history"
 ---
+
+The signed-in user's points ledger, newest first — every credit and debit, with what caused it. `points` is signed: positive credits, negative debits.
+
+Requires an OAuth access token for the user.
+
+## Query parameters
+
+<ParamField query="limit" type="integer" default="50" />
+
+<ParamField query="cursor" type="string" />
+
+## Response
+
+<ResponseField name="results" type="array">
+  
+
+  <Expandable title="result">
+    <ResponseField name="id" type="string" />
+
+    <ResponseField name="user_id" type="string" />
+
+    <ResponseField name="event_type" type="string">
+      What caused the movement, e.g. `purchase`, `cashback_redeem`, `cashback_refund`.
+    </ResponseField>
+
+    <ResponseField name="platform" type="string">
+      The Application the movement came from, by name.
+    </ResponseField>
+
+    <ResponseField name="points" type="integer">
+      Signed. Positive credits the user, negative debits them.
+    </ResponseField>
+
+    <ResponseField name="rule_version" type="string" />
+
+    <ResponseField name="reference_id" type="string">
+      The caller's own reference for the originating event, when one was sent.
+    </ResponseField>
+
+    <ResponseField name="metadata" type="object" />
+
+    <ResponseField name="created_at" type="integer" />
+
+    <ResponseField name="name" type="string">
+      The holder's name, joined in by the admin ledger search.
+    </ResponseField>
+
+    <ResponseField name="email" type="string">
+      The holder's email, joined in by the admin ledger search.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Entries in total
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/rewards/history" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/rewards/history", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

@@ -2,3 +2,95 @@
 title: "List Users"
 api: "GET /api/users"
 ---
+
+Every user on the platform, page by page. Soft-deleted accounts are excluded.
+
+Requires an admin bearer token.
+
+<Note>
+  Timestamps here are ISO 8601 strings, not the epoch seconds most of the API uses. `last_sign_in_at` falls back to the newest session when the column was never stamped, so it is populated for accounts that pre-date the column.
+</Note>
+
+## Query parameters
+
+<ParamField query="q" type="string" />
+
+<ParamField query="organization_id" type="string" />
+
+<ParamField query="limit" type="integer" default="50" />
+
+<ParamField query="cursor" type="string" />
+
+## Response
+
+<ResponseField name="data" type="array">
+  
+
+  <Expandable title="data">
+    <ResponseField name="id" type="string" />
+
+    <ResponseField name="email" type="string" />
+
+    <ResponseField name="email_verified" type="boolean" />
+
+    <ResponseField name="phone" type="string" />
+
+    <ResponseField name="phone_verified" type="boolean" />
+
+    <ResponseField name="name" type="string" />
+
+    <ResponseField name="avatar_url" type="string" />
+
+    <ResponseField name="custom_data" type="object">
+      Arbitrary JSON you store against the user, returned parsed. An empty object when none was set.
+    </ResponseField>
+
+    <ResponseField name="is_suspended" type="boolean" />
+
+    <ResponseField name="suspension_reason" type="string" />
+
+    <ResponseField name="created_at" type="string">
+      ISO 8601. This endpoint returns timestamps as strings, not the epoch seconds used elsewhere in the API.
+    </ResponseField>
+
+    <ResponseField name="last_sign_in_at" type="string">
+      ISO 8601. Derived from the most recent session when the column was never stamped.
+    </ResponseField>
+
+    <ResponseField name="deleted_at" type="string" />
+
+    <ResponseField name="roles" type="array">
+      Returned by the single-user endpoint, not by the list.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer" />
+
+<ResponseField name="page" type="integer" />
+
+<ResponseField name="limit" type="integer" />
+
+<ResponseField name="has_more" type="boolean" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/users" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/users", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

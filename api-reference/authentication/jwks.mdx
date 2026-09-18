@@ -2,3 +2,31 @@
 title: "JSON Web Key Set"
 api: "GET /.well-known/jwks.json"
 ---
+
+The public keys tokens are signed with. Verify every access token and ID token against this set before trusting anything in it.
+
+Public. No authentication.
+
+<Warning>
+  Cache the key set and refresh it on an unknown `kid`, rather than fetching it per request or pinning one key forever. Keys rotate, and a pinned key means every token stops verifying the day it does.
+</Warning>
+
+## Response
+
+
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/.well-known/jwks.json" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/.well-known/jwks.json", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

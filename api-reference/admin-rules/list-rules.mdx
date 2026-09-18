@@ -2,3 +2,71 @@
 title: "List Rules"
 api: "GET /api/rewards/rules"
 ---
+
+Every points rule. A rule maps an incoming event to points, optionally narrowed to one Application or one tier, and optionally capped per day or per month.
+
+Requires an admin bearer token.
+
+## Response
+
+An array of items.
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="platform" type="string">
+  The Application the rule applies to, by name. Null matches every Application.
+</ResponseField>
+
+<ResponseField name="event_type" type="string" />
+
+<ResponseField name="tier" type="string">
+  Restrict the rule to one tier. Null applies it to all.
+</ResponseField>
+
+<ResponseField name="points" type="integer">
+  Points awarded
+</ResponseField>
+
+<ResponseField name="points_type" type="string">
+  One of `flat`, `per_unit`.
+</ResponseField>
+
+<ResponseField name="unit_field" type="string">
+  The metadata field multiplied by `points` when `points_type` is `per_unit`, e.g. `amount`.
+</ResponseField>
+
+<ResponseField name="daily_cap" type="integer" />
+
+<ResponseField name="monthly_cap" type="integer" />
+
+<ResponseField name="is_active" type="boolean" />
+
+<ResponseField name="version" type="string">
+  Stamped onto every ledger entry the rule produces.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/rewards/rules" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/rewards/rules", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

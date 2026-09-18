@@ -2,3 +2,94 @@
 title: "Update Own Profile"
 api: "PATCH /api/account/profile"
 ---
+
+Updates the signed-in user's own profile. Only the fields you send are changed; omit a field to leave it alone.
+
+Requires an OAuth access token for the user.
+
+<Note>
+  Changing `email` or `phone` does not mark it verified. Verification is a separate flow, and the old address keeps working until the new one is confirmed.
+</Note>
+
+## Body
+
+<ParamField body="name" type="string" />
+
+<ParamField body="given_name" type="string" />
+
+<ParamField body="family_name" type="string" />
+
+<ParamField body="phone" type="string" />
+
+<ParamField body="locale" type="string" />
+
+<ParamField body="picture" type="string" />
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="email" type="string" />
+
+<ResponseField name="email_verified" type="boolean" />
+
+<ResponseField name="phone" type="string" />
+
+<ResponseField name="phone_verified" type="boolean" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="given_name" type="string" />
+
+<ResponseField name="family_name" type="string" />
+
+<ResponseField name="picture" type="string" />
+
+<ResponseField name="locale" type="string" />
+
+<ResponseField name="mfa_enabled" type="boolean" />
+
+<ResponseField name="created_at" type="string" />
+
+<ResponseField name="updated_at" type="string" />
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | A field failed validation. |
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X PATCH "https://auth.mgpass.net/api/account/profile" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "name": "<string>",
+  "given_name": "<string>",
+  "family_name": "<string>",
+  "phone": "<string>",
+  "locale": "<string>",
+  "picture": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/profile", {
+  method: "PATCH",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "name": "<string>",
+    "given_name": "<string>",
+    "family_name": "<string>",
+    "phone": "<string>",
+    "locale": "<string>",
+    "picture": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

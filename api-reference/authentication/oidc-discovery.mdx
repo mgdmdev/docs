@@ -2,3 +2,35 @@
 title: "OIDC Discovery"
 api: "GET /.well-known/openid-configuration"
 ---
+
+The OpenID Connect discovery document. Every endpoint, supported grant, scope and signing algorithm mgPass offers, in one machine-readable place.
+
+Public. No authentication.
+
+<Tip>
+  Point your OIDC library at `https://auth.mgpass.net` as the issuer and let it read this document, rather than hard-coding endpoint URLs. They change; this does not.
+</Tip>
+
+<Note>
+  The `password` grant is not advertised here and is not available. Use the [authorization code flow](/guides/oauth-flows) with PKCE.
+</Note>
+
+## Response
+
+
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/.well-known/openid-configuration" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/.well-known/openid-configuration", {
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

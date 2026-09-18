@@ -2,3 +2,87 @@
 title: "Token Exchange"
 api: "POST /token"
 ---
+
+The OAuth 2.0 token endpoint: exchanges an authorization code for tokens, and refreshes them later. See [OAuth flows](/guides/oauth-flows) for the full sequence.
+
+Confidential clients authenticate with their `client_secret`, over HTTP Basic or in the body. Public clients send a PKCE verifier instead.
+
+<Warning>
+  The authorization code grant authenticates the client. A confidential Application must send a valid `client_secret`; a public one must send a valid PKCE `code_verifier`. Neither is optional.
+</Warning>
+
+<Note>
+  Refresh tokens rotate: each refresh returns a new one and retires the old. Reusing a retired token revokes the whole family, with a ten-second grace window so a racing retry is not punished.
+</Note>
+
+## Body
+
+<ParamField body="grant_type" type="string" required>
+  One of `authorization_code`, `refresh_token`, `client_credentials`.
+</ParamField>
+
+<ParamField body="code" type="string" />
+
+<ParamField body="redirect_uri" type="string" />
+
+<ParamField body="code_verifier" type="string" />
+
+<ParamField body="refresh_token" type="string" />
+
+<ParamField body="client_id" type="string" />
+
+<ParamField body="client_secret" type="string" />
+
+<ParamField body="scope" type="string" />
+
+## Response
+
+<ResponseField name="access_token" type="string" />
+
+<ResponseField name="token_type" type="string" />
+
+<ResponseField name="expires_in" type="integer" />
+
+<ResponseField name="refresh_token" type="string" />
+
+<ResponseField name="id_token" type="string" />
+
+<ResponseField name="scope" type="string" />
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/token" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{
+  "grant_type": "authorization_code",
+  "code": "<string>",
+  "redirect_uri": "<string>",
+  "code_verifier": "<string>",
+  "refresh_token": "<string>",
+  "client_id": "<string>",
+  "client_secret": "<string>",
+  "scope": "<string>"
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "grant_type": "authorization_code",
+    "code": "<string>",
+    "redirect_uri": "<string>",
+    "code_verifier": "<string>",
+    "refresh_token": "<string>",
+    "client_id": "<string>",
+    "client_secret": "<string>",
+    "scope": "<string>"
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

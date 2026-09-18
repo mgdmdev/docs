@@ -2,3 +2,102 @@
 title: "Create Role"
 api: "POST /api/roles"
 ---
+
+Defines a role. A `user` role is assigned to people; an `m2m` role is assigned to machine clients.
+
+Requires an admin bearer token.
+
+<Note>
+  Marking a role default grants it to every new user from that point on. It does not backfill existing accounts.
+</Note>
+
+## Body
+
+<ParamField body="id" type="string" />
+
+<ParamField body="name" type="string" />
+
+<ParamField body="description" type="string" />
+
+<ParamField body="type" type="string">
+  `user` roles are assigned to people; `m2m` roles to machine clients. One of `user`, `m2m`.
+</ParamField>
+
+<ParamField body="is_default" type="boolean">
+  True when the role is granted automatically to new users.
+</ParamField>
+
+<ParamField body="scopes" type="array" />
+
+<ParamField body="created_at" type="integer">
+  Unix epoch seconds.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="name" type="string" />
+
+<ResponseField name="description" type="string" />
+
+<ResponseField name="type" type="string">
+  `user` roles are assigned to people; `m2m` roles to machine clients. One of `user`, `m2m`.
+</ResponseField>
+
+<ResponseField name="is_default" type="boolean">
+  True when the role is granted automatically to new users.
+</ResponseField>
+
+<ResponseField name="scopes" type="array" />
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | `name` is missing, or another role already uses it. |
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/roles" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{
+  "id": "<string>",
+  "name": "<string>",
+  "description": "<string>",
+  "type": "user",
+  "is_default": true,
+  "scopes": [
+    "<string>"
+  ],
+  "created_at": 123
+}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/roles", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    "id": "<string>",
+    "name": "<string>",
+    "description": "<string>",
+    "type": "user",
+    "is_default": true,
+    "scopes": [
+      "<string>"
+    ],
+    "created_at": 123
+  }),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

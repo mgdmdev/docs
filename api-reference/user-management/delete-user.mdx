@@ -2,3 +2,42 @@
 title: "Delete User"
 api: "DELETE /api/users/{id}"
 ---
+
+Soft-deletes a user: the record is stamped `deleted_at` and drops out of every listing and sign-in path, but stays for audit and for anything that references it.
+
+Requires an admin bearer token.
+
+<Warning>
+  There is no undelete endpoint. Suspend instead when the account might come back.
+</Warning>
+
+## Path parameters
+
+<ParamField path="id" type="string" required />
+
+## Response
+
+Deleted.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid admin token. |
+
+<CodeGroup>
+
+```bash curl
+curl -X DELETE "https://auth.mgpass.net/api/users/usr_abc123" \
+  
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/users/usr_abc123", {
+  method: "DELETE",
+  headers: {  },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

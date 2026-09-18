@@ -2,3 +2,46 @@
 title: "Payment Callback"
 api: "POST /api/cashback/callback"
 ---
+
+Receives the payout result from the mobile money provider and settles the redemption. Called by the provider, not by your code.
+
+Called server-to-server by the payout provider.
+
+<Note>
+  Settlement is also reachable by an operator through [approve or reject a cashback redemption](/api-reference/admin-redemptions/approve-reject), which is the path to use when a payout has to be resolved by hand.
+</Note>
+
+## Body
+
+
+
+## Response
+
+Acknowledged.
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_request` | The payload did not carry the fields required to identify a redemption. |
+| 404 | `not_found` | No redemption matches the reference. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/cashback/callback" \
+   \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/cashback/callback", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({}),
+});
+const data = await res.json();
+```
+
+</CodeGroup>

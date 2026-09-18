@@ -2,3 +2,113 @@
 title: "Get Redemptions"
 api: "GET /api/account/rewards/redemptions"
 ---
+
+Everything the signed-in user has spent points on, newest first — catalog items, cashback payouts and order discounts in one list.
+
+Requires an OAuth access token for the user.
+
+<Note>
+  Which fields carry values depends on `redemption_type`. A `cashback` row has `cashback_amount`, `phone_number` and `network`; a `partner_order` row has `order_reference` and `value_amount`; a `catalog` row has `reward_id`.
+</Note>
+
+## Response
+
+An array of items.
+
+<ResponseField name="id" type="string" />
+
+<ResponseField name="user_id" type="string" />
+
+<ResponseField name="redemption_type" type="string">
+  Which fields below carry values depends on this. One of `catalog`, `cashback`, `partner_order`.
+</ResponseField>
+
+<ResponseField name="reward_id" type="string">
+  The catalog item. Set on `catalog` redemptions only.
+</ResponseField>
+
+<ResponseField name="points_cost" type="integer">
+  Points taken from the balance.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  One of `pending`, `processing`, `completed`, `failed`, `cancelled`.
+</ResponseField>
+
+<ResponseField name="tier_at_redemption" type="string">
+  The tier whose rate applied, recorded so a later tier change cannot rewrite history.
+</ResponseField>
+
+<ResponseField name="cashback_amount" type="number">
+  Cedis paid out. `cashback` only.
+</ResponseField>
+
+<ResponseField name="phone_number" type="string">
+  Mobile money number. `cashback` only.
+</ResponseField>
+
+<ResponseField name="network" type="string">
+  Mobile money network. `cashback` only.
+</ResponseField>
+
+<ResponseField name="fee_amount" type="number">
+  Processing fee in cedis. `cashback` only.
+</ResponseField>
+
+<ResponseField name="application_id" type="string">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="order_reference" type="string">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="order_amount" type="number">
+  `partner_order` only.
+</ResponseField>
+
+<ResponseField name="value_amount" type="number">
+  The discount granted. `partner_order` only.
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  One of `GHS`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="updated_at" type="integer">
+  Unix epoch seconds.
+</ResponseField>
+
+<ResponseField name="committed_at" type="integer" />
+
+<ResponseField name="voided_at" type="integer" />
+
+<ResponseField name="expires_at" type="integer">
+  When an unsettled hold lapses. `partner_order` only.
+</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 401 | `unauthorized` | Missing or invalid access token. |
+
+<CodeGroup>
+
+```bash curl
+curl "https://auth.mgpass.net/api/account/rewards/redemptions" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/rewards/redemptions", {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+const data = await res.json();
+```
+
+</CodeGroup>

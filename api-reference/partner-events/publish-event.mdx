@@ -34,11 +34,11 @@ Up to **1000 requests per minute** per application id. Exceeding returns **429 `
 
 ## Response
 
-`201 Created`.
+`200 OK`.
 
-<ResponseField name="event_id" type="string">Recorded event id.</ResponseField>
-<ResponseField name="points_awarded" type="number">Points credited to the user.</ResponseField>
-<ResponseField name="tier_promoted" type="boolean">Set when the credit pushed the user into a higher tier.</ResponseField>
+<ResponseField name="accepted" type="boolean">Always `true` on a success. The event was recorded.</ResponseField>
+<ResponseField name="points_awarded" type="integer">Points credited to the user, after the tier and Application multipliers.</ResponseField>
+<ResponseField name="event_id" type="string">Recorded event id. Log it — it is how a later query ties back to this call.</ResponseField>
 
 ## Errors
 
