@@ -33,7 +33,8 @@ All errors follow a consistent JSON format:
 
 | Endpoint Group | Limit |
 |---------------|-------|
-| Partner events (`/api/partner/*`) | 30 requests/min per IP |
+| Partner events (`POST /api/partner/events`) | 1,000 requests/min per application |
+| Partner endpoints (`/api/partner/*`) | 1,200 requests/min per IP (backstop) |
 | General API (`/api/rewards/*`) | 100 requests/min per IP |
 
 ### Handling 429 Responses
@@ -44,6 +45,17 @@ All errors follow a consistent JSON format:
   "error_description": "Too many requests. Please try again later."
 }
 ```
+
+Every 429 includes these headers:
+
+| Header | Meaning |
+|--------|---------|
+| `X-RateLimit-Limit` | The ceiling for the window |
+| `X-RateLimit-Remaining` | Requests left (`0` on a 429) |
+| `X-RateLimit-Reset` | Unix seconds when the window resets |
+| `Retry-After` | Seconds until the end of the current minute bucket — not a flat 60 |
+
+Read `Retry-After` and wait that many seconds. Do not assume 60.
 
 ```javascript
 async function publishEventWithRetry(event, maxRetries = 3) {
@@ -62,6 +74,20 @@ async function publishEventWithRetry(event, maxRetries = 3) {
 }
 ```
 
+### Failed-authentication limit
+
+A separate limit applies to `/v1/*` and `/api/partner/*`: **20 failed authentications per minute per IP**.
+
+Only responses of **401** or **403** count toward it. Successful requests never count, so a caller sending valid credentials can never be limited by it however fast it goes.
+
+Exceeding it returns **429** with body:
+
+```json
+{"error":"rate_limit_exceeded","error_description":"Too many failed authentication attempts."}
+```
+
+A wrong or expired API key retried in a loop will lock that IP out of the API for the rest of the minute.
+
 ## Common Errors
 
 ### Partner Events
@@ -71,7 +97,7 @@ async function publishEventWithRetry(event, maxRetries = 3) {
 | `Missing X-API-Key header` | No API key in request | Add `X-API-Key` header |
 | `Invalid API key` | Key doesn't match any active partner | Check key, ensure partner is active |
 | `Event type not allowed` | Event type not in partner's allowlist | Contact MG Digital to add the event type |
-| `user_id and event_type are required` | Missing required fields | Include both fields in request body |
+| `user_id and event_type are required` | `event_type` is missing, or the event identifies nobody | Send `event_type`, plus either `user_id` for a known user or `guest` (phone and/or email) for a buyer without an account |
 
 ### Cashback
 

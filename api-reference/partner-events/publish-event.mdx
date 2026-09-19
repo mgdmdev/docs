@@ -20,9 +20,30 @@ Up to **1000 requests per minute** per application id. Exceeding returns **429 `
 
 ## Body
 
-<ParamField body="user_id" type="string" required>
-  mgPass user ID receiving the points.
+<ParamField body="user_id" type="string">
+  mgPass user ID receiving the points. Omit this and send `guest` instead when the buyer has no account.
 </ParamField>
+
+<ParamField body="guest" type="object">
+  Send **instead of** `user_id` for a buyer with no account. At least one of `phone` or `email` is required.
+</ParamField>
+
+<ParamField body="guest.phone" type="string">
+  Phone number.
+</ParamField>
+
+<ParamField body="guest.email" type="string">
+  Email address.
+</ParamField>
+
+Guest request body:
+
+```json
+{
+  "event_type": "purchase",
+  "guest": { "phone": "+233241234567" }
+}
+```
 
 <ParamField body="event_type" type="string" required>
   Snake-case event type, e.g. `purchase`, `article.read`, `referral.completed`. Must appear in the application's `allowed_event_types` allowlist.
@@ -37,14 +58,46 @@ Up to **1000 requests per minute** per application id. Exceeding returns **429 `
 `200 OK`.
 
 <ResponseField name="accepted" type="boolean">Always `true` on a success. The event was recorded.</ResponseField>
-<ResponseField name="points_awarded" type="integer">Points credited to the user, after the tier and Application multipliers.</ResponseField>
+<ResponseField name="points_awarded" type="integer">Points credited to the user, after the tier and Application multipliers. `0` when points are held for a guest.</ResponseField>
 <ResponseField name="event_id" type="string">Recorded event id. Log it — it is how a later query ties back to this call.</ResponseField>
+
+### Guest — points held
+
+When you send `guest` and a rule matches, points are held rather than credited:
+
+```
+{
+  "accepted": true,
+  "pending": true,
+  "points_awarded": 0,
+  "points_pending": number,
+  "pending_id": string,
+  "expires_at": number,
+  "replayed": boolean,
+  "matched": true
+}
+```
+
+<ResponseField name="pending" type="boolean">`true` when points are held rather than credited.</ResponseField>
+<ResponseField name="points_pending" type="number">Points held for this guest.</ResponseField>
+<ResponseField name="pending_id" type="string">Id of the hold.</ResponseField>
+<ResponseField name="expires_at" type="number">Unix seconds when the hold expires.</ResponseField>
+<ResponseField name="replayed" type="boolean">`true` means this order reference had already been recorded and no second hold was minted.</ResponseField>
+<ResponseField name="matched" type="boolean">`true` when a rule ran. `false` when no rule matched.</ResponseField>
+
+Held points are claimed automatically when that person later proves they own the phone or email — by signing in with it, or by [verifying it](/api-reference/account/start-phone). Holds expire 180 days after creation.
+
+Look up outstanding holds with [Look up pending points](/api-reference/partner-events/lookup-pending).
+
+### Guest — no rule matched
+
+When no rule matched, the 200 body is `{ "accepted": true, ... "matched": false }`. No pending row is created.
 
 ## Errors
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | Missing `user_id` or `event_type`. |
+| 400 | `invalid_request` | Missing `event_type`, or neither `user_id` nor `guest`. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 403 | `forbidden` | `event_type` is not in the application's allowlist. |
 | 404 | `user_not_found` | `user_id` doesn't exist. |

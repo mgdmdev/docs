@@ -132,10 +132,10 @@ If a cap is reached, the event is still accepted but `points_awarded` will be 0 
 
 | Status | Error | Description |
 |--------|-------|-------------|
-| 400 | `invalid_request` | Missing `user_id` or `event_type` |
+| 400 | `invalid_request` | Missing `event_type`, or neither `user_id` nor `guest` supplied |
 | 401 | `unauthorized` | Invalid or missing API key |
 | 403 | `forbidden` | Event type not in your allowed list |
-| 429 | `rate_limit_exceeded` | Too many requests (30/min) |
+| 429 | `rate_limit_exceeded` | Too many requests (1,000/min per application) |
 
 ## Code Examples
 

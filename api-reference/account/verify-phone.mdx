@@ -1,0 +1,66 @@
+---
+title: "Verify phone"
+description: "Confirm the code sent to a new phone number and attach it to the signed-in account."
+api: "POST /api/account/phone/verify"
+---
+
+Confirms the code from [Start phone verification](/api-reference/account/start-phone) and attaches the number to the signed-in user's account.
+
+The code was sent to the number **being added** — that is the proof of ownership. Verifying a phone **claims any guest points** held against it.
+
+Requires an OAuth Bearer access token for the signed-in user.
+
+## Body
+
+<ParamField body="phone" type="string" required>
+  Phone number being verified.
+</ParamField>
+
+<ParamField body="code" type="string" required>
+  Verification code sent to that number.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">Verification succeeded.</ResponseField>
+<ResponseField name="phone_verified" type="boolean">The phone is now verified on this account.</ResponseField>
+
+```json
+{
+  "success": true,
+  "phone_verified": true
+}
+```
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_phone` / `invalid_request` | |
+| 403 | `wrong_user` | The code was issued for a different account. |
+| 409 | `phone_taken` | That number is already **verified** on another account. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/phone/verify" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "phone": "+233241234567", "code": "482951" }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/phone/verify", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ phone: "+233241234567", code: "482951" }),
+});
+const { success, phone_verified } = await res.json();
+```
+
+</CodeGroup>

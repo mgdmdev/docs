@@ -1,0 +1,86 @@
+---
+title: "Preview points"
+description: "What points an event would award, without awarding them."
+api: "POST /api/partner/earn/preview"
+---
+
+Returns the points an event **would** award, without awarding them. The calculation is the same as the real earn path, so a quote shown to a buyer matches what they get.
+
+Requires the `X-API-Key` header with a Rewards capability key.
+
+#### Rate limit
+
+Up to **1,000 requests per minute** per application id. Exceeding returns **429 `rate_limit_exceeded`** with a `Retry-After` header. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
+
+## Body
+
+<ParamField body="event_type" type="string" required>
+  Event type to evaluate, e.g. `purchase`.
+</ParamField>
+
+<ParamField body="user_id" type="string">
+  mgPass user ID. Optional.
+</ParamField>
+
+<ParamField body="platform" type="string">
+  Optional.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Optional JSON used by rule evaluation (e.g. `{ "amount": 5000, "currency": "GHS" }`).
+
+  For a rule that awards points per unit, the key it reads is the one
+  configured on that rule — `amount` for current rules, but it is per-rule
+  configuration rather than a fixed field name. A key the rule is not
+  looking for is ignored and the preview returns `points: 0` with
+  `matched: true`.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="points" type="number">Points the event would award.</ResponseField>
+<ResponseField name="tier" type="string">Tier.</ResponseField>
+<ResponseField name="matched" type="boolean">
+  Why a zero happened. `false` means no rule exists for that `event_type` (a configuration gap). `true` with `points: 0` means a rule ran and computed zero (an amount problem). Those need different fixes and look identical from the number alone.
+</ResponseField>
+
+```json
+{
+  "points": 150,
+  "tier": "Silver",
+  "matched": true
+}
+```
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/earn/preview" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "purchase",
+    "user_id": "usr_abc123",
+    "metadata": { "amount": 5000, "currency": "GHS" }
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/partner/earn/preview", {
+  method: "POST",
+  headers: {
+    "X-API-Key": rewardsApiKey,
+    "Content-Type: "application/json",
+  },
+  body: JSON.stringify({
+    event_type: "purchase",
+    user_id: "usr_abc123",
+    metadata: { amount: 5000, currency: "GHS" },
+  }),
+});
+const { points, tier, matched } = await res.json();
+```
+
+</CodeGroup>

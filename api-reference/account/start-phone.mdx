@@ -1,0 +1,55 @@
+---
+title: "Start phone verification"
+description: "Send a verification code so a signed-in user can add a phone to an account that has none."
+api: "POST /api/account/phone/start"
+---
+
+Starts adding a phone number to the signed-in user's account. Previously there was no route to attach a phone to an account that had none.
+
+The code is sent to the number **being added** — that is the proof of ownership.
+
+Requires an OAuth Bearer access token for the signed-in user.
+
+## Body
+
+<ParamField body="phone" type="string" required>
+  Phone number to add.
+</ParamField>
+
+## Response
+
+`200 OK`.
+
+<ResponseField name="success" type="boolean">`true` when the request is accepted.</ResponseField>
+<ResponseField name="channel" type="string">Channel the code was sent on.</ResponseField>
+<ResponseField name="destination" type="string">Masked destination the code was sent to.</ResponseField>
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `invalid_phone` / `invalid_request` | |
+| 409 | `phone_taken` | That number is already **verified** on another account. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/account/phone/start" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "phone": "+233241234567" }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/account/phone/start", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ phone: "+233241234567" }),
+});
+const { success, channel, destination } = await res.json();
+```
+
+</CodeGroup>

@@ -394,6 +394,84 @@ paths:
                   success: { type: boolean }
         '400': { description: '`last_method` — this is your only sign-in method; `no_verification` — no verified email or phone to send the code to; or `otp_expired` / `otp_invalid` / `otp_max_attempts` — the one-time code was not accepted.' }
         '404': { description: '`not_found` — no such identity on this account.' }
+
+  /api/account/phone/start:
+    post:
+      operationId: startAccountPhone
+      tags: [Account Self-Service]
+      security: [{ userBearer: [] }]
+      summary: Start adding a phone to an account that has none
+      description: |
+        Send a verification code so a signed-in user can add a phone to an
+        account that has none. Previously there was no route to attach a phone
+        to an account that had none.
+
+        The code is sent to the number being added — that is the proof of
+        ownership. Verifying a phone claims any guest points held against it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string }
+      responses:
+        '200':
+          description: Code sent. `destination` is masked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  channel: { type: string }
+                  destination: { type: string, description: Masked destination the code was sent to. }
+        '400':
+          description: '`invalid_phone` or `invalid_request`.'
+        '409':
+          description: '`phone_taken` — that number is already verified on another account.'
+
+  /api/account/phone/verify:
+    post:
+      operationId: verifyAccountPhone
+      tags: [Account Self-Service]
+      security: [{ userBearer: [] }]
+      summary: Confirm the code and attach the phone
+      description: |
+        Confirm the code sent to a new phone number and attach it to the
+        signed-in account.
+
+        The code was sent to the number being added — that is the proof of
+        ownership. Verifying a phone claims any guest points held against it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+      responses:
+        '200':
+          description: Phone verified on this account.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  phone_verified: { type: boolean, example: true }
+        '400':
+          description: '`invalid_phone` or `invalid_request`.'
+        '403':
+          description: '`wrong_user` — the code was issued for a different account.'
+        '409':
+          description: '`phone_taken` — that number is already verified on another account.'
+
   /api/account/password:
     post:
       operationId: changeAccountPassword
@@ -2160,29 +2238,153 @@ paths:
       description: |
         Submit a user event to the rewards engine. Points are calculated from matching rules,
         tier multiplier, partner multiplier, and daily/monthly caps.
+
+        A `guest` object may be sent instead of `user_id` for a buyer with no
+        account. At least one of `guest.phone` or `guest.email` is required.
+        Held points are claimed automatically when that person later proves they
+        own the phone or email — by signing in with it, or by verifying it.
+        Holds expire 180 days after creation. `replayed: true` means this order
+        reference had already been recorded and no second hold was minted.
+
+        When no rule matched, the 200 body includes `matched: false` and no
+        pending row is created.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [user_id, event_type]
+              required: [event_type]
               properties:
-                user_id: { type: string }
+                user_id: { type: string, description: 'mgPass user ID receiving the points. Omit and send `guest` instead when the buyer has no account.' }
+                guest:
+                  type: object
+                  description: 'Send instead of `user_id` for a buyer with no account. At least one of `phone` or `email` is required.'
+                  properties:
+                    phone: { type: string }
+                    email: { type: string }
                 event_type: { type: string }
                 metadata: { type: object, additionalProperties: true }
                 idempotency_key: { type: string }
       responses:
         '200':
-          description: Event accepted and recorded.
+          description: |
+            Event accepted. When `guest` is used and a rule matches, points are
+            held (`pending: true`, `points_awarded: 0`) rather than credited.
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   accepted: { type: boolean, example: true }
-                  points_awarded: { type: integer, description: Points credited after the tier and Application multipliers. }
+                  points_awarded: { type: integer, description: 'Points credited after the tier and Application multipliers. `0` when points are held for a guest.' }
                   event_id: { type: string }
+                  pending: { type: boolean, description: '`true` when points are held for a guest rather than credited.' }
+                  points_pending: { type: number }
+                  pending_id: { type: string }
+                  expires_at: { type: number, description: Unix seconds when the hold expires. Holds expire 180 days after creation. }
+                  replayed: { type: boolean, description: '`true` means this order reference had already been recorded and no second hold was minted.' }
+                  matched: { type: boolean, description: '`false` means no rule matched; no pending row is created.' }
+
+  /api/partner/earn/preview:
+    post:
+      operationId: previewPartnerEarn
+      tags: [Partner Events]
+      security: [{ tenantApiKey: [] }]
+      summary: What points an event would award, without awarding them
+      description: |
+        Returns the points an event would award, without awarding them. The
+        calculation is the same as the real earn path, so a quote shown to a
+        buyer matches what they get.
+
+        `matched` says why a zero happened: `false` means no rule exists for
+        that `event_type` (a configuration gap); `true` with `points: 0` means
+        a rule ran and computed zero (an amount problem). Those need different
+        fixes and look identical from the number alone.
+
+        Rate limit: 1,000 requests per minute per application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type]
+              properties:
+                event_type: { type: string }
+                user_id: { type: string }
+                platform: { type: string }
+                metadata: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Preview of points the event would award.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points: { type: number }
+                  tier: { type: string }
+                  matched: { type: boolean }
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/partner/pending/lookup:
+    post:
+      operationId: lookupPartnerPending
+      tags: [Partner Events]
+      security: [{ tenantApiKey: [] }]
+      summary: How many points are held for contacts who have not signed up yet
+      description: |
+        Returns how many points are being held for contacts who have not signed
+        up yet. `results` has one entry per contact, in the order sent.
+
+        Maximum 200 contacts per request. Over that returns 400. Send more in
+        several calls. An empty array returns `{ "results": [] }`.
+
+        Results are scoped to the asking application. You can only see holds
+        you created. Unscoped, this endpoint would let anyone post a list of
+        phone numbers and learn which are another business's customers.
+
+        Rate limit: 60 requests per minute per application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contacts]
+              properties:
+                contacts:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    properties:
+                      phone: { type: string }
+                      email: { type: string }
+      responses:
+        '200':
+          description: One result per contact, in the order sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        points_pending: { type: number }
+                        orders: { type: number }
+                        earliest_expires_at:
+                          type: [number, "null"]
+                          description: Unix seconds. `null` when nothing is held.
+        '400':
+          description: More than 200 contacts in the request. Send more in several calls.
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /api/partner/redemptions/quote:
     post:

@@ -144,6 +144,8 @@
               "api-reference/account/list-sessions",
               "api-reference/account/revoke-session",
               "api-reference/account/list-identities",
+              "api-reference/account/start-phone",
+              "api-reference/account/verify-phone",
               "api-reference/account/change-account-password",
               "api-reference/account/confirm-account-delete",
               "api-reference/account/disable-account-mfa",
@@ -357,7 +359,9 @@
           {
             "group": "Partner Events",
             "pages": [
-              "api-reference/partner-events/publish-event"
+              "api-reference/partner-events/publish-event",
+              "api-reference/partner-events/preview-earn",
+              "api-reference/partner-events/lookup-pending"
             ]
           },
           {

@@ -26,7 +26,7 @@ If your key is compromised, rotate it from the [developer console](https://conso
 
 ### Rate Limits
 
-Partner endpoints are rate-limited to **30 requests per minute** per IP address. If exceeded, you'll receive a `429` response with a `Retry-After` header.
+`/api/partner/*` is limited to **1,200 requests per minute** per IP address — a backstop only. `POST /api/partner/events` is limited to **1,000 requests per minute** per application, and that is the limit that actually binds. If either is exceeded, you'll receive a `429` response. See [Error handling](/guides/error-handling) for the rate-limit headers and retry guidance.
 
 ---
 

@@ -128,7 +128,8 @@ See [Error handling](/guides/error-handling) for the full code table, retry stra
 
 | Endpoint | Limit |
 |----------|-------|
-| Partner events | 30 req/min per IP |
+| Partner events (`POST /api/partner/events`) | 1,000 req/min per Application |
+| Partner endpoints (`/api/partner/*`) | 1,200 req/min per IP (backstop) |
 | Checkout creation | 60 req/min per Application |
 | General API | 100 req/min per IP |
 

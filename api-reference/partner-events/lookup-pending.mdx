@@ -1,0 +1,93 @@
+---
+title: "Look up pending points"
+description: "How many points are held for contacts who have not signed up yet."
+api: "POST /api/partner/pending/lookup"
+---
+
+Returns how many points are being held for contacts who have not signed up yet. Use this after [publishing a guest event](/api-reference/partner-events/publish-event).
+
+Requires the `X-API-Key` header with a Rewards capability key.
+
+<Warning>
+Results are scoped to the asking application. You can only see holds **you** created. Unscoped, this endpoint would let anyone post a list of phone numbers and learn which are another business's customers.
+</Warning>
+
+#### Rate limit
+
+Up to **60 requests per minute** per application id. Exceeding returns **429 `rate_limit_exceeded`** with a `Retry-After` header. See [API conventions → Per-tenant rate limits](/guides/api-conventions#per-tenant-rate-limits).
+
+## Body
+
+<ParamField body="contacts" type="array" required>
+  Contacts to look up. Maximum **200** per request. Over that returns `400` — send more in several calls. An empty array returns `{ "results": [] }`.
+</ParamField>
+
+<ParamField body="contacts.phone" type="string">
+  Phone number for this contact.
+</ParamField>
+
+<ParamField body="contacts.email" type="string">
+  Email address for this contact.
+</ParamField>
+
+## Response
+
+`200 OK`. `results` has one entry per contact, in the order sent.
+
+<ResponseField name="results" type="array">One result per input contact, same order.</ResponseField>
+<ResponseField name="results.points_pending" type="number">Points currently held for this contact.</ResponseField>
+<ResponseField name="results.orders" type="number">Number of held orders for this contact.</ResponseField>
+<ResponseField name="results.earliest_expires_at" type="number">
+  When the soonest hold for this contact expires, as unix seconds. `null` when nothing is held.
+</ResponseField>
+
+```json
+{
+  "results": [
+    {
+      "points_pending": 150,
+      "orders": 2,
+      "earliest_expires_at": 1773878400
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | | More than 200 contacts in the request. Send more in several calls. |
+
+<CodeGroup>
+
+```bash curl
+curl -X POST "https://auth.mgpass.net/api/partner/pending/lookup" \
+  -H "X-API-Key: $REWARDS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contacts": [
+      { "phone": "+233241234567" },
+      { "email": "buyer@example.com" }
+    ]
+  }'
+```
+
+```typescript TypeScript
+const res = await fetch("https://auth.mgpass.net/api/partner/pending/lookup", {
+  method: "POST",
+  headers: {
+    "X-API-Key": rewardsApiKey,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    contacts: [
+      { phone: "+233241234567" },
+      { email: "buyer@example.com" },
+    ],
+  }),
+});
+const { results } = await res.json();
+```
+
+</CodeGroup>

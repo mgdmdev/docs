@@ -77,7 +77,7 @@ Generate the key once at the top of your retry loop, not on each attempt. The wh
 
 ## Per-tenant rate limits
 
-Write endpoints are rate-limited per `application_id` using a minute-bucket. Exceeding the limit returns **429 `rate_limit_exceeded`** with a `Retry-After` header set to the seconds remaining in the current bucket. Limits fail open if the underlying cache is unavailable.
+Write endpoints are rate-limited per `application_id` using a minute-bucket. Exceeding the limit returns **429 `rate_limit_exceeded`**. Limits fail open if the underlying cache is unavailable.
 
 | Endpoint | Limit |
 |---|---|
@@ -92,16 +92,48 @@ Write endpoints are rate-limited per `application_id` using a minute-bucket. Exc
 | `POST /v1/sponsored-subscriptions` | 5 / min |
 | `POST /v1/notifications` | 100 / min |
 | `POST /api/partner/events` | 1000 / min |
+| `POST /api/partner/earn/preview` | 1000 / min |
+| `POST /api/partner/pending/lookup` | 60 / min |
 
 Read-only endpoints are subject to the per-IP limit only — no per-tenant cap on lists or gets.
 
+`/api/partner/*` is also limited to **1,200 requests per minute per IP**. That is a backstop only. `POST /api/partner/events` is limited to **1,000 requests per minute per application**, and that is the limit that actually binds.
+
+### 429 headers
+
+Every 429 includes:
+
+| Header | Meaning |
+|---|---|
+| `X-RateLimit-Limit` | The ceiling for the window |
+| `X-RateLimit-Remaining` | Requests left (`0` on a 429) |
+| `X-RateLimit-Reset` | Unix seconds when the window resets |
+| `Retry-After` | Seconds until the end of the current minute bucket — not a flat 60 |
+
 ```text Example 429 response
 HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: <unix-seconds>
 Retry-After: 17
 Content-Type: application/json
 
 { "error": "rate_limit_exceeded", "message": "Too many requests" }
 ```
+
+### Failed-authentication limit
+
+A separate limit applies to `/v1/*` and `/api/partner/*`: **20 failed authentications per minute per IP**.
+
+Only responses of **401** or **403** count toward it. Successful requests never count, so a caller sending valid credentials can never be limited by it however fast it goes.
+
+Exceeding it returns **429** with body:
+
+```json
+{"error":"rate_limit_exceeded","error_description":"Too many failed authentication attempts."}
+```
+
+A wrong or expired API key retried in a loop will lock that IP out of the API for the rest of the minute.
 
 ## Pagination
 
