@@ -10,9 +10,9 @@ Users progress through tiers based on their **lifetime earned** points. Higher t
 | Tier | Lifetime points | Earn multiplier | Example Benefits |
 |------|----------------|-----------------|-----------------|
 | Bronze | 0 | 1.0x | Base rewards access |
-| Silver | 5,000 | 1.25x | Priority cashback, bonus points |
-| Gold | 20,000 | 1.5x | Exclusive catalog items, higher cashback rates |
-| Platinum | 50,000 | 2.0x | VIP access, maximum cashback rates, early access |
+| Silver | 2,500 | 1.25x | Priority cashback, bonus points |
+| Gold | 10,000 | 1.5x | Exclusive catalog items, higher cashback rates |
+| Platinum | 25,000 | 2.0x | VIP access, maximum cashback rates, early access |
 
 The multiplier applies to **earning**. Redemption is a flat rate for every tier —
 see [Order redemption](/guides/order-redemption).
@@ -43,7 +43,7 @@ if (lifetime_earned >= next_tier.min_points) → promote
 | `lifetime_earned` | Tier calculation -- only goes up |
 | `total_points` | Spending balance -- goes up and down |
 
-Redeeming points reduces `total_points` but does **not** affect `lifetime_earned`. A user who earned 25,000 points and spent 20,000 still qualifies for Gold tier.
+Redeeming points reduces `total_points` but does **not** affect `lifetime_earned`. A user who earned 12,000 points and spent 10,000 still qualifies for Gold tier.
 
 ## Benefits
 
