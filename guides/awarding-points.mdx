@@ -52,9 +52,9 @@ Each tier has a `points_multiplier`:
 | Tier | Multiplier |
 |------|-----------|
 | Bronze | 1.0x |
-| Silver | 1.5x |
-| Gold | 2.0x |
-| Platinum | 3.0x |
+| Silver | 1.25x |
+| Gold | 1.5x |
+| Platinum | 2.0x |
 
 ### Partner Multiplier
 
@@ -97,6 +97,11 @@ if (lifetime_earned >= next_tier.min_points) {
   promote user to next tier
 }
 ```
+<Note>
+  Tiers only ever move up. Raising a threshold does not demote anyone who has
+  already reached the tier — it applies to people who have not.
+</Note>
+
 
 Tier promotion is **automatic and immediate**. The user's next event will use the new tier's multiplier.
 

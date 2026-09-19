@@ -5809,7 +5809,7 @@ components:
         rate:
           type: number
           description: Ghana cedis one point is worth, for this user's tier.
-          example: 0.008
+          example: 0.001
         balance: { type: integer, example: 5000 }
         min_points:
           type: integer

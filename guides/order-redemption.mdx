@@ -69,10 +69,10 @@ curl -X POST https://auth.mgpass.net/api/partner/redemptions/quote \
 ```json
 {
   "tier": "gold",
-  "rate": 0.008,
+  "rate": 0.001,
   "balance": 5000,
-  "min_points": 100,
-  "max_order_fraction": 1.0,
+  "min_points": 400,
+  "max_order_fraction": 0.05,
   "max_points": 5000,
   "max_value": 40.0,
   "points": 5000,
@@ -86,7 +86,7 @@ Pass `points` as well to ask about a specific amount rather than the maximum.
 `max_points` is the ceiling: the smaller of what the user holds and what the
 order can absorb. `eligible` is false when nothing can be spent, and `reason`
 then says which of `no_config`, `no_balance`, `below_minimum` or
-`order_too_small` applies. Show the reason — "you need 100 points to redeem"
+`order_too_small` applies. Show the reason — "you need 400 points to redeem"
 is a better screen than a disabled switch.
 
 ## Reserve
@@ -177,21 +177,24 @@ curl https://auth.mgpass.net/api/partner/redemptions/by-order/acme-ORD-4821 \
 
 ## What a point is worth
 
-The rate is set per tier by mgPass operators, in cedis per point, separately
-from the [cashback](/guides/cashback) rate. Cashback pays out to mobile money
-and carries a processing fee; an order discount moves no money out, so it
-carries none and may be worth more. Defaults:
+The rate is set by mgPass operators in cedis per point, separately from the
+[cashback](/guides/cashback) rate. It is currently **flat across every tier**:
 
-| Tier | Cedis per point | 1,000 points |
-|---|---|---|
-| Bronze | 0.004 | GH¢ 4.00 |
-| Silver | 0.006 | GH¢ 6.00 |
-| Gold | 0.008 | GH¢ 8.00 |
-| Platinum | 0.010 | GH¢ 10.00 |
+| Cedis per point | 1,000 points |
+|---|---|
+| 0.001 | GH¢ 1.00 |
 
-`min_points` sets a floor per redemption and `max_order_fraction` caps how much
-of an order points may cover. Both are operator settings — read them from the
-quote rather than hard-coding the defaults above. See
+Tier changes what a user **earns**, not what a point is worth when spent. That
+is a deliberate split: a tier multiplier on both ends compounds, so a top-tier
+holder would earn faster and spend each point for more.
+
+`min_points` sets a floor per redemption and `max_order_fraction` caps the share
+of an order points may cover — currently 0.05, so points can discount at most 5%
+of any one order. Both are operator settings and both vary by tier.
+
+**Read all three from the quote. Do not hard-code them.** The rate above is what
+it is today, not a contract — it has already changed once, and a cached copy is
+how an integrator ends up computing a discount we will refuse. See
 [Tiers and benefits](/guides/tiers-and-benefits) for how a user reaches a tier.
 
 To show a user what their balance is worth **outside a checkout** — a rewards

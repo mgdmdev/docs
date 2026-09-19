@@ -33,7 +33,7 @@ Requires the `X-API-Key` header with a Rewards capability key. See [Order redemp
 </ResponseField>
 
 <ResponseField name="rate" type="number">
-  Cedis one point is worth at this tier, e.g. `0.008`.
+  Cedis one point is worth. Currently flat across tiers at `0.001`. Read it from the quote rather than caching it — it has changed.
 </ResponseField>
 
 <ResponseField name="balance" type="integer">
@@ -110,10 +110,10 @@ const quote = await res.json();
 ```json Response
 {
   "tier": "gold",
-  "rate": 0.008,
+  "rate": 0.001,
   "balance": 5000,
-  "min_points": 100,
-  "max_order_fraction": 1.0,
+  "min_points": 400,
+  "max_order_fraction": 0.05,
   "max_points": 5000,
   "max_value": 40.0,
   "points": 5000,
