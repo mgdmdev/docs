@@ -105,7 +105,7 @@ All identity webhook events follow the same envelope format:
 
 ## Signature Verification
 
-Identity webhooks use the same HMAC-SHA256 signature verification as rewards webhooks. The signature is sent in the `X-Webhook-Signature` header.
+Identity webhooks use the same signature verification as every other mgPass webhook — see [Webhooks → Verifying signatures](/guides/webhooks#verifying-signatures). Verify `X-Mgpass-Signature`, which covers `{X-Mgpass-Timestamp}.{raw body}`; `X-Webhook-Signature` remains for older integrations.
 
 <CodeGroup>
 ```javascript JavaScript

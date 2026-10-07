@@ -25,9 +25,9 @@ All fields are optional. See [Create plan](/api-reference/subscriptions-tenant/c
 <ParamField body="name" type="string">Display name.</ParamField>
 <ParamField body="slug" type="string">Stable identifier.</ParamField>
 <ParamField body="description" type="string">Description.</ParamField>
-<ParamField body="interval" type="string">`weekly | monthly | quarterly | annual`.</ParamField>
+<ParamField body="interval" type="string">`weekly | monthly | annual`.</ParamField>
 <ParamField body="price" type="number">Minor units.</ParamField>
-<ParamField body="currency" type="string">`GHS` or `USD`.</ParamField>
+<ParamField body="currency" type="string">`GHS` or `USD`. Case-insensitive — `usd` is accepted and stored as `USD`.</ParamField>
 <ParamField body="trial_days" type="number">Trial length in days.</ParamField>
 <ParamField body="features" type="string[]">Feature bullet list. Sent as an array — stored JSON-encoded.</ParamField>
 <ParamField body="max_seats" type="number">Seat capacity.</ParamField>
@@ -45,8 +45,15 @@ All fields are optional. See [Create plan](/api-reference/subscriptions-tenant/c
 | Status | Code | When |
 |--------|------|------|
 | 400 | `no_fields` | Body had no recognized fields. |
+| 400 | `invalid_request` | A field you sent failed its rule. Same rules as [Create plan](/api-reference/subscriptions-tenant/create-plan); the `error_description` names the field. |
+| 400 | `invalid_currency` | `currency` is not a 3-letter ISO 4217 code. |
+| 400 | `unsupported_currency` | A valid code, but not `GHS` or `USD`. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 404 | `not_found` | Plan ID is unknown, or it belongs to a different application. |
+<Note>
+  `PATCH` validates exactly what `POST` validates — same rules, same error codes. Only the fields you send are checked. Until October 2026 the patch path wrote values through unchecked, so a `price` of `-5000` was accepted and a lowercase `currency` failed with a 500; if you worked around either, you can stop.
+</Note>
+
 
 <CodeGroup>
 

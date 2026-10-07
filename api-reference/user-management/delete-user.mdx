@@ -5,6 +5,8 @@ api: "DELETE /api/users/{id}"
 
 Soft-deletes a user: the record is stamped `deleted_at` and drops out of every listing and sign-in path, but stays for audit and for anything that references it.
 
+The user's `email` and `phone` are **released** at the same time — each is suffixed in place (`ama@example.com.deleted.1760000000`), which keeps the row readable for audit while freeing the identifier. Both columns are unique, so without this a deletion would hold its email and phone forever and the person could never sign up again.
+
 Requires an admin bearer token.
 
 <Warning>

@@ -23,7 +23,7 @@ Requires the `X-API-Key` header with a Subscriptions capability key.
 </ParamField>
 
 <ParamField body="interval" type="string" required>
-  Billing cadence: `weekly`, `monthly`, `quarterly`, or `annual`.
+  Billing cadence: `weekly`, `monthly`, or `annual`.
 </ParamField>
 
 <ParamField body="price" type="number" required>
@@ -66,8 +66,14 @@ Requires the `X-API-Key` header with a Subscriptions capability key.
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | Missing `name`, `slug`, `interval`, or `price`. |
+| 400 | `invalid_request` | Missing `name`, `slug`, `interval`, or `price`; or a field failed its rule — `interval` not one of `weekly`/`monthly`/`annual`, `price` not a whole number from 0 to 100,000,000, `slug` not 1–100 characters of letters, digits, dot, dash or underscore, `trial_days` outside 0–365, `max_seats` outside 0–1000, `features` not an array of strings. The `error_description` names the field. |
+| 400 | `invalid_currency` | `currency` is not a 3-letter ISO 4217 code. Defaults to `GHS` when omitted. |
+| 400 | `unsupported_currency` | A valid code, but not `GHS` or `USD`. `currency` is what gets billed, so a plan in another currency would fail every charge against it. |
 | 401 | `unauthorized` | Missing or unknown `X-API-Key`. |
+<Note>
+  `PATCH` validates exactly what `POST` validates — same rules, same error codes. Only the fields you send are checked. Until October 2026 the patch path wrote values through unchecked, so a `price` of `-5000` was accepted and a lowercase `currency` failed with a 500; if you worked around either, you can stop.
+</Note>
+
 
 <CodeGroup>
 

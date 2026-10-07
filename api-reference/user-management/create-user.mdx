@@ -8,7 +8,7 @@ Creates a user directly, without the sign-up flow. Use it for seeding, migration
 Requires an admin bearer token.
 
 <Note>
-  The new account starts unverified. Creating a user here does not send an email — run whatever verification or welcome flow you want separately.
+  The new account starts with `email_verified: false` and `phone_verified: false`, and a verification email **is** sent to the address you supply. Default user roles are assigned automatically.
 </Note>
 
 ## Body
@@ -19,7 +19,11 @@ Requires an admin bearer token.
 
 <ParamField body="name" type="string" />
 
-<ParamField body="phone" type="string" />
+<ParamField body="phone" type="string" required>
+  Required. Ghanaian mobile number, in local (`024 123 4567`) or international (`+233241234567`) form — both are normalised to `+233` before storage. Stored **unverified**: collecting a number and proving ownership of it are separate steps, and nothing that depends on ownership accepts an unverified number.
+
+  `users.phone` is unique, so a number already held by another account — including a soft-deleted one — is refused with a 409.
+</ParamField>
 
 ## Response
 
@@ -63,8 +67,13 @@ Requires an admin bearer token.
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | `email` or `password` is missing, or the email is already taken. |
+| 400 | `invalid_request` | `email` is missing or malformed, `password` fails the strength rules, or `phone` is missing or not a valid Ghanaian mobile number. |
+| 409 | `invalid_request` | The email or the phone number is already registered. The `error_description` says which. |
 | 401 | `unauthorized` | Missing or invalid admin token. |
+
+<Warning>
+  Both duplicate cases return the code `invalid_request` and differ only by HTTP status (409) and `error_description`. Branch on the status and read the description — do not assume a 409 means the email.
+</Warning>
 
 <CodeGroup>
 
@@ -76,7 +85,7 @@ curl -X POST "https://auth.mgpass.net/api/users" \
   "email": "<string>",
   "password": "<string>",
   "name": "<string>",
-  "phone": "<string>"
+  "phone": "+233241234567"
 }'
 ```
 
@@ -88,7 +97,7 @@ const res = await fetch("https://auth.mgpass.net/api/users", {
     "email": "<string>",
     "password": "<string>",
     "name": "<string>",
-    "phone": "<string>"
+    "phone": "+233241234567"
   }),
 });
 const data = await res.json();

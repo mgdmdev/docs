@@ -39,7 +39,65 @@ Body:
 
 ## Verifying Signatures
 
-Every webhook includes an `X-Webhook-Signature` header -- an HMAC-SHA256 hex digest of the request body using your webhook secret.
+Every delivery carries **two** signature headers. Verify `X-Mgpass-Signature`.
+
+| Header | Signed value | Use |
+| --- | --- | --- |
+| `X-Mgpass-Signature` | `{timestamp}.{raw body}` | **Verify this one.** |
+| `X-Webhook-Signature` | the raw body alone | Legacy. Still sent, so older integrations keep working. |
+
+Alongside them:
+
+| Header | Meaning |
+| --- | --- |
+| `X-Mgpass-Timestamp` | Unix seconds at which the delivery was signed |
+| `X-Mgpass-Event` | The event type, e.g. `payment.succeeded` |
+| `X-Mgpass-Delivery-Id` | Unique per delivery attempt |
+
+**Why the timestamp is part of the signature.** A signature over the body
+alone proves a request came from mgPass and nothing else — a captured request
+replays verbatim and verifies forever. Binding the timestamp lets you reject
+anything outside a freshness window, so a valid signature can mean *this is
+current*, not merely *this is ours*.
+
+A signature alone should not authorise an action. Treat a delivery as a
+trigger: look the referenced object up through the API before acting on it,
+and make fulfilment idempotent. Then a replay costs you nothing even if your
+freshness check is wrong.
+
+```javascript
+const crypto = require('crypto');
+
+// Verify X-Mgpass-Signature: HMAC-SHA256 over `${timestamp}.${rawBody}`,
+// lowercase hex. Use the RAW body exactly as received — re-serialising the
+// JSON changes key order and whitespace, and the signature will not match.
+function verifyMgpass(rawBody, headers, secret, toleranceSeconds = 300) {
+  const timestamp = headers['x-mgpass-timestamp'];
+  const signature = headers['x-mgpass-signature'];
+  if (!timestamp || !signature) return false;
+
+  const age = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
+  if (!Number.isFinite(age) || age > toleranceSeconds) return false;
+
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest('hex');
+
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+```
+
+<Note>
+You can send yourself a signed test delivery at any time, without handling the
+secret — see [Testing a webhook](#testing-a-webhook) below.
+</Note>
+
+### The legacy header
+
+`X-Webhook-Signature` is an HMAC-SHA256 hex digest of the request body alone, using your webhook secret.
 
 ```javascript
 const crypto = require('crypto');
@@ -137,3 +195,47 @@ A delivery is considered successful on any `2xx` response. After 4 failed attemp
 2. **Handle duplicates** -- use `event_type` + `data.user_id` + `timestamp` as an idempotency key
 3. **Log everything** -- webhook deliveries are logged on our side, but you should log on yours too
 4. **Use HTTPS** -- webhook endpoints must use HTTPS
+
+
+## Testing a webhook
+
+A registered webhook can be sent a signed test event on demand, so you can
+confirm your endpoint receives and verifies a real mgPass signature before any
+live traffic depends on it.
+
+```
+POST /api/applications/{application_id}/webhooks/{webhook_id}/test
+```
+
+Developers can use the self-serve equivalent:
+
+```
+POST /api/developer/applications/{application_id}/webhooks/{webhook_id}/test
+```
+
+Operators can also press **Send Test Event** on the webhook in the admin
+console.
+
+The event is signed server-side with the stored secret, exactly as a real
+delivery is — the secret is never returned. The response reports what your
+endpoint actually did:
+
+```json
+{
+  "ok": true,
+  "status": 200,
+  "response_body_preview": "{\"received\":true}",
+  "error": null,
+  "event_id": "whe_...",
+  "endpoint_url": "https://example.com/hooks/mgpass",
+  "is_active": true
+}
+```
+
+It is sent even when the webhook is inactive, so you can confirm an endpoint
+before switching it on.
+
+<Warning>
+A 2xx means your endpoint is **reachable**. It does not mean your endpoint
+verified the signature — only your own logs can tell you that.
+</Warning>

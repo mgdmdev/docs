@@ -286,15 +286,29 @@ Every event carries the same payload, with `null` where a field cannot apply:
 
 ### Verify the signature
 
-Every delivery is signed HMAC-SHA256 over the raw body with your webhook secret, in the
-`X-Mgpass-Signature` header. Verify it before acting — an unverified payment webhook is
-an endpoint anyone can use to issue themselves a ticket.
+Every delivery is signed HMAC-SHA256 in the `X-Mgpass-Signature` header. The signed
+value is `{timestamp}.{raw body}`, where the timestamp is the `X-Mgpass-Timestamp`
+header in unix seconds — not the body alone. Binding the timestamp is what lets you
+reject a replayed delivery.
+
+Verify it before acting. An unverified payment webhook is an endpoint anyone can use to
+issue themselves a ticket, and a signature that covers only the body proves a request
+came from us without proving it is current.
 
 ```typescript
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const expected = createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+const timestamp = req.headers["x-mgpass-timestamp"] as string;
 const received = req.headers["x-mgpass-signature"] as string;
+
+// Reject a stale delivery before checking the signature.
+const age = Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp));
+if (!Number.isFinite(age) || age > 300) throw new Error("stale webhook");
+
+// Signed over `${timestamp}.${rawBody}` — use the RAW body, not a re-serialised object.
+const expected = createHmac("sha256", webhookSecret)
+  .update(`${timestamp}.${rawBody}`)
+  .digest("hex");
 
 const ok =
   expected.length === received.length &&

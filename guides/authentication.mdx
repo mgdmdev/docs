@@ -106,7 +106,7 @@ Admin tokens are obtained through the same OAuth flow but require the user to ha
     All API requests must use HTTPS. HTTP requests are automatically rejected.
   </Accordion>
   <Accordion title="Validate webhook signatures">
-    When receiving webhook events, always verify the `X-Webhook-Signature` header using HMAC-SHA256 with your webhook secret.
+    When receiving webhook events, verify the `X-Mgpass-Signature` header: HMAC-SHA256 over `{X-Mgpass-Timestamp}.{raw body}` with your webhook secret, then reject anything outside a freshness window. (`X-Webhook-Signature`, an HMAC of the body alone, is still sent for older integrations but carries no replay protection.)
   </Accordion>
   <Accordion title="Rotate keys periodically">
     Rotate your partner API key at least every 90 days. The developer console supports zero-downtime key rotation.

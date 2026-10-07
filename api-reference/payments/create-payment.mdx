@@ -184,7 +184,8 @@ Omitting `channel` is the right default for most integrations. Send one only whe
 | 400 | `invalid_amount` | Not a positive integer in minor units, or above the per-charge ceiling. |
 | 400 | `platform_fee_required` | A split was requested without a flat `platform_fee`. |
 | 400 | `invalid_momo_provider` | Not `mtn`, `vod` or `atl`. |
-| 400 | `unsupported_currency` | Not `GHS` or `USD`. |
+| 400 | `invalid_currency` | `currency` is not a 3-letter ISO 4217 code. Checked before the `GHS`/`USD` rule below. |
+| 400 | `unsupported_currency` | A valid code, but not `GHS` or `USD`. |
 | 401 | `unauthorized` | Missing or invalid `X-API-Key`. |
 | 403 | `channel_not_allowed` | That channel is not enabled for this Application. |
 | 429 | `rate_limit_exceeded` | More than 300 charges in the current minute. |
