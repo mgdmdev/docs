@@ -36,8 +36,14 @@ Requires an admin bearer token with the `subscriptions:write` scope.
 
 | Status | Code | When |
 |--------|------|------|
-| 400 | `invalid_request` | Missing one of `application_id`, `name`, `slug`, `interval`, `price`. |
+| 400 | `invalid_request` | Missing one of `application_id`, `name`, `slug`, `interval`, `price`; or a field failed its rule — `interval` not one of `weekly`/`monthly`/`annual`, `price` not a whole number from 0 to 100,000,000, `slug` not 1–100 characters of letters, digits, dot, dash or underscore, `trial_days` outside 0–365, `max_seats` outside 0–1000, `features` not an array of strings. The `error_description` names the field. |
+| 400 | `invalid_currency` | `currency` is not a 3-letter ISO 4217 code. Case-insensitive, and defaults to `GHS` when omitted. |
+| 400 | `unsupported_currency` | A valid code, but not `GHS` or `USD`. |
 | 404 | `not_found` | `application_id` doesn't exist. |
+<Note>
+  Field validation is identical across all four plan endpoints — this pair and the tenant [create](/api-reference/subscriptions-tenant/create-plan) / [update](/api-reference/subscriptions-tenant/update-plan) pair. Until October 2026 the admin pair validated nothing, so a negative `price` was accepted and a lowercase `currency` failed with a 500.
+</Note>
+
 
 <CodeGroup>
 
